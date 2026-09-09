@@ -39,7 +39,7 @@
     {{end}}
     {{if .Enrolando}}
       <p>Scan this code with your authenticator app, or type the secret, then enter the six digits it shows.</p>
-      <img class="ac-qr" src="{{.Enrolando.QRDataURL}}" alt="QR code for the authenticator app">
+      <img class="ac-qr" src="{{.EnrolandoQR}}" alt="QR code for the authenticator app">
       <p class="ac-mono">{{.Enrolando.TOTP.Secret}}</p>
       <form class="ac-form" method="post" action="/cuenta/factor/verificar">
         <input type="hidden" name="_csrf" value="{{.CSRF}}">

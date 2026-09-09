@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"encoding/json"
+	"html/template"
 	"log"
 	"net/http"
 	"net/url"
@@ -235,6 +236,9 @@ func (s *Server) cuenta(w http.ResponseWriter, r *http.Request) {
 		e := v.(enrolamiento)
 		if time.Now().Before(e.hasta) {
 			datos["Enrolando"] = e.factor
+			// html/template convierte una URL data: en "#ZgotmplZ" salvo que
+			// llegue marcada como segura; el QR viene de GoTrue y va en base64.
+			datos["EnrolandoQR"] = template.URL(e.factor.QRDataURL())
 		} else {
 			s.enrolando.Delete(a.ID)
 		}
