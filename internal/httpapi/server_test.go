@@ -15,14 +15,14 @@ func servidorMinimo() *Server {
 func TestNextSeguro(t *testing.T) {
 	s := servidorMinimo()
 	casos := map[string]string{
-		"":                                       "/",
-		"/solicitar/docdrop":                     "/solicitar/docdrop",
-		"//evil.example":                         "/",
-		"/\\evil.example":                        "/",
-		"https://evil.example/x":                 "/",
+		"":                                   "/",
+		"/solicitar/docdrop":                 "/solicitar/docdrop",
+		"//evil.example":                     "/",
+		"/\\evil.example":                    "/",
+		"https://evil.example/x":             "/",
 		"https://account.example.com/cuenta": "/cuenta",
 		"http://account.example.com/cuenta":  "/",
-		"javascript:alert(1)":                    "/",
+		"javascript:alert(1)":                "/",
 	}
 	for in, want := range casos {
 		if got := s.nextSeguro(in); got != want {
