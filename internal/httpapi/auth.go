@@ -220,7 +220,12 @@ func (s *Server) registroPOST(w http.ResponseWriter, r *http.Request) {
 		falla("The two passwords do not match.")
 		return
 	}
+	// A dónde manda el enlace del correo tras confirmar: una ruta de aquí, o la
+	// URL de la casa de la que vino (GoTrue exige que esté en su lista blanca).
 	redirectTo := s.cfg.PublicURL.String() + next
+	if strings.HasPrefix(next, "https://") {
+		redirectTo = next
+	}
 	if _, err := s.gt.Signup(r.Context(), email, p1, name, redirectTo); err != nil {
 		if errors.Is(err, gotrue.ErrWeakPassword) || errors.Is(err, gotrue.ErrSignupDisabled) {
 			falla(mensajeGoTrue(err))
@@ -359,7 +364,7 @@ func (s *Server) restablecerPOST(w http.ResponseWriter, r *http.Request) {
 func (s *Server) salir(w http.ResponseWriter, r *http.Request) {
 	s.ses.Cerrar(r.Context(), w, sesionDe(r))
 	s.borrarPendienteMFA(w)
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	http.Redirect(w, r, s.nextSeguro(r.PostFormValue("next")), http.StatusSeeOther)
 }
 
 // salirGET es la página de confirmación: existe para que la web pública pueda
@@ -370,7 +375,7 @@ func (s *Server) salirGET(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
-	s.render(w, r, "salir.html", "Sign out", nil, http.StatusOK)
+	s.render(w, r, "salir.html", "Sign out", map[string]any{"Next": s.nextSeguro(r.URL.Query().Get("next"))}, http.StatusOK)
 }
 
 // enlaceEntrar construye /entrar?next= para una ruta.

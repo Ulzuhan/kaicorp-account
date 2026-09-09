@@ -43,7 +43,7 @@ type Server struct {
 func New(cfg *config.Config, st *store.Store, gt *gotrue.Client, ses *session.Manager) (*Server, error) {
 	s := &Server{cfg: cfg, st: st, gt: gt, ses: ses, paginas: map[string]*template.Template{}, limitador: nuevoLimitador()}
 	paginas := []string{"home.html", "entrar.html", "registro.html", "correo.html", "recuperar.html", "restablecer.html",
-		"factor.html", "consent.html", "sin-acceso.html", "cuenta.html", "admin.html", "admin-cuenta.html", "error.html"}
+		"factor.html", "consent.html", "sin-acceso.html", "cuenta.html", "admin.html", "admin-cuenta.html", "error.html", "salir.html"}
 	for _, p := range paginas {
 		t, err := template.New("layout.html").ParseFS(web.EmbeddedFS, "templates/layout.html", "templates/"+p)
 		if err != nil {
@@ -283,9 +283,12 @@ func (s *Server) leerFlash(w http.ResponseWriter, r *http.Request) string {
 
 // ── Ayudas ─────────────────────────────────────────────────────────────────
 
-// nextSeguro sólo admite rutas internas: un ?next=https://otro sería un
-// redirector abierto. Acepta también URLs absolutas de ESTE origen, que es lo
-// que GoTrue devuelve en {{ .RedirectTo }}, y las recorta a su ruta.
+// nextSeguro decide a dónde se vuelve tras entrar, registrarse o salir, sin ser
+// un redirector abierto: rutas internas; URLs absolutas de ESTE origen (lo que
+// GoTrue devuelve en {{ .RedirectTo }}), recortadas a su ruta; y URLs https de
+// la casa —el dominio padre del PublicURL y sus subdominios: la web pública y
+// las herramientas—, que se devuelven enteras para que quien vino de
+// kaicorplabs.com vuelva a kaicorplabs.com. Todo lo demás es «/».
 func (s *Server) nextSeguro(raw string) string {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -293,15 +296,33 @@ func (s *Server) nextSeguro(raw string) string {
 	}
 	if strings.HasPrefix(raw, "http://") || strings.HasPrefix(raw, "https://") {
 		u, err := url.Parse(raw)
-		if err != nil || u.Scheme != s.cfg.PublicURL.Scheme || u.Host != s.cfg.PublicURL.Host {
+		if err != nil || u.User != nil {
 			return "/"
 		}
-		raw = u.RequestURI()
+		if u.Scheme == s.cfg.PublicURL.Scheme && u.Host == s.cfg.PublicURL.Host {
+			raw = u.RequestURI()
+		} else if u.Scheme == "https" && s.hostDeCasa(u.Hostname()) {
+			return u.String()
+		} else {
+			return "/"
+		}
 	}
 	if !strings.HasPrefix(raw, "/") || strings.HasPrefix(raw, "//") || strings.HasPrefix(raw, "/\\") {
 		return "/"
 	}
 	return raw
+}
+
+// hostDeCasa: kaicorplabs.com o cualquier *.kaicorplabs.com, tomando el padre
+// del PublicURL (account.kaicorplabs.com → kaicorplabs.com).
+func (s *Server) hostDeCasa(host string) bool {
+	host = strings.ToLower(host)
+	propio := s.cfg.PublicURL.Hostname()
+	if strings.Count(propio, ".") < 2 {
+		return false
+	}
+	padre := propio[strings.Index(propio, ".")+1:]
+	return host == padre || strings.HasSuffix(host, "."+padre)
 }
 
 // requiereSesion redirige a /entrar conservando el destino.

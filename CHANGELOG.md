@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.3.4 — 2026-09-09
+
+- `GET /salir` no estaba en la lista de plantillas y respondía «plantilla
+  desconocida»: el «Sign out» de la web pública caía ahí.
+- `next` admite URLs https de la casa (kaicorplabs.com y sus subdominios): quien
+  entra, se registra o sale desde la web pública vuelve a la web pública, y no a
+  la portada de la cuenta. Todo lo que no sea de la casa sigue siendo «/».
+
 ## 0.3.3 — 2026-09-09
 
 - `account invitar <correo> [grupo…]`: crea la cuenta por invitación (GoTrue
