@@ -97,7 +97,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px soli
 }
 .nav .cta:hover { border-color: var(--cyan); color: var(--cyan); }
 @media (max-width: 640px) { .nav nav a.hide-sm { display: none; } }
-@media (max-width: 359px) { .nav nav a.hide-xs { display: none; } }
+@media (max-width: 420px) { .nav nav a.hide-xs { display: none; } }
 
 /* Secciones */
 section { padding: 4.5rem 0; }

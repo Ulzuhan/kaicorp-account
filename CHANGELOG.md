@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.3.1 — 2026-09-09
+
+- La barra a 320 px: «Sign in» se esconde por debajo de 420 px (queda «Create
+  account», y la portada de la app ofrece las dos cosas), como hace la web con
+  su enlace «Account». Lo cazó el barrido de anchuras de la web.
+
 ## 0.3.0 — 2026-09-09
 
 - La misma hoja que la web pública: `account.css` copia las primitivas de
