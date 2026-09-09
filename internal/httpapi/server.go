@@ -139,13 +139,30 @@ func (c *conCodigo) WriteHeader(code int) {
 
 // contentSecurityPolicy: sin scripts, sin inline, sin nada de fuera. Las
 // imágenes en data: son los QR de los factores, que GoTrue devuelve así.
-const contentSecurityPolicy = "default-src 'self'; script-src 'none'; style-src 'self'; img-src 'self' data:; " +
-	"font-src 'self'; connect-src 'none'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+//
+// `form-action` lleva, además de 'self', el dominio de la casa y sus
+// subdominios. No porque haya formularios que envíen fuera: porque Chrome
+// aplica form-action también a la REDIRECCIÓN que responde a un formulario, y
+// dos formularios de aquí terminan en otro origen de la casa: el consentimiento
+// OAuth (303 al callback de la herramienta) y entrar o salir desde la web
+// pública (303 de vuelta a kaicorplabs.com). Con 'self' a secas, Chrome deja a
+// la persona clavada en la página con el envío hecho y sin explicación; Firefox
+// no lo bloquea, y por eso un cliente HTTP de prueba tampoco lo ve.
+func contentSecurityPolicy(publicURL *url.URL) string {
+	formAction := "'self'"
+	if host := publicURL.Hostname(); strings.Count(host, ".") >= 2 {
+		padre := host[strings.Index(host, ".")+1:]
+		formAction += " https://" + padre + " https://*." + padre
+	}
+	return "default-src 'self'; script-src 'none'; style-src 'self'; img-src 'self' data:; " +
+		"font-src 'self'; connect-src 'none'; form-action " + formAction + "; base-uri 'none'; frame-ancestors 'none'"
+}
 
 func (s *Server) cabeceras(next http.Handler) http.Handler {
+	csp := contentSecurityPolicy(s.cfg.PublicURL)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := w.Header()
-		h.Set("Content-Security-Policy", contentSecurityPolicy)
+		h.Set("Content-Security-Policy", csp)
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("Referrer-Policy", "strict-origin-when-cross-origin")

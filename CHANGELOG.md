@@ -1,5 +1,15 @@
 # Cambios
 
+## 0.3.5 — 2026-09-09
+
+- `form-action` de la CSP admite el dominio de la casa y sus subdominios. Chrome
+  aplica esa directiva también a la redirección que responde a un formulario, y
+  con `'self'` a secas bloqueaba la vuelta a la herramienta tras el
+  consentimiento OAuth y la vuelta a la web pública tras entrar o salir: la
+  persona se quedaba en la página, con el envío hecho, sin ningún aviso. Lo cazó
+  la primera prueba con un navegador de verdad desde la web; los recorridos con
+  un cliente HTTP seguían las redirecciones sin esa regla.
+
 ## 0.3.4 — 2026-09-09
 
 - `GET /salir` no estaba en la lista de plantillas y respondía «plantilla
