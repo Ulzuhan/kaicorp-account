@@ -64,14 +64,15 @@ func (s *Server) entrarPOST(w http.ResponseWriter, r *http.Request) {
 		falla(mensajeGoTrue(err))
 		return
 	}
+	recordar := r.PostFormValue("remember") == "1"
 	if gs.User.HasVerifiedFactor() {
 		// Segundo factor: los tokens aal1 no se convierten en sesión de la app.
 		// Van sellados en una cookie de cinco minutos hasta que llegue el código.
-		s.ponerPendienteMFA(w, gs, next)
+		s.ponerPendienteMFA(w, gs, next, recordar)
 		http.Redirect(w, r, "/factor", http.StatusSeeOther)
 		return
 	}
-	if _, err := s.ses.Crear(r.Context(), w, r, gs, "aal1"); err != nil {
+	if _, err := s.ses.Crear(r.Context(), w, r, gs, "aal1", recordar); err != nil {
 		log.Printf("crear sesión: %v", err)
 		falla("Could not start the session. Try again.")
 		return
@@ -84,14 +85,15 @@ func (s *Server) entrarPOST(w http.ResponseWriter, r *http.Request) {
 const cookieMFA = "account_mfa"
 
 type pendienteMFA struct {
-	Access  string `json:"a"`
-	Refresh string `json:"r"`
-	Next    string `json:"n"`
-	Hasta   int64  `json:"h"`
+	Access   string `json:"a"`
+	Refresh  string `json:"r"`
+	Next     string `json:"n"`
+	Hasta    int64  `json:"h"`
+	Recordar bool   `json:"k,omitempty"`
 }
 
-func (s *Server) ponerPendienteMFA(w http.ResponseWriter, gs *gotrue.Session, next string) {
-	p := pendienteMFA{Access: gs.AccessToken, Refresh: gs.RefreshToken, Next: next, Hasta: time.Now().Add(5 * time.Minute).Unix()}
+func (s *Server) ponerPendienteMFA(w http.ResponseWriter, gs *gotrue.Session, next string, recordar bool) {
+	p := pendienteMFA{Access: gs.AccessToken, Refresh: gs.RefreshToken, Next: next, Hasta: time.Now().Add(5 * time.Minute).Unix(), Recordar: recordar}
 	b, _ := json.Marshal(p)
 	sellado, err := s.ses.Sellar(string(b))
 	if err != nil {
@@ -175,7 +177,7 @@ func (s *Server) factorPOST(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.borrarPendienteMFA(w)
-	if _, err := s.ses.Crear(r.Context(), w, r, gs, "aal2"); err != nil {
+	if _, err := s.ses.Crear(r.Context(), w, r, gs, "aal2", p.Recordar); err != nil {
 		log.Printf("crear sesión aal2: %v", err)
 		s.errorPagina(w, r, http.StatusInternalServerError, "Sign in", "Could not start the session. Try again.")
 		return
@@ -259,11 +261,11 @@ func (s *Server) verificar(w http.ResponseWriter, r *http.Request) {
 	// Una cuenta recién confirmada no tiene factores; si los tuviera (cambio de
 	// correo de una cuenta con TOTP), pasa por el factor como al entrar.
 	if gs.User.HasVerifiedFactor() {
-		s.ponerPendienteMFA(w, gs, s.nextSeguro(q.Get("next")))
+		s.ponerPendienteMFA(w, gs, s.nextSeguro(q.Get("next")), false)
 		http.Redirect(w, r, "/factor", http.StatusSeeOther)
 		return
 	}
-	if _, err := s.ses.Crear(r.Context(), w, r, gs, "aal1"); err != nil {
+	if _, err := s.ses.Crear(r.Context(), w, r, gs, "aal1", false); err != nil {
 		log.Printf("crear sesión tras verificar: %v", err)
 		s.errorPagina(w, r, http.StatusInternalServerError, "Verified", "Your address is confirmed, but the session could not start. Sign in.")
 		return
@@ -310,11 +312,11 @@ func (s *Server) restablecerGET(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if gs.User.HasVerifiedFactor() {
-			s.ponerPendienteMFA(w, gs, "/restablecer")
+			s.ponerPendienteMFA(w, gs, "/restablecer", false)
 			http.Redirect(w, r, "/factor", http.StatusSeeOther)
 			return
 		}
-		if _, err := s.ses.Crear(r.Context(), w, r, gs, "aal1"); err != nil {
+		if _, err := s.ses.Crear(r.Context(), w, r, gs, "aal1", false); err != nil {
 			s.errorPagina(w, r, http.StatusInternalServerError, "Reset", "Could not start the session. Try the link again.")
 			return
 		}
@@ -351,6 +353,17 @@ func (s *Server) salir(w http.ResponseWriter, r *http.Request) {
 	s.ses.Cerrar(r.Context(), w, sesionDe(r))
 	s.borrarPendienteMFA(w)
 	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+// salirGET es la página de confirmación: existe para que la web pública pueda
+// enlazar «Sign out» con un simple enlace. Cerrar la sesión sigue siendo un
+// POST con CSRF; un GET que cerrase sesiones sería un blanco fácil.
+func (s *Server) salirGET(w http.ResponseWriter, r *http.Request) {
+	if sesionDe(r) == nil {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+	s.render(w, r, "salir.html", "Sign out", nil, http.StatusOK)
 }
 
 // enlaceEntrar construye /entrar?next= para una ruta.

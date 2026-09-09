@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net/url"
 	"sort"
 	"strings"
 	"time"
@@ -120,6 +121,16 @@ type Grupo struct {
 	ClienteID   string
 	Solicitable bool
 	Orden       int
+}
+
+// Host es el dominio de la herramienta, para enseñarlo como hace la web en
+// sus tarjetas (secret.kaicorplabs.com); vacío para los roles sin URL.
+func (g Grupo) Host() string {
+	u, err := url.Parse(g.URL)
+	if err != nil || u.Host == "" {
+		return ""
+	}
+	return u.Host
 }
 
 const grupoCols = `nombre, titulo, descripcion, url, coalesce(cliente_id,''), solicitable, orden`

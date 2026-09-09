@@ -1,28 +1,28 @@
 {{define "content"}}
-<div class="kc-workspace ac-auth">
-  <div class="ac-auth-card">
-    <div class="ac-auth-head">
-      <h1>Sign in to {{.Client.Name}}</h1>
-      <p>This tool wants to sign you in with your KaiCorp Labs account. You decide.</p>
-    </div>
-    <div class="ac-consent-who">
-      <span class="ac-tool-mark" aria-hidden="true">{{slice .Client.Name 0 1}}</span>
-      <div>
-        <strong>{{.Client.Name}}</strong>
-        <span>{{if .Client.URI}}{{.Client.URI}} · {{end}}as {{.User.Email}}</span>
+<section class="auth">
+  <div class="wrap">
+    <div class="card"><div class="body">
+      <p class="k">Sign in to a tool</p>
+      <h1>{{.Client.Name}} wants to sign you in.</h1>
+      <p class="sub">With your KaiCorp Labs account. You decide.</p>
+      <div class="who-box">
+        <span class="mk" aria-hidden="true">{{slice .Client.Name 0 1}}</span>
+        <div><strong>{{.Client.Name}}</strong><span>{{if .Client.URI}}{{.Client.URI}} · {{end}}as {{.User.Email}}</span></div>
       </div>
-    </div>
-    <p class="ac-label" style="margin-top:1.25rem">It will receive</p>
-    <ul class="ac-scope-list">
-      {{range .Scopes}}<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>{{.}}</li>{{end}}
-    </ul>
-    <form class="ac-form" method="post" action="/oauth/consent">
-      <input type="hidden" name="_csrf" value="{{.CSRF}}">
-      <input type="hidden" name="authorization_id" value="{{.AuthorizationID}}">
-      <button class="btn btn-primary btn-block" type="submit" name="action" value="approve">Continue to {{.Client.Name}}</button>
-      <button class="btn btn-ghost btn-block" type="submit" name="action" value="deny">Cancel</button>
-    </form>
-    <p class="ac-auth-foot">You will not be asked again for this tool. You can sign out of it at any time from <a href="/cuenta">Security</a>, and its session ends immediately.</p>
+      <p class="lbl">It will receive</p>
+      <ul class="scopes">
+        {{range .Scopes}}<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>{{.}}</li>{{end}}
+      </ul>
+      <form method="post" action="/oauth/consent">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <input type="hidden" name="authorization_id" value="{{.AuthorizationID}}">
+        <div class="form-actions">
+          <button class="btn btn-primary btn-block" type="submit" name="action" value="approve">Continue to {{.Client.Name}} →</button>
+          <button class="btn btn-ghost btn-block" type="submit" name="action" value="deny">Cancel</button>
+        </div>
+      </form>
+      <p class="fine">You will not be asked again for this tool. You can sign out of it at any time from <a href="/cuenta">Security</a>, and its session ends immediately.</p>
+    </div></div>
   </div>
-</div>
+</section>
 {{end}}

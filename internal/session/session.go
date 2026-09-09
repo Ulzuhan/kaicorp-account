@@ -44,12 +44,14 @@ type Manager struct {
 	key    []byte
 	secure bool
 	ttl    time.Duration
-	store  *store.Store
-	gotrue *gotrue.Client
+	// recordarTTL es la vida de una sesión marcada «keep me signed in».
+	recordarTTL time.Duration
+	store       *store.Store
+	gotrue      *gotrue.Client
 }
 
 // New crea el gestor. key son 32 bytes.
-func New(key []byte, secure bool, ttl time.Duration, st *store.Store, gt *gotrue.Client) (*Manager, error) {
+func New(key []byte, secure bool, ttl, recordarTTL time.Duration, st *store.Store, gt *gotrue.Client) (*Manager, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -58,7 +60,10 @@ func New(key []byte, secure bool, ttl time.Duration, st *store.Store, gt *gotrue
 	if err != nil {
 		return nil, err
 	}
-	return &Manager{aead: aead, key: key, secure: secure, ttl: ttl, store: st, gotrue: gt}, nil
+	if recordarTTL < ttl {
+		recordarTTL = ttl
+	}
+	return &Manager{aead: aead, key: key, secure: secure, ttl: ttl, recordarTTL: recordarTTL, store: st, gotrue: gt}, nil
 }
 
 // Actual es la sesión cargada para una petición.
@@ -116,8 +121,10 @@ func expiraDe(s *gotrue.Session) time.Time {
 	return time.Now().Add(time.Duration(s.ExpiresIn) * time.Second)
 }
 
-// Crear abre una sesión de la app a partir de una sesión de GoTrue y pone la cookie.
-func (m *Manager) Crear(ctx context.Context, w http.ResponseWriter, r *http.Request, gs *gotrue.Session, aal string) (*Actual, error) {
+// Crear abre una sesión de la app a partir de una sesión de GoTrue y pone la
+// cookie. Con `recordar` la sesión vive el TTL largo («keep me signed in»);
+// sin él, el corto. La cookie caduca con la sesión.
+func (m *Manager) Crear(ctx context.Context, w http.ResponseWriter, r *http.Request, gs *gotrue.Session, aal string, recordar bool) (*Actual, error) {
 	id, err := aleatorio(32)
 	if err != nil {
 		return nil, err
@@ -134,10 +141,14 @@ func (m *Manager) Crear(ctx context.Context, w http.ResponseWriter, r *http.Requ
 		aal = "aal1"
 	}
 	now := time.Now()
+	vida := m.ttl
+	if recordar {
+		vida = m.recordarTTL
+	}
 	x := &store.Sesion{
 		ID: id, UserID: gs.User.ID, Email: gs.User.Email, Nombre: gs.User.Name(), AAL: aal,
 		AccessToken: access, RefreshToken: refresh, AccessExpira: expiraDe(gs),
-		Creada: now, Ultima: now, Expira: now.Add(m.ttl), Agente: recortar(r.UserAgent(), 200),
+		Creada: now, Ultima: now, Expira: now.Add(vida), Agente: recortar(r.UserAgent(), 200),
 	}
 	if err := m.store.CrearSesion(ctx, x); err != nil {
 		return nil, err

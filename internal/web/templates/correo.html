@@ -1,13 +1,13 @@
 {{define "content"}}
-<div class="kc-workspace ac-auth">
-  <div class="ac-auth-card">
-    <span class="ac-auth-mark ok" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></span>
-    <div class="ac-auth-head">
-      <h1>{{.Title}}</h1>
-      <p>{{.Mensaje}}</p>
-    </div>
-    <p class="ac-auth-foot">The link in the email is valid for a short while. If nothing arrives in a few minutes, check the spam folder; if you typed the address wrong, or there is no account for it yet, start again.</p>
-    <p class="ac-auth-alt"><a href="/entrar">Back to sign in</a></p>
+<section class="auth">
+  <div class="wrap">
+    <div class="card"><div class="body">
+      <p class="k ok">Email sent</p>
+      <h1>{{.Title}}.</h1>
+      <p class="sub">{{.Mensaje}}</p>
+      <p class="fine">The link in the email is valid for a short while. If nothing arrives in a few minutes, check the spam folder; if you typed the address wrong, or there is no account for it yet, start again.</p>
+      <p class="alt"><a href="/entrar">Back to sign in</a></p>
+    </div></div>
   </div>
-</div>
+</section>
 {{end}}

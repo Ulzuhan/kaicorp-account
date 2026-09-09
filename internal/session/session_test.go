@@ -15,7 +15,7 @@ func gestor(t *testing.T) *Manager {
 	t.Helper()
 	key := make([]byte, 32)
 	_, _ = rand.Read(key)
-	m, err := New(key, true, 12*time.Hour, nil, nil)
+	m, err := New(key, true, 12*time.Hour, 30*24*time.Hour, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

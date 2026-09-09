@@ -82,7 +82,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /restablecer", s.restablecerPOST)
 	mux.HandleFunc("GET /factor", s.factorGET)
 	mux.HandleFunc("POST /factor", s.factorPOST)
+	mux.HandleFunc("GET /salir", s.salirGET)
 	mux.HandleFunc("POST /salir", s.salir)
+	mux.HandleFunc("GET /api/session", s.apiSesion)
 
 	mux.HandleFunc("POST /solicitar/{grupo}", s.solicitar)
 	mux.HandleFunc("GET /oauth/consent", s.consentGET)

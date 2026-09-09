@@ -1,24 +1,24 @@
 {{define "content"}}
-<div class="kc-workspace ac-auth">
-  <div class="ac-auth-card">
-    <span class="ac-auth-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
-    <div class="ac-auth-head">
-      <h1>Choose a new password</h1>
-      <p>Twelve characters or more. A sentence you will remember beats a word you will not.</p>
-    </div>
-    {{if .Error}}<div class="ac-alert err" role="alert"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v4m0 4h.01"/></svg><div>{{.Error}}</div></div>{{end}}
-    <form class="ac-form" method="post" action="/restablecer">
-      <input type="hidden" name="_csrf" value="{{.CSRF}}">
-      <div class="ac-field">
-        <div class="ac-field-row"><label for="password">New password</label><span class="ac-hint">12 characters or more</span></div>
-        <input id="password" name="password" type="password" autocomplete="new-password" required minlength="12" autofocus>
-      </div>
-      <div class="ac-field">
-        <label for="password2">Repeat it</label>
-        <input id="password2" name="password2" type="password" autocomplete="new-password" required minlength="12">
-      </div>
-      <button class="btn btn-primary btn-block" type="submit">Save the new password</button>
-    </form>
+<section class="auth">
+  <div class="wrap">
+    <div class="card"><div class="body">
+      <p class="k">Password</p>
+      <h1>Choose a new password.</h1>
+      <p class="sub">Twelve characters or more. A sentence you will remember beats a word you will not.</p>
+      {{if .Error}}<div class="notice err" role="alert"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v4m0 4h.01"/></svg><div>{{.Error}}</div></div>{{end}}
+      <form method="post" action="/restablecer">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <div class="field">
+          <div class="row"><label for="password">New password</label><span>12 characters or more</span></div>
+          <input class="input" id="password" name="password" type="password" autocomplete="new-password" required minlength="12" autofocus>
+        </div>
+        <div class="field">
+          <label for="password2">Repeat it</label>
+          <input class="input" id="password2" name="password2" type="password" autocomplete="new-password" required minlength="12">
+        </div>
+        <div class="form-actions"><button class="btn btn-primary btn-block" type="submit">Save the new password →</button></div>
+      </form>
+    </div></div>
   </div>
-</div>
+</section>
 {{end}}

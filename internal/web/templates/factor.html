@@ -1,27 +1,27 @@
 {{define "content"}}
-<div class="kc-workspace ac-auth">
-  <div class="ac-auth-card">
-    <span class="ac-auth-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></span>
-    <div class="ac-auth-head">
-      <h1>Second factor</h1>
-      <p>Enter the six-digit code your authenticator app shows right now.</p>
-    </div>
-    {{if .Error}}<div class="ac-alert err" role="alert"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v4m0 4h.01"/></svg><div>{{.Error}}</div></div>{{end}}
-    <form class="ac-form" method="post" action="/factor">
-      <input type="hidden" name="_csrf" value="{{.CSRF}}">
-      <input type="hidden" name="next" value="{{.Next}}">
-      <input type="hidden" name="factor_id" value="{{.FactorID}}">
-      <input type="hidden" name="challenge_id" value="{{.ChallengeID}}">
-      <div class="ac-field">
-        <label for="code">Code</label>
-        <input id="code" name="code" class="ac-code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required autofocus placeholder="······">
-      </div>
-      <button class="btn btn-primary btn-block" type="submit">Verify</button>
-    </form>
-    <form class="ac-auth-alt" method="post" action="/salir">
-      <input type="hidden" name="_csrf" value="{{.CSRF}}">
-      <button class="btn btn-ghost btn-sm" type="submit">Cancel and sign out</button>
-    </form>
+<section class="auth">
+  <div class="wrap">
+    <div class="card"><div class="body">
+      <p class="k">Second factor</p>
+      <h1>One more step.</h1>
+      <p class="sub">Enter the six-digit code your authenticator app shows right now.</p>
+      {{if .Error}}<div class="notice err" role="alert"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v4m0 4h.01"/></svg><div>{{.Error}}</div></div>{{end}}
+      <form method="post" action="/factor">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <input type="hidden" name="next" value="{{.Next}}">
+        <input type="hidden" name="factor_id" value="{{.FactorID}}">
+        <input type="hidden" name="challenge_id" value="{{.ChallengeID}}">
+        <div class="field">
+          <label for="code">Code</label>
+          <input class="input code" id="code" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required autofocus placeholder="······">
+        </div>
+        <div class="form-actions"><button class="btn btn-primary btn-block" type="submit">Verify →</button></div>
+      </form>
+      <form class="alt" method="post" action="/salir">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <button class="btn btn-ghost btn-sm" type="submit">Cancel and sign out</button>
+      </form>
+    </div></div>
   </div>
-</div>
+</section>
 {{end}}

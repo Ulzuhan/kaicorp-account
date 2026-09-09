@@ -1,33 +1,34 @@
 {{define "content"}}
-<div class="kc-workspace ac-auth">
-  <div class="ac-auth-card">
-    <div class="ac-auth-head">
-      <h1>Create an account</h1>
-      <p>You will get an email to confirm the address. After that you can ask for the tool you need; a person approves the first one.</p>
-    </div>
-    {{if .Error}}<div class="ac-alert err" role="alert"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v4m0 4h.01"/></svg><div>{{.Error}}</div></div>{{end}}
-    <form class="ac-form" method="post" action="/registro">
-      <input type="hidden" name="_csrf" value="{{.CSRF}}">
-      <input type="hidden" name="next" value="{{.Next}}">
-      <div class="ac-field">
-        <label for="name">Name</label>
-        <input id="name" name="name" type="text" autocomplete="name" required maxlength="80" value="{{.Name}}" placeholder="How the tools should call you">
-      </div>
-      <div class="ac-field">
-        <label for="email">Email</label>
-        <input id="email" name="email" type="email" autocomplete="username" required value="{{.Email}}" placeholder="you@example.com">
-      </div>
-      <div class="ac-field">
-        <div class="ac-field-row"><label for="password">Password</label><span class="ac-hint">12 characters or more</span></div>
-        <input id="password" name="password" type="password" autocomplete="new-password" required minlength="12">
-      </div>
-      <div class="ac-field">
-        <label for="password2">Repeat the password</label>
-        <input id="password2" name="password2" type="password" autocomplete="new-password" required minlength="12">
-      </div>
-      <button class="btn btn-primary btn-block" type="submit">Create account</button>
-    </form>
-    <p class="ac-auth-alt">Already have one? <a href="/entrar">Sign in</a>.</p>
+<section class="auth">
+  <div class="wrap">
+    <div class="card"><div class="body">
+      <p class="k">Create an account</p>
+      <h1>One account, every tool.</h1>
+      <p class="sub">You will get an email to confirm the address. After that you can ask for the tool you need; a person approves the first one.</p>
+      {{if .Error}}<div class="notice err" role="alert"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v4m0 4h.01"/></svg><div>{{.Error}}</div></div>{{end}}
+      <form method="post" action="/registro">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <input type="hidden" name="next" value="{{.Next}}">
+        <div class="field">
+          <label for="name">Name</label>
+          <input class="input" id="name" name="name" type="text" autocomplete="name" required maxlength="80" value="{{.Name}}" placeholder="How the tools should call you">
+        </div>
+        <div class="field">
+          <label for="email">Email</label>
+          <input class="input" id="email" name="email" type="email" autocomplete="username" required value="{{.Email}}" placeholder="you@example.com">
+        </div>
+        <div class="field">
+          <div class="row"><label for="password">Password</label><span>12 characters or more</span></div>
+          <input class="input" id="password" name="password" type="password" autocomplete="new-password" required minlength="12">
+        </div>
+        <div class="field">
+          <label for="password2">Repeat the password</label>
+          <input class="input" id="password2" name="password2" type="password" autocomplete="new-password" required minlength="12">
+        </div>
+        <div class="form-actions"><button class="btn btn-primary btn-block" type="submit">Create account →</button></div>
+      </form>
+      <p class="alt">Already have one? <a href="/entrar">Sign in</a>.</p>
+    </div></div>
   </div>
-</div>
+</section>
 {{end}}

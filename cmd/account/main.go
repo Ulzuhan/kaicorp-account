@@ -121,7 +121,7 @@ func main() {
 	}
 
 	gt := gotrue.New(cfg.GoTrueURL, cfg.AnonKey, cfg.ServiceKey)
-	ses, err := session.New(cfg.SessionKey, cfg.CookieSecure(), cfg.SessionTTL, st, gt)
+	ses, err := session.New(cfg.SessionKey, cfg.CookieSecure(), cfg.SessionTTL, cfg.RememberTTL, st, gt)
 	if err != nil {
 		log.Fatal(err)
 	}

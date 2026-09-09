@@ -1,0 +1,15 @@
+{{define "content"}}
+<section class="auth">
+  <div class="wrap">
+    <div class="card"><div class="body">
+      <p class="k">Sign out</p>
+      <h1>Sign out of your account?</h1>
+      <p class="sub">This ends your session on this page. The tools you are signed in to keep theirs until they expire; you can end those from <a href="/cuenta">Security</a>.</p>
+      <form method="post" action="/salir">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <div class="form-actions"><button class="btn btn-primary" type="submit">Sign out</button><a class="btn btn-ghost" href="/">Stay signed in</a></div>
+      </form>
+    </div></div>
+  </div>
+</section>
+{{end}}

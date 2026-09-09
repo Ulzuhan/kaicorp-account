@@ -1,5 +1,24 @@
 # Cambios
 
+## 0.3.0 — 2026-09-09
+
+- La misma hoja que la web pública: `account.css` copia las primitivas de
+  `site.css` de kaicorplabs.com (fondo, barra, secciones, hero, botones,
+  tarjetas, píldoras, pie) y añade sólo lo que la web no tiene. La barra lleva
+  las mismas secciones que la web y, a la derecha, la sesión. Fuera
+  `kaicorp.css` y `landing-polish.css`.
+- «Keep me signed in»: una casilla al entrar alarga la sesión a
+  `ACCOUNT_SESSION_REMEMBER_DAYS` (30 por defecto, 1 a 90) en vez de las
+  `ACCOUNT_SESSION_TTL_HOURS`. Sobrevive al segundo factor.
+- `GET /api/session`: la web pública pregunta si quien mira tiene sesión y
+  enseña su nombre en la cabecera. Sólo contesta con CORS a los orígenes de la
+  casa (`ACCOUNT_SESSION_ORIGINS`; por defecto el dominio padre del
+  `ACCOUNT_PUBLIC_URL`). Devuelve nombre y si administra; nada más.
+- `GET /salir`: página de confirmación, para que la web pueda enlazar «Sign
+  out» sin que un GET cierre sesiones.
+- Las herramientas enseñan su dominio en el pie de la tarjeta, como las
+  tarjetas de proyectos de la web.
+
 ## 0.2.0 — 2026-09-09
 
 - Rediseño de todas las pantallas con la composición de la casa: portada con

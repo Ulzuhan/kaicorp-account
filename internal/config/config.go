@@ -39,6 +39,12 @@ type Config struct {
 	SessionKey []byte
 	// SessionTTL es la vida máxima de una sesión de esta app, 1 a 24 h.
 	SessionTTL time.Duration
+	// RememberTTL es la vida de una sesión con «keep me signed in», 1 a 90 días.
+	RememberTTL time.Duration
+	// SessionOrigins son los orígenes (https://kaicorplabs.com) a los que
+	// /api/session contesta con credenciales: la web pública, para enseñar
+	// quién ha entrado. Por defecto, el dominio padre del PublicURL.
+	SessionOrigins []string
 	// AdminGroup es la membresía que abre /admin.
 	AdminGroup string
 	// InsecureCookies quita `Secure` de las cookies: sólo para pruebas por http.
@@ -51,7 +57,7 @@ type Config struct {
 // mejor un arranque que dice las cinco cosas que faltan que cinco arranques.
 func FromEnv() (*Config, error) {
 	var errs []error
-	c := &Config{AdminGroup: "account-admin", SessionTTL: 12 * time.Hour}
+	c := &Config{AdminGroup: "account-admin", SessionTTL: 12 * time.Hour, RememberTTL: 30 * 24 * time.Hour}
 
 	if raw := strings.TrimSpace(os.Getenv("ACCOUNT_PUBLIC_URL")); raw == "" {
 		errs = append(errs, errors.New("ACCOUNT_PUBLIC_URL: falta (https://account.example.com)"))
@@ -97,6 +103,27 @@ func FromEnv() (*Config, error) {
 			errs = append(errs, fmt.Errorf("ACCOUNT_SESSION_TTL_HOURS: entre 1 y 24, no %q", raw))
 		} else {
 			c.SessionTTL = time.Duration(h) * time.Hour
+		}
+	}
+	if raw := strings.TrimSpace(os.Getenv("ACCOUNT_SESSION_REMEMBER_DAYS")); raw != "" {
+		d, err := strconv.Atoi(raw)
+		if err != nil || d < 1 || d > 90 {
+			errs = append(errs, fmt.Errorf("ACCOUNT_SESSION_REMEMBER_DAYS: entre 1 y 90, no %q", raw))
+		} else {
+			c.RememberTTL = time.Duration(d) * 24 * time.Hour
+		}
+	}
+	if raw := strings.TrimSpace(os.Getenv("ACCOUNT_SESSION_ORIGINS")); raw != "" {
+		for _, o := range strings.Split(raw, ",") {
+			if o = strings.TrimSpace(o); o != "" {
+				c.SessionOrigins = append(c.SessionOrigins, strings.TrimRight(o, "/"))
+			}
+		}
+	} else if c.PublicURL != nil {
+		// account.kaicorplabs.com → https://kaicorplabs.com
+		if host := c.PublicURL.Hostname(); strings.Count(host, ".") >= 2 {
+			padre := host[strings.Index(host, ".")+1:]
+			c.SessionOrigins = []string{c.PublicURL.Scheme + "://" + padre}
 		}
 	}
 	if g := strings.TrimSpace(os.Getenv("ACCOUNT_ADMIN_GROUP")); g != "" {

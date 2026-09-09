@@ -1,21 +1,21 @@
 {{define "content"}}
-<div class="kc-workspace ac-auth">
-  <div class="ac-auth-card">
-    <span class="ac-auth-mark quiet" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7a4 4 0 1 1-4 4l-7 7v3h3l7-7"/><path d="M15 7l2-2"/></svg></span>
-    <div class="ac-auth-head">
-      <h1>Reset your password</h1>
-      <p>Tell us your email. If there is an account for it, you will get a link to choose a new password. If there is not, nothing is sent, and you can <a href="/registro">create the account</a> instead.</p>
-    </div>
-    {{if .Error}}<div class="ac-alert err" role="alert"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v4m0 4h.01"/></svg><div>{{.Error}}</div></div>{{end}}
-    <form class="ac-form" method="post" action="/recuperar">
-      <input type="hidden" name="_csrf" value="{{.CSRF}}">
-      <div class="ac-field">
-        <label for="email">Email</label>
-        <input id="email" name="email" type="email" autocomplete="username" required autofocus placeholder="you@example.com">
-      </div>
-      <button class="btn btn-primary btn-block" type="submit">Send the link</button>
-    </form>
-    <p class="ac-auth-alt"><a href="/entrar">Back to sign in</a></p>
+<section class="auth">
+  <div class="wrap">
+    <div class="card"><div class="body">
+      <p class="k">Password</p>
+      <h1>Reset your password.</h1>
+      <p class="sub">Tell us your email. If there is an account for it, you will get a link to choose a new password. If there is not, nothing is sent, and you can <a href="/registro">create the account</a> instead.</p>
+      {{if .Error}}<div class="notice err" role="alert"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v4m0 4h.01"/></svg><div>{{.Error}}</div></div>{{end}}
+      <form method="post" action="/recuperar">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <div class="field">
+          <label for="email">Email</label>
+          <input class="input" id="email" name="email" type="email" autocomplete="username" required autofocus placeholder="you@example.com">
+        </div>
+        <div class="form-actions"><button class="btn btn-primary btn-block" type="submit">Send the link →</button></div>
+      </form>
+      <p class="alt"><a href="/entrar">Back to sign in</a></p>
+    </div></div>
   </div>
-</div>
+</section>
 {{end}}

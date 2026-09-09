@@ -1,26 +1,28 @@
 {{define "content"}}
-<div class="kc-workspace ac-auth">
-  <div class="ac-auth-card">
-    <div class="ac-auth-head">
-      <h1>Sign in</h1>
-      <p>One account for every KaiCorp Labs tool.</p>
-    </div>
-    {{if .Error}}<div class="ac-alert err" role="alert"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v4m0 4h.01"/></svg><div>{{.Error}}</div></div>{{end}}
-    {{if .Flash}}<div class="ac-alert ok" role="status"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><div>{{.Flash}}</div></div>{{end}}
-    <form class="ac-form" method="post" action="/entrar">
-      <input type="hidden" name="_csrf" value="{{.CSRF}}">
-      <input type="hidden" name="next" value="{{.Next}}">
-      <div class="ac-field">
-        <label for="email">Email</label>
-        <input id="email" name="email" type="email" autocomplete="username" required autofocus value="{{.Email}}" placeholder="you@example.com">
-      </div>
-      <div class="ac-field">
-        <div class="ac-field-row"><label for="password">Password</label><a href="/recuperar">Forgot it?</a></div>
-        <input id="password" name="password" type="password" autocomplete="current-password" required>
-      </div>
-      <button class="btn btn-primary btn-block" type="submit">Sign in</button>
-    </form>
-    <p class="ac-auth-alt">No account yet? <a href="/registro{{if .Next}}?next={{.Next}}{{end}}">Create one</a>.</p>
+<section class="auth">
+  <div class="wrap">
+    <div class="card"><div class="body">
+      <p class="k">Sign in</p>
+      <h1>Welcome back.</h1>
+      <p class="sub">One account for every KaiCorp Labs tool.</p>
+      {{if .Error}}<div class="notice err" role="alert"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v4m0 4h.01"/></svg><div>{{.Error}}</div></div>{{end}}
+      {{if .Flash}}<div class="notice ok" role="status"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><div>{{.Flash}}</div></div>{{end}}
+      <form method="post" action="/entrar">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <input type="hidden" name="next" value="{{.Next}}">
+        <div class="field">
+          <label for="email">Email</label>
+          <input class="input" id="email" name="email" type="email" autocomplete="username" required autofocus value="{{.Email}}" placeholder="you@example.com">
+        </div>
+        <div class="field">
+          <div class="row"><label for="password">Password</label><a href="/recuperar">Forgot it?</a></div>
+          <input class="input" id="password" name="password" type="password" autocomplete="current-password" required>
+        </div>
+        <label class="check"><input type="checkbox" name="remember" value="1"> Keep me signed in on this device</label>
+        <div class="form-actions"><button class="btn btn-primary btn-block" type="submit">Sign in →</button></div>
+      </form>
+      <p class="alt">No account yet? <a href="/registro{{if .Next}}?next={{.Next}}{{end}}">Create one</a>.</p>
+    </div></div>
   </div>
-</div>
+</section>
 {{end}}
