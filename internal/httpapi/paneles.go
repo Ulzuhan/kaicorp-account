@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"encoding/json"
-	"errors"
 	"log"
 	"net/http"
 	"net/url"
@@ -413,6 +412,7 @@ func (s *Server) adminSolicitud(w http.ResponseWriter, r *http.Request) {
 			_ = s.st.ResolverSolicitud(r.Context(), x.ID, "aprobada", a.Email)
 			s.ponerFlash(w, x.Email+" can now use "+x.Grupo+".")
 		} else {
+			log.Printf("aprobar %s/%s: %v", x.UserID, x.Grupo, err)
 			s.ponerFlash(w, "Could not grant the access.")
 		}
 	case "rechazar":
@@ -427,6 +427,7 @@ func (s *Server) adminVincular(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.st.VincularCliente(r.Context(), r.PostFormValue("grupo"), r.PostFormValue("cliente_id")); err != nil {
+		log.Printf("vincular: %v", err)
 		s.ponerFlash(w, "Could not link the client.")
 	} else {
 		s.ponerFlash(w, "Client linked.")
@@ -441,6 +442,7 @@ func (s *Server) adminConceder(w http.ResponseWriter, r *http.Request) {
 	}
 	uid, grupo := r.PostFormValue("user_id"), r.PostFormValue("grupo")
 	if err := s.st.Conceder(r.Context(), uid, grupo, a.Email); err != nil {
+		log.Printf("conceder %s/%s: %v", uid, grupo, err)
 		s.ponerFlash(w, "Could not grant the membership.")
 	} else {
 		s.ponerFlash(w, "Granted "+grupo+".")
@@ -460,6 +462,7 @@ func (s *Server) adminRevocar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.st.Revocar(r.Context(), uid, grupo); err != nil {
+		log.Printf("revocar %s/%s: %v", uid, grupo, err)
 		s.ponerFlash(w, "Could not revoke.")
 	} else {
 		// Sin el grant, GoTrue deja de aprobar solo y los refresh tokens de esa
@@ -480,6 +483,7 @@ func (s *Server) adminCerrarSesiones(w http.ResponseWriter, r *http.Request) {
 	}
 	uid := r.PostFormValue("user_id")
 	if err := s.st.CerrarSesionesGoTrue(r.Context(), uid); err != nil {
+		log.Printf("cerrar sesiones %s: %v", uid, err)
 		s.ponerFlash(w, "Could not close the provider sessions.")
 	} else {
 		_ = s.st.BorrarSesionesDe(r.Context(), uid, "")
@@ -559,5 +563,3 @@ func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(code)
 	_ = json.NewEncoder(w).Encode(estado)
 }
-
-var errNoExiste = errors.New("no existe")

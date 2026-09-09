@@ -6,6 +6,8 @@
 //	account sonda      sonda de salud para el HEALTHCHECK de la imagen
 //	account migrar     aplica las migraciones y sale
 //	account admin <correo>                   da la membresía de administración
+//	account aprobar <correo> <grupo>         concede una herramienta (y cierra su solicitud)
+//	account revocar <correo> <grupo>         la quita, y revoca el grant OAuth
 //	account vincular <grupo> <client_id>     ata un cliente OAuth a su grupo
 package main
 
@@ -65,6 +67,44 @@ func main() {
 				log.Fatal(err)
 			}
 			fmt.Printf("%s administra (%s)\n", u.Email, cfg.AdminGroup)
+			return
+		case "aprobar", "revocar":
+			if len(os.Args) != 4 {
+				log.Fatalf("uso: account %s <correo> <grupo>", os.Args[1])
+			}
+			ctx := context.Background()
+			u, err := st.UsuarioPorCorreo(ctx, os.Args[2])
+			if err != nil {
+				log.Fatalf("no hay cuenta con ese correo: %v", err)
+			}
+			g, err := st.Grupo(ctx, os.Args[3])
+			if err != nil {
+				log.Fatalf("no hay grupo %q", os.Args[3])
+			}
+			if os.Args[1] == "aprobar" {
+				if err := st.Conceder(ctx, u.ID, g.Nombre, "cli"); err != nil {
+					log.Fatal(err)
+				}
+				// Si había solicitud pendiente, queda cerrada como aprobada.
+				if xs, err := st.SolicitudesDe(ctx, u.ID); err == nil {
+					for _, x := range xs {
+						if x.Grupo == g.Nombre && x.Estado == "pendiente" {
+							_ = st.ResolverSolicitud(ctx, x.ID, "aprobada", "cli")
+						}
+					}
+				}
+				fmt.Printf("%s puede usar %s\n", u.Email, g.Nombre)
+				return
+			}
+			if err := st.Revocar(ctx, u.ID, g.Nombre); err != nil {
+				log.Fatal(err)
+			}
+			if g.ClienteID != "" {
+				if err := st.RevocarGrants(ctx, u.ID, g.ClienteID); err != nil {
+					log.Fatal(err)
+				}
+			}
+			fmt.Printf("%s ya no puede usar %s\n", u.Email, g.Nombre)
 			return
 		case "vincular":
 			if len(os.Args) != 4 {

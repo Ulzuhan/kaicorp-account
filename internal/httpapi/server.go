@@ -107,7 +107,32 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /admin/bloquear", s.adminBloquear)
 
 	mux.HandleFunc("/", s.noEncontrado)
-	return s.cabeceras(s.conSesion(s.conCSRF(s.recuperando(mux))))
+	return s.registrando(s.cabeceras(s.conSesion(s.conCSRF(s.recuperando(mux)))))
+}
+
+// registrando escribe una línea por petición: método, ruta (sin query, que
+// lleva token_hash y authorization_id), código y milisegundos. Nada de quién.
+func (s *Server) registrando(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/static/") || r.URL.Path == "/api/health" {
+			next.ServeHTTP(w, r)
+			return
+		}
+		inicio := time.Now()
+		rw := &conCodigo{ResponseWriter: w, codigo: http.StatusOK}
+		next.ServeHTTP(rw, r)
+		log.Printf("%s %s %d %dms", r.Method, r.URL.Path, rw.codigo, time.Since(inicio).Milliseconds())
+	})
+}
+
+type conCodigo struct {
+	http.ResponseWriter
+	codigo int
+}
+
+func (c *conCodigo) WriteHeader(code int) {
+	c.codigo = code
+	c.ResponseWriter.WriteHeader(code)
 }
 
 // contentSecurityPolicy: sin scripts, sin inline, sin nada de fuera. Las

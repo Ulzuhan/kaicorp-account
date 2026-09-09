@@ -14,6 +14,7 @@ package gotrue
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -306,10 +307,25 @@ type EnrolledFactor struct {
 	Type         string `json:"type"`
 	FriendlyName string `json:"friendly_name"`
 	TOTP         struct {
-		QRCode string `json:"qr_code"` // data URL con el SVG
+		// QRCode es el SVG del código tal cual (XML), no una URL de datos:
+		// para un <img> hay que envolverlo (QRDataURL).
+		QRCode string `json:"qr_code"`
 		Secret string `json:"secret"`
 		URI    string `json:"uri"`
 	} `json:"totp"`
+}
+
+// QRDataURL devuelve el QR como URL de datos para un <img>. En base64 y no en
+// línea: una imagen no ejecuta scripts, un SVG incrustado en la página sí podría.
+func (f *EnrolledFactor) QRDataURL() string {
+	svg := strings.TrimSpace(f.TOTP.QRCode)
+	if svg == "" {
+		return ""
+	}
+	if strings.HasPrefix(svg, "data:") {
+		return svg
+	}
+	return "data:image/svg+xml;base64," + base64.StdEncoding.EncodeToString([]byte(svg))
 }
 
 // EnrollTOTP da de alta un factor TOTP (queda `unverified` hasta VerifyFactor).

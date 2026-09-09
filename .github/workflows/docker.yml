@@ -109,7 +109,13 @@ jobs:
       # clave privada que guardar, rotar ni perder. La attestation queda en el
       # almacén de GitHub y, con `push-to-registry`, también junto a la imagen
       # en GHCR.
+      #
+      # GitHub sólo guarda attestations de repositorios públicos (o de
+      # organización): en uno privado de usuario el paso falla con «Feature not
+      # available». Mientras este repo sea privado, la imagen se publica sin
+      # firma; el día que se haga público, la firma entra sola.
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        if: ${{ !github.event.repository.private }}
         with:
           subject-name: ${{ env.REGISTRY }}/${{ steps.ref.outputs.ref }}
           subject-digest: ${{ steps.build.outputs.digest }}
@@ -138,6 +144,7 @@ jobs:
       # Las dos últimas son las que atan el artefacto a lo que se cree estar
       # publicando, y no sólo a quién lo publicó.
       - name: Verificar la firma de lo recién publicado
+        if: ${{ !github.event.repository.private }}
         run: |
           gh attestation verify \
             "oci://${REGISTRY}/${IMAGEN}@${DIGEST}" \
