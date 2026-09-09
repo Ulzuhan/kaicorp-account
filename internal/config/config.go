@@ -3,6 +3,9 @@
 // Todo lo que hace falta para hablar con GoTrue y con Postgres viene por
 // variables ACCOUNT_*. Sin ellas la aplicación NO arranca: una app de cuenta a
 // medio configurar no es una app de cuenta, es una puerta abierta a medias.
+//
+// Los ejemplos de esta documentación son genéricos a propósito: los nombres
+// reales de una instalación viven en su compose y en su fichero de entorno.
 package config
 
 import (
@@ -18,12 +21,12 @@ import (
 
 // Config es la configuración validada.
 type Config struct {
-	// PublicURL es la dirección que ve el navegador: https://account.kaicorplabs.com.
+	// PublicURL es la dirección que ve el navegador: https://account.example.com.
 	// Se usa para construir enlaces absolutos y para decidir si la cookie va Secure.
 	PublicURL *url.URL
 	// GoTrueURL es la base INTERNA de la API de GoTrue, con su prefijo /auth/v1:
-	// http://supabase-kaicorplabs-gw/auth/v1. Dentro de un contenedor 127.0.0.1
-	// es el contenedor, así que aquí va el nombre de la pasarela en su red.
+	// http://<pasarela>/auth/v1. Dentro de un contenedor 127.0.0.1 es el
+	// contenedor, así que aquí va el nombre de la pasarela en su red.
 	GoTrueURL string
 	// AnonKey es la clave pública (JWT con role anon) que GoTrue exige en `apikey`.
 	AnonKey string
@@ -51,7 +54,7 @@ func FromEnv() (*Config, error) {
 	c := &Config{AdminGroup: "account-admin", SessionTTL: 12 * time.Hour}
 
 	if raw := strings.TrimSpace(os.Getenv("ACCOUNT_PUBLIC_URL")); raw == "" {
-		errs = append(errs, errors.New("ACCOUNT_PUBLIC_URL: falta (https://account.kaicorplabs.com)"))
+		errs = append(errs, errors.New("ACCOUNT_PUBLIC_URL: falta (https://account.example.com)"))
 	} else if u, err := url.Parse(raw); err != nil || u.Host == "" || (u.Scheme != "https" && u.Scheme != "http") {
 		errs = append(errs, fmt.Errorf("ACCOUNT_PUBLIC_URL: no es una URL http(s) válida: %q", raw))
 	} else {
@@ -62,7 +65,7 @@ func FromEnv() (*Config, error) {
 
 	c.GoTrueURL = strings.TrimRight(strings.TrimSpace(os.Getenv("ACCOUNT_GOTRUE_URL")), "/")
 	if c.GoTrueURL == "" {
-		errs = append(errs, errors.New("ACCOUNT_GOTRUE_URL: falta (http://supabase-kaicorplabs-gw/auth/v1)"))
+		errs = append(errs, errors.New("ACCOUNT_GOTRUE_URL: falta (http://<pasarela>/auth/v1)"))
 	} else if !strings.HasPrefix(c.GoTrueURL, "http://") && !strings.HasPrefix(c.GoTrueURL, "https://") {
 		errs = append(errs, fmt.Errorf("ACCOUNT_GOTRUE_URL: tiene que ser http(s): %q", c.GoTrueURL))
 	}

@@ -1,7 +1,7 @@
--- Preparación de la instancia supabase-kaicorplabs para la app de cuenta.
+-- Preparación de la instancia de Supabase Auth para la app de cuenta.
 -- Se ejecuta UNA vez como superusuario (postgres) en la base `postgres`:
 --
---   docker exec -i supabase-kaicorplabs-db psql -U supabase_admin -d postgres \
+--   docker exec -i <contenedor-db> psql -U supabase_admin -d postgres \
 --     -v ON_ERROR_STOP=1 -v account_password="$ACCOUNT_DB_PASSWORD" < db/bootstrap.sql
 -- Sin comillas alrededor del valor: :'account_password' ya lo cita. Con ellas, la
 -- contraseña guardada lleva las comillas dentro (pasó el 09-09).

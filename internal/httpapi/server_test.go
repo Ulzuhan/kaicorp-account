@@ -8,7 +8,7 @@ import (
 )
 
 func servidorMinimo() *Server {
-	u, _ := url.Parse("https://account.kaicorplabs.com")
+	u, _ := url.Parse("https://account.example.com")
 	return &Server{cfg: &config.Config{PublicURL: u}, limitador: nuevoLimitador()}
 }
 
@@ -20,8 +20,8 @@ func TestNextSeguro(t *testing.T) {
 		"//evil.example":                         "/",
 		"/\\evil.example":                        "/",
 		"https://evil.example/x":                 "/",
-		"https://account.kaicorplabs.com/cuenta": "/cuenta",
-		"http://account.kaicorplabs.com/cuenta":  "/",
+		"https://account.example.com/cuenta": "/cuenta",
+		"http://account.example.com/cuenta":  "/",
 		"javascript:alert(1)":                    "/",
 	}
 	for in, want := range casos {

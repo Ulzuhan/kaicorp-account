@@ -1,7 +1,6 @@
 # Para agentes
 
-Esta es la app de cuenta de KaiCorp Labs (`historia/41` de kaicorplabs-infra).
-Antes de tocarla, lee `docs/DISENO.md`: qué decide GoTrue y qué decide esta app,
+Esta es la app de cuenta de KaiCorp Labs. Antes de tocarla, lee `docs/DISENO.md`: qué decide GoTrue y qué decide esta app,
 y por qué el orden del consentimiento es el que es.
 
 Reglas que no se negocian aquí:

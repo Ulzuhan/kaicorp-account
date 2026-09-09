@@ -1,6 +1,6 @@
 // account es la app de cuenta de KaiCorp Labs: registro, entrada, segundo
-// factor, consentimiento OAuth y administración de membresías sobre la
-// instancia propia de Supabase Auth (historia/41 de kaicorplabs-infra).
+// factor, consentimiento OAuth y administración de membresías sobre una
+// instancia propia de Supabase Auth.
 //
 //	account            arranca el servidor (por defecto)
 //	account sonda      sonda de salud para el HEALTHCHECK de la imagen

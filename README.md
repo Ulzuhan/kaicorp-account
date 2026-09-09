@@ -47,10 +47,15 @@ GOTRUE_OAUTH_SERVER_AUTHORIZATION_PATH=/oauth/consent
 GOTRUE_SITE_URL=https://account.example.com
 GOTRUE_URI_ALLOW_LIST=https://account.example.com/**
 GOTRUE_MAILER_TEMPLATES_CONFIRMATION=http://<this app>/plantillas/confirmacion.html   # and recovery, email_change, invite, magic_link, reauthentication
+GOTRUE_MAILER_TEMPLATE_RELOADING_ENABLED=true
 ```
 
+Then load your groups (one row per tool or role; see `db/grupos.example.sql`)
+and link each OAuth client to its group from `/admin` or with `account vincular`.
+
 Subcommands: `account migrar` (apply migrations and exit), `account admin
-<email>` (make an existing account an administrator), `account vincular <group>
+<email>` (make an existing account an administrator), `account aprobar <email>
+<group>` and `account revocar <email> <group>`, `account vincular <group>
 <client_id>` (link an OAuth client to its group), `account sonda` (health probe).
 
 ## Configuration

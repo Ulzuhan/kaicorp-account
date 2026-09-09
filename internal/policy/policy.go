@@ -2,7 +2,7 @@
 // base de datos delante para poder probarlas: quién puede entrar a qué, qué
 // pasa cuando alguien pide una herramienta, y quién administra.
 //
-// Las reglas (historia/23, historia/41):
+// Las reglas de la casa:
 //
 //   - Cada cliente OAuth exige EXACTAMENTE un grupo. Sin membresía, la
 //     autorización se deniega antes de que GoTrue emita nada.

@@ -27,7 +27,7 @@ import (
 
 // Client habla con una instancia de GoTrue.
 type Client struct {
-	base       string // http://supabase-kaicorplabs-gw/auth/v1, sin barra final
+	base       string // http://<pasarela>/auth/v1, sin barra final
 	anonKey    string
 	serviceKey string
 	http       *http.Client

@@ -65,17 +65,5 @@ create table if not exists account.sesiones (
 create index if not exists sesiones_user on account.sesiones (user_id);
 create index if not exists sesiones_expira on account.sesiones (expira);
 
--- Los grupos de la casa. cliente_id se vincula al registrar cada cliente OAuth
--- (fase 3 de historia/41), desde /admin o con `account vincular`.
-insert into account.grupos (nombre, titulo, descripcion, url, solicitable, orden) values
-  ('docdrop',       'DocDrop',                'Share files with links that expire.',                     'https://docdrop.kaicorplabs.com', true,  10),
-  ('secretdrop',    'SecretDrop',             'One-time secrets, encrypted in your browser.',            'https://secret.kaicorplabs.com',  true,  20),
-  ('qr-forge',      'QR-Forge',               'QR codes that keep working after you print them.',        'https://qr.kaicorplabs.com',      true,  30),
-  ('tabup',         'TabUp',                  'Shared expenses for trips and groups.',                   'https://tabup.kaicorplabs.com',   true,  40),
-  ('pixelforge',    'PixelForge',             'Background removal, on our own hardware.',                'https://pixel.kaicorplabs.com',   true,  50),
-  ('linkup',        'LinkUp',                 'Short links without the tracking.',                       'https://link.kaicorplabs.com',    true,  60),
-  ('linkup-admins', 'LinkUp administration',  'Administration of LinkUp.',                               '',                                false, 61),
-  ('signdrop',      'SignDrop',               'Sign PDFs in your browser; anyone can verify them.',      'https://sign.kaicorplabs.com',    true,  70),
-  ('chorus',        'Chorus',                 'Publishing to social networks (private).',                'https://chorus.kaicorplabs.com',  false, 80),
-  ('account-admin', 'Account administration', 'Approve requests and manage memberships.',                '',                                false, 90)
-on conflict (nombre) do nothing;
+-- Los grupos (herramientas y roles) no van aquí: son de cada instalación y se
+-- cargan con SQL (db/grupos.example.sql) o se vinculan desde /admin.

@@ -1,6 +1,6 @@
 # Diseño de la app de cuenta
 
-*Septiembre de 2026. Fase 2 de `historia/41` de kaicorplabs-infra.*
+*Septiembre de 2026.*
 
 ## Reparto: qué hace GoTrue y qué hace esta app
 
@@ -44,7 +44,7 @@
    La clave de servicio sólo bloquea y borra cuentas; lo demás son `select` y
    dos escrituras concretas, enumeradas en `db/bootstrap.sql` con su motivo.
 9. **Aprobación humana la primera vez, automática después**, el modelo de la
-   casa desde agosto (`historia/23`): se decide sobre la persona, una vez.
+   casa desde agosto: se decide sobre la persona, una vez.
 10. **La primera cuenta administradora se da por CLI** (`account admin
     <correo>`), no por interfaz: no hay «primer usuario es admin».
 
