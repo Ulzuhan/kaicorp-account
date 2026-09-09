@@ -1,30 +1,258 @@
-/* Lo propio de la app de cuenta: formularios y listas. El cromado y los
-   colores son de la casa (kaicorp.css, landing-polish.css). */
-.ac-wrap { max-width: 560px; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
-.ac-wrap.wide { max-width: 960px; }
-.ac-card { background: var(--kc-surface, rgba(255,255,255,.03)); border: 1px solid var(--kc-border, rgba(255,255,255,.1)); border-radius: 14px; padding: 1.75rem; margin-top: 1.25rem; }
-.ac-form label { display: block; margin: 1rem 0 .35rem; font-size: .9rem; opacity: .85; }
-.ac-form input[type=text], .ac-form input[type=email], .ac-form input[type=password], .ac-form input[type=search] {
-  width: 100%; box-sizing: border-box; padding: .7rem .85rem; border-radius: 10px;
-  border: 1px solid var(--kc-border, rgba(255,255,255,.15)); background: rgba(0,0,0,.25); color: inherit; font: inherit;
+/* Account — la capa de producto.
+ *
+ * Tres hojas, de lo común a lo propio, en el orden de la casa:
+ *   kaicorp.css        las primitivas de marca (--kc-*) — copia generada
+ *   landing-polish.css cómo se componen portada y espacio de trabajo — copia generada
+ *   account.css        este fichero: fuentes, base, cromado, botones, formularios
+ *                      y lo que sólo tiene la app de cuenta (prefijo `ac-`)
+ *
+ * Las dos primeras no se editan aquí. Esta existe porque las primitivas son
+ * sólo variables: sin una capa que ponga `body`, la cabecera, el pie y los
+ * botones, la página sale con la letra y los enlaces del navegador. El
+ * cromado y los botones están calcados de LinkUp (su app.css) sobre los tokens
+ * de la casa, para que la app de cuenta se vea como las demás herramientas.
+ *
+ * Sin JavaScript: `script-src 'none'`. Todo lo interactivo es HTML.
+ * Las fuentes van dentro del binario (`font-src 'self'`); ver static/fonts/. */
+
+@font-face { font-family: "Space Grotesk"; src: url("/static/fonts/spacegrotesk.woff2") format("woff2"); font-weight: 500 700; font-display: swap; }
+@font-face { font-family: "Inter"; src: url("/static/fonts/inter.woff2") format("woff2"); font-weight: 400 500; font-display: swap; }
+@font-face { font-family: "JetBrains Mono"; src: url("/static/fonts/jetbrainsmono.woff2") format("woff2"); font-weight: 400 500; font-display: swap; }
+
+:root {
+  /* Lo que kaicorp.css espera que cada app aporte. */
+  --font-display: "Space Grotesk";
+  --font-sans: "Inter";
+  --font-mono: "JetBrains Mono";
+
+  /* Lo que landing-polish.css lee: el acento del producto y sus superficies.
+     La app de cuenta no tiene paleta propia a propósito: es la puerta de
+     todas, así que viste los colores de la casa tal cual. */
+  --accent: var(--kc-accent);
+  --primary: var(--kc-accent);
+  --card: var(--kc-panel);
+  --surface: var(--kc-panel);
+  --foreground: var(--kc-text-1);
+  --border: var(--kc-line);
+  --kc-surface: var(--kc-panel);
+  --kc-border: var(--kc-line);
 }
-.ac-form input:focus { outline: 2px solid var(--kc-accent, #7cc4ff); outline-offset: 1px; }
-.ac-actions { display: flex; gap: .75rem; align-items: center; margin-top: 1.5rem; flex-wrap: wrap; }
-.ac-note { font-size: .9rem; opacity: .8; margin-top: 1rem; }
-.ac-error { border-left: 3px solid #ff6b6b; padding: .6rem .9rem; margin: 1rem 0; background: rgba(255,107,107,.08); border-radius: 0 8px 8px 0; }
-.ac-ok { border-left: 3px solid #5fd38d; padding: .6rem .9rem; margin: 1rem 0; background: rgba(95,211,141,.08); border-radius: 0 8px 8px 0; }
-.ac-tools { list-style: none; padding: 0; margin: 1rem 0 0; display: grid; gap: .75rem; }
-.ac-tool { display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: center; padding: 1rem 1.1rem; border: 1px solid var(--kc-border, rgba(255,255,255,.1)); border-radius: 12px; }
-.ac-tool h3 { margin: 0 0 .2rem; font-size: 1.05rem; }
-.ac-tool p { margin: 0; font-size: .9rem; opacity: .8; }
-.ac-badge { font-size: .75rem; padding: .2rem .55rem; border-radius: 999px; border: 1px solid currentColor; opacity: .85; white-space: nowrap; }
-.ac-badge.si { color: #5fd38d; }
-.ac-badge.espera { color: #ffd166; }
-table.ac-table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: .92rem; }
-.ac-table th, .ac-table td { text-align: left; padding: .55rem .6rem; border-bottom: 1px solid var(--kc-border, rgba(255,255,255,.1)); vertical-align: top; }
+
+/* ── Base ───────────────────────────────────────────────────────────────── */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background-color: var(--kc-bg);
+  color: var(--kc-text-1);
+  font-family: var(--kc-font-sans);
+  line-height: 1.5;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+}
+main { flex: 1; display: flex; flex-direction: column; }
+h1, h2, h3, h4 { font-family: var(--kc-font-display); letter-spacing: -0.02em; font-weight: 700; }
+h1 { font-size: clamp(1.6rem, 5vw, 2.1rem); line-height: 1.15; }
+h2 { font-size: 1.2rem; margin-bottom: 0.75rem; }
+code, pre, .mono { font-family: var(--kc-font-mono); }
+a { color: var(--kc-accent); }
+a:hover { color: var(--kc-accent-strong); }
+img { max-width: 100%; }
+strong { font-weight: 600; }
+
+/* ── El cromado: cabecera y pie, los de la casa ─────────────────────────── */
+.kc-header {
+  position: sticky; top: 0; z-index: 40;
+  border-bottom: 1px solid var(--kc-line);
+  background: color-mix(in oklab, var(--kc-bg) 78%, transparent);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+}
+.kc-header-inner {
+  max-width: 72rem; margin: 0 auto; height: 3.5rem;
+  display: flex; align-items: center; gap: 0.75rem; padding: 0 1rem;
+}
+@media (min-width: 40rem) { .kc-header-inner { padding: 0 1.5rem; } }
+.kc-brand { display: flex; flex-shrink: 0; align-items: center; transition: opacity 0.15s; }
+.kc-brand:hover { opacity: 0.8; }
+.kc-brand img { display: block; width: 24px; height: 24px; }
+.kc-sep { color: var(--kc-line-2); }
+.kc-app {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: var(--kc-font-display); font-weight: 600; font-size: 15px; letter-spacing: -0.01em;
+  color: var(--kc-text-1); text-decoration: none;
+}
+.kc-app:hover { color: var(--kc-text-1); }
+.kc-header-slot { margin-left: auto; display: flex; flex-shrink: 0; align-items: center; gap: 0.5rem; }
+@media (max-width: 26rem) { .kc-header-enroll { display: none; } }
+
+/* El menú de cuenta: quién eres, dónde está tu seguridad, la salida. Un
+   <details>, que funciona sin script. */
+.kc-account { position: relative; }
+.kc-account > summary {
+  list-style: none; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  min-height: 2.25rem; padding: 0.35rem 0.7rem;
+  border: 1px solid var(--kc-line); border-radius: var(--kc-radius-sm);
+  background: var(--kc-panel); color: var(--kc-text-1);
+  font-family: var(--kc-font-sans); font-size: 0.85rem;
+}
+.kc-account > summary::-webkit-details-marker { display: none; }
+.kc-account > summary:hover, .kc-account[open] > summary { border-color: var(--kc-line-2); background: var(--kc-panel-2); }
+.kc-account-name { max-width: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kc-account-menu {
+  position: absolute; right: 0; top: calc(100% + 0.4rem); z-index: 50;
+  min-width: 13rem; padding: 0.35rem;
+  background: var(--kc-panel); border: 1px solid var(--kc-line);
+  border-radius: var(--kc-radius); box-shadow: var(--kc-shadow);
+}
+.kc-account-menu a, .kc-account-who, .kc-account-out {
+  display: flex; align-items: center; gap: 0.5rem; width: 100%;
+  padding: 0.55rem 0.75rem; border-radius: var(--kc-radius-sm);
+  color: var(--kc-text-1); text-decoration: none; font-size: 0.9rem; min-height: 2.5rem;
+}
+.kc-account-menu a:hover, .kc-account-out:hover { background: var(--kc-panel-2); color: var(--kc-text-1); }
+.kc-account-who {
+  color: var(--kc-text-2); font-size: 0.8rem; font-family: var(--kc-font-mono);
+  border-bottom: 1px solid var(--kc-line); border-radius: 0; margin-bottom: 0.25rem; word-break: break-all;
+}
+.kc-account-role {
+  font-family: var(--kc-font-sans); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--kc-accent); border: 1px solid color-mix(in oklab, var(--kc-accent) 40%, transparent);
+  border-radius: 999px; padding: 0.05rem 0.4rem;
+}
+/* La salida es un <button> dentro de un <form>: que se vea como los enlaces. */
+.kc-account-menu form { display: block; }
+.kc-account-out { background: none; border: 0; text-align: left; font: inherit; font-size: 0.9rem; cursor: pointer; color: var(--kc-text-2); }
+
+.kc-footer {
+  margin-top: auto; padding: 1.25rem 1rem;
+  border-top: 1px solid var(--kc-line); background: var(--kc-bg);
+  font-family: var(--kc-font-sans);
+}
+@media (min-width: 40rem) { .kc-footer { padding: 1.25rem 1.5rem; } }
+.kc-footer-inner {
+  max-width: 72rem; margin: 0 auto;
+  display: flex; flex-direction: column; align-items: center; gap: 0.75rem;
+  text-align: center; font-size: 0.75rem;
+}
+@media (min-width: 40rem) { .kc-footer-inner { flex-direction: row; justify-content: space-between; text-align: left; } }
+.kc-footer-brand { display: flex; align-items: center; gap: 0.5rem; color: var(--kc-text-2); text-decoration: none; transition: opacity 0.15s; }
+.kc-footer-brand:hover { opacity: 0.8; color: var(--kc-text-2); }
+.kc-footer-brand img { display: block; width: 18px; height: 18px; }
+.kc-footer-brand strong { color: var(--kc-text-1); font-weight: 500; }
+.kc-footer-nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.25rem 1rem; }
+.kc-footer-nav a { color: var(--kc-text-2); text-decoration: none; }
+.kc-footer-nav a:hover { color: var(--kc-text-1); }
+
+/* ── Botones. Nunca por debajo de 2.25rem: un dedo no es un cursor. ─────── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  min-height: 2.5rem; padding: 0.55rem 1.1rem;
+  border-radius: 0.55rem; border: 1px solid transparent;
+  font-family: var(--kc-font-sans); font-weight: 600; font-size: 0.875rem; line-height: 1.2;
+  text-decoration: none; cursor: pointer; white-space: nowrap;
+  transition: background-color 0.15s, border-color 0.15s, opacity 0.15s, transform 0.15s, box-shadow 0.15s;
+}
+.btn:focus-visible { outline: 2px solid var(--kc-accent); outline-offset: 2px; }
+.btn-primary {
+  background: linear-gradient(135deg, var(--kc-accent), var(--kc-accent-strong));
+  color: var(--kc-accent-ink);
+  box-shadow: 0 4px 12px color-mix(in oklab, var(--kc-accent) 25%, transparent);
+}
+.btn-primary:hover { opacity: 0.95; transform: translateY(-1px); color: var(--kc-accent-ink); box-shadow: 0 6px 16px color-mix(in oklab, var(--kc-accent) 35%, transparent); }
+.btn-ghost { background: transparent; color: var(--kc-text-2); border-color: var(--kc-line); }
+.btn-ghost:hover { color: var(--kc-text-1); background: var(--kc-panel-2); border-color: var(--kc-line-2); }
+.btn-danger { background: var(--kc-danger-soft); color: var(--kc-danger); border-color: color-mix(in oklab, var(--kc-danger) 30%, transparent); }
+.btn-danger:hover { background: color-mix(in oklab, var(--kc-danger) 22%, transparent); color: var(--kc-danger); }
+.btn-sm { min-height: 2.25rem; padding: 0.4rem 0.8rem; font-size: 0.8rem; }
+@media (pointer: coarse) { .btn, .btn-sm { min-height: 2.75rem; } }
+@media (prefers-reduced-motion: reduce) { .btn { transition: none; } .btn-primary:hover { transform: none; } }
+
+/* ── Formularios ────────────────────────────────────────────────────────── */
+.ac-form label { display: block; margin: 1rem 0 0.4rem; font-size: 0.85rem; font-weight: 600; color: var(--kc-text-2); }
+.ac-form label:first-child { margin-top: 0; }
+.ac-form input:not([type=hidden]):not([type=checkbox]):not([type=radio]), .ac-form select, .ac-form textarea, .ac-table select {
+  width: 100%; min-height: 2.75rem; padding: 0.65rem 0.9rem;
+  background: var(--kc-bg-2); border: 1px solid var(--kc-line); border-radius: 0.55rem;
+  color: var(--kc-text-1); font-family: var(--kc-font-sans); font-size: 1rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+@media (min-width: 40rem) { .ac-form input:not([type=hidden]):not([type=checkbox]):not([type=radio]), .ac-form select { font-size: 0.95rem; } }
+/* Los desplegables de las tablas de administración (vincular cliente y grupo)
+   van compactos y con el mismo vestido; sin esto salen blancos, del navegador. */
+.ac-table select { width: auto; min-height: 2.25rem; padding: 0.35rem 2rem 0.35rem 0.7rem; font-size: 0.85rem; }
+.ac-form input:focus, .ac-form select:focus, .ac-form textarea:focus, .ac-table select:focus {
+  outline: none; border-color: var(--kc-accent);
+  box-shadow: 0 0 0 3px var(--kc-accent-soft);
+}
+.ac-form input[inputmode=numeric], .ac-form input[autocomplete=one-time-code] { font-family: var(--kc-font-mono); letter-spacing: 0.15em; }
+.ac-form select, .ac-table select { appearance: none; -webkit-appearance: none; padding-right: 2rem; background-image: linear-gradient(45deg, transparent 50%, var(--kc-text-3) 50%), linear-gradient(135deg, var(--kc-text-3) 50%, transparent 50%); background-position: calc(100% - 1.1rem) 50%, calc(100% - 0.8rem) 50%; background-size: 0.3rem 0.3rem; background-repeat: no-repeat; }
+input[type=checkbox] { width: 1.1rem; height: 1.1rem; accent-color: var(--kc-accent); flex-shrink: 0; }
+.ac-form input::placeholder { color: var(--kc-text-3); }
+
+/* ── Lo propio de la app de cuenta ──────────────────────────────────────── */
+.ac-wrap { width: 100%; max-width: 36rem; margin: 0 auto; padding: 2.5rem 1rem 4rem; }
+@media (min-width: 40rem) { .ac-wrap { padding: 3rem 1.5rem 5rem; } }
+.ac-wrap.wide { max-width: 60rem; }
+.ac-wrap > h1 + .ac-note { margin-top: 0.75rem; }
+
+.ac-card {
+  background: var(--kc-panel); border: 1px solid var(--kc-line);
+  border-radius: var(--kc-radius-lg); padding: 1.25rem; margin-top: 1.25rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+@media (min-width: 40rem) { .ac-card { padding: 1.5rem; } }
+.ac-card > h2:first-child { margin-bottom: 1rem; }
+.ac-card > p { color: var(--kc-text-2); line-height: 1.6; }
+.ac-card > p strong { color: var(--kc-text-1); }
+
+.ac-actions { display: flex; gap: 0.75rem; align-items: center; margin-top: 1.5rem; flex-wrap: wrap; }
+.ac-note { color: var(--kc-text-2); font-size: 0.92rem; line-height: 1.6; margin-top: 1rem; }
+.ac-note strong { color: var(--kc-text-1); }
+.ac-small { font-size: 0.82rem; color: var(--kc-text-3); }
+.ac-mono { font-family: var(--kc-font-mono); font-size: 0.85rem; word-break: break-all; }
+.ac-inline { display: inline-flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+
+/* Avisos: un borde de color y fondo suave; el color es el significado. */
+.ac-error, .ac-ok {
+  padding: 0.7rem 0.9rem; margin: 1rem 0; border-radius: 0 var(--kc-radius-sm) var(--kc-radius-sm) 0;
+  font-size: 0.92rem; line-height: 1.5;
+}
+.ac-error { border-left: 3px solid var(--kc-danger); background: var(--kc-danger-soft); color: var(--kc-text-1); }
+.ac-ok { border-left: 3px solid var(--kc-ok); background: var(--kc-ok-soft); color: var(--kc-text-1); }
+
+/* Las herramientas, una tarjeta por fila. */
+.ac-tools { list-style: none; padding: 0; margin: 1.25rem 0 0; display: grid; gap: 0.75rem; }
+.ac-tool {
+  display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: center;
+  padding: 1rem 1.1rem; background: var(--kc-panel); border: 1px solid var(--kc-line); border-radius: var(--kc-radius);
+}
+@media (max-width: 30rem) { .ac-tool { grid-template-columns: 1fr; } }
+.ac-tool h3 { margin: 0 0 0.2rem; font-size: 1.05rem; font-weight: 600; }
+.ac-tool p { margin: 0; font-size: 0.9rem; color: var(--kc-text-2); line-height: 1.5; }
+
+.ac-badge {
+  display: inline-flex; align-items: center; font-size: 0.72rem; font-weight: 600;
+  padding: 0.2rem 0.6rem; border-radius: 999px; white-space: nowrap;
+  color: var(--kc-text-2); border: 1px solid var(--kc-line-2); background: var(--kc-panel-2);
+}
+.ac-badge.si { color: var(--kc-ok); border-color: color-mix(in oklab, var(--kc-ok) 30%, transparent); background: var(--kc-ok-soft); }
+.ac-badge.espera { color: var(--kc-warn); border-color: color-mix(in oklab, var(--kc-warn) 30%, transparent); background: var(--kc-warn-soft); }
+
+/* Tablas: administración y factores. */
+table.ac-table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.9rem; }
+.ac-table th {
+  text-align: left; padding: 0.6rem 0.7rem;
+  font-size: 0.72rem; font-weight: 600; color: var(--kc-text-2); text-transform: uppercase; letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--kc-line-2); white-space: nowrap;
+}
+.ac-table td { text-align: left; padding: 0.7rem; border-bottom: 1px solid var(--kc-line); vertical-align: top; }
+.ac-table tr:last-child td { border-bottom: 0; }
 .ac-table form { display: inline; }
-.ac-inline { display: inline-flex; gap: .5rem; flex-wrap: wrap; }
-.ac-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .85rem; }
-.ac-qr { display: block; width: 200px; height: 200px; background: #fff; padding: 8px; border-radius: 8px; margin: 1rem 0; }
-.ac-scopes { margin: .75rem 0 0 1rem; padding: 0; }
-.ac-small { font-size: .82rem; opacity: .7; }
+.ac-table a { text-decoration: none; }
+.ac-table a:hover { text-decoration: underline; }
+
+/* El QR del segundo factor sobre blanco: un lector no lee un QR oscuro. */
+.ac-qr { display: block; width: 200px; height: 200px; background: #fff; padding: 8px; border-radius: var(--kc-radius-sm); margin: 1rem 0; }
+.ac-scopes { margin: 0.75rem 0 0 1.25rem; padding: 0; color: var(--kc-text-2); }
+.ac-scopes li { margin: 0.2rem 0; }
