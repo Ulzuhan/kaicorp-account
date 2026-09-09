@@ -1,0 +1,116 @@
+/* ══════════════════════════════════════════════════════════════════════
+   KaiCorp Labs — primitivas de marca
+   ══════════════════════════════════════════════════════════════════════
+
+   Fuente única de la identidad visual, copiada a cada aplicación por
+   `tools/sync-theme.sh`. NO editar la copia dentro de una app: se
+   sobrescribe. Editar aquí y sincronizar.
+
+   QUÉ SE UNIFICA Y QUÉ NO — la decisión importante:
+
+   Se unifican la TIPOGRAFÍA y el CROMADO (cabecera y pie). Cada aplicación
+   conserva SU PALETA puertas adentro.
+
+   La primera versión de esto re-apuntaba también los colores de cada app a
+   la paleta de marca. Se descartó: cambiar la paleta de una aplicación que
+   funciona arriesga el contraste y el diseño en decenas de sitios que no se
+   ven desde la portada, y a cambio el usuario no gana nada que no le dé ya
+   una cabecera y un pie iguales en los cinco servicios. El riesgo estaba
+   todo en el color; la identidad, casi toda en la letra y el marco.
+
+   Así que estas primitivas las consumen SOLO `kaicorp-header.tsx` y
+   `kaicorp-footer.tsx`, además de las variables de fuente que sí usa toda
+   la app.
+   ══════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Superficies, de más honda a más cercana ── */
+  --kc-bg: #05070d;
+  --kc-bg-2: #080b13;
+  --kc-panel: #0c1019;
+  --kc-panel-2: #10151f;
+  --kc-line: #1b2333;
+  --kc-line-2: #263049;
+
+  /* ── Acento ── */
+  --kc-accent: #45e0f5;
+  --kc-accent-strong: #6ae9fa;
+  --kc-accent-soft: #45e0f51f;   /* halos y fondos de icono */
+  --kc-accent-ink: #04121a;      /* texto SOBRE el acento */
+
+  /* ── Texto. Medido: el nivel 2 pasa de 7:1 sobre --kc-bg ── */
+  --kc-text-1: #e6ecf5;
+  --kc-text-2: #9fb0c8;
+  --kc-text-3: #6b7c94;
+
+  /* ── Semánticos: significado, no marca ── */
+  --kc-ok: #43d787;
+  --kc-warn: #ffc247;
+  --kc-danger: #ff6b6b;
+  --kc-ok-soft: #43d78722;
+  --kc-warn-soft: #ffc24722;
+  --kc-danger-soft: #ff6b6b22;
+
+  /* ── Forma ── */
+  --kc-radius-sm: 8px;
+  --kc-radius: 12px;
+  --kc-radius-lg: 16px;
+  --kc-shadow: 0 22px 50px -30px #000;
+
+  /* Luz de borde: la línea clara que hace que un panel parezca material
+     iluminado en vez de un rectángulo con borde. */
+  --kc-edge: linear-gradient(90deg, transparent, #ffffff26 30%, #ffffff26 70%, transparent);
+
+  /* ── Tipografía ── */
+  /* Las familias las inyecta cada app con next/font (que las autoaloja en
+     build), exponiéndolas como --font-display / --font-sans / --font-mono. */
+  --kc-font-display: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  --kc-font-sans: var(--font-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --kc-font-mono: var(--font-mono), ui-monospace, "Cascadia Code", Menlo, monospace;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Variante clara
+
+   La marca es oscura y ese es el modo por defecto en todas las apps. Esto
+   existe solo para las dos que ya tenían interruptor (TabUp y DocDrop): que
+   alguien elija claro no debería sacarle de la identidad.
+
+   Se activa de dos maneras, y ambas cuentan: añadiendo `kc-light` al <html>,
+   o simplemente teniendo ya la clase `light` ahí. Lo segundo existe porque las
+   dos apps con interruptor lo mueven con next-themes, que escribe `light` o
+   `dark` en <html> — y next-themes no admite mapear un tema a DOS clases
+   (llama a classList.remove con el valor entero y revienta con un espacio).
+   Engancharse a su propia clase evita pedirle algo que no sabe hacer.
+
+   El acento cambia de tono a propósito: el cian brillante sobre blanco baja
+   de 2:1 de contraste y sería ilegible.
+   ══════════════════════════════════════════════════════════════════════ */
+.kc-light,
+html.light {
+  --kc-bg: #f6f8fb;
+  --kc-bg-2: #ffffff;
+  --kc-panel: #ffffff;
+  --kc-panel-2: #f1f4f9;
+  --kc-line: #dde4ee;
+  --kc-line-2: #c6d0de;
+
+  --kc-accent: #0b7f96;
+  --kc-accent-strong: #096b7f;
+  --kc-accent-soft: #0b7f9614;
+  --kc-accent-ink: #ffffff;
+
+  --kc-text-1: #0c1420;
+  --kc-text-2: #46566c;
+  --kc-text-3: #6b7c94;
+
+  --kc-ok: #12855a;
+  --kc-warn: #9a6600;
+  --kc-danger: #c0392f;
+  --kc-ok-soft: #12855a14;
+  --kc-warn-soft: #9a660014;
+  --kc-danger-soft: #c0392f14;
+
+  --kc-shadow: 0 18px 40px -28px #64748b66;
+  --kc-edge: linear-gradient(90deg, transparent, #00000012 30%, #00000012 70%, transparent);
+}

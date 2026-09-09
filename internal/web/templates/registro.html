@@ -1,0 +1,21 @@
+{{define "content"}}
+<section class="ac-wrap">
+  <h1>Create an account</h1>
+  <p class="ac-note">You will get an email to confirm the address. After that you can ask for the tool you need; a person approves the first one.</p>
+  {{if .Error}}<div class="ac-error">{{.Error}}</div>{{end}}
+  <form class="ac-card ac-form" method="post" action="/registro">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <input type="hidden" name="next" value="{{.Next}}">
+    <label for="name">Name</label>
+    <input id="name" name="name" type="text" autocomplete="name" required maxlength="80" value="{{.Name}}">
+    <label for="email">Email</label>
+    <input id="email" name="email" type="email" autocomplete="username" required value="{{.Email}}">
+    <label for="password">Password <span class="ac-small">(12 characters or more)</span></label>
+    <input id="password" name="password" type="password" autocomplete="new-password" required minlength="12">
+    <label for="password2">Repeat the password</label>
+    <input id="password2" name="password2" type="password" autocomplete="new-password" required minlength="12">
+    <div class="ac-actions"><button class="btn btn-primary" type="submit">Create account</button></div>
+  </form>
+  <p class="ac-note">Already have one? <a href="/entrar">Sign in</a>.</p>
+</section>
+{{end}}

@@ -1,0 +1,211 @@
+/*
+ * Shared KaiCorp product-page polish.
+ *
+ * This file is copied verbatim across the five standalone apps. It deliberately
+ * consumes each product's own --primary or --accent, so the family resemblance
+ * comes from composition, light and material rather than one forced palette.
+ */
+.kc-product-landing {
+  --kc-product-accent: var(--primary, var(--accent));
+  position: relative;
+  isolation: isolate;
+  overflow: clip;
+  background:
+    radial-gradient(54rem 34rem at 76% 3rem, color-mix(in oklch, var(--kc-product-accent) 12%, transparent), transparent 72%),
+    radial-gradient(34rem 28rem at 4% 42rem, color-mix(in oklch, var(--kc-product-accent) 7%, transparent), transparent 74%);
+}
+
+.kc-product-landing::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0 0 auto;
+  height: 42rem;
+  pointer-events: none;
+  opacity: 0.26;
+  mask-image: linear-gradient(to bottom, black, transparent);
+  background-image:
+    linear-gradient(color-mix(in oklch, var(--kc-product-accent) 13%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklch, var(--kc-product-accent) 13%, transparent) 1px, transparent 1px);
+  background-size: 4rem 4rem;
+}
+
+.kc-product-landing > section:first-child,
+.kc-product-landing > main > section:first-child {
+  max-width: 72rem;
+  min-height: min(46rem, calc(100svh - 4rem));
+  display: grid;
+  align-items: center;
+  padding-block: clamp(4rem, 9vw, 7rem);
+}
+
+.kc-product-landing > section:first-child > .grid,
+.kc-product-landing > main > section:first-child > .grid {
+  gap: clamp(3rem, 7vw, 7rem);
+}
+
+.kc-product-landing > section:first-child h1,
+.kc-product-landing > main > section:first-child h1 {
+  max-width: 13ch;
+  font-size: clamp(2.85rem, 5vw, 4.8rem);
+  line-height: 0.98;
+  letter-spacing: -0.055em;
+}
+
+.kc-product-landing > section:first-child p,
+.kc-product-landing > main > section:first-child p {
+  max-width: 38rem;
+}
+
+.kc-product-landing > section:first-child span[class*="rounded-full"],
+.kc-product-landing > main > section:first-child span[class*="rounded-full"] {
+  border-radius: 0;
+  border: 0;
+  border-left: 2px solid var(--kc-product-accent);
+  background: transparent;
+  padding: 0 0 0 0.7rem;
+  font-family: var(--kc-font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.kc-product-landing .kc-card-grid {
+  gap: 1rem;
+}
+
+.kc-product-landing .kc-card-grid > * {
+  position: relative;
+  min-height: 12rem;
+  overflow: hidden;
+  border: 1px solid color-mix(in oklch, var(--kc-product-accent) 10%, var(--border, #2a2a3a));
+  border-radius: 1rem;
+  padding: 1.35rem;
+  background:
+    linear-gradient(145deg, color-mix(in oklch, var(--kc-product-accent) 7%, transparent), transparent 46%),
+    color-mix(in oklch, var(--card, var(--surface, #15151e)) 82%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklch, white 5%, transparent),
+    0 18px 50px color-mix(in oklch, black 18%, transparent);
+  transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease;
+}
+
+.kc-product-landing .kc-card-grid > *::after {
+  content: "";
+  position: absolute;
+  inset: auto -2rem -3rem auto;
+  width: 7rem;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background: var(--kc-product-accent);
+  opacity: 0.055;
+  filter: blur(20px);
+}
+
+.kc-product-landing .kc-card-grid > *:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in oklch, var(--kc-product-accent) 38%, var(--border, #2a2a3a));
+}
+
+.kc-product-landing section h2[class*="uppercase"] {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  color: var(--kc-product-accent);
+  font-family: var(--kc-font-mono);
+  letter-spacing: 0.14em;
+}
+
+.kc-product-landing section h2[class*="uppercase"]::before {
+  content: "";
+  width: 1.5rem;
+  height: 1px;
+  background: currentColor;
+}
+
+.kc-product-landing section:last-child {
+  position: relative;
+  background: linear-gradient(180deg, transparent, color-mix(in oklch, var(--kc-product-accent) 7%, transparent));
+}
+
+.kc-product-landing section:last-child h2 {
+  font-size: clamp(2rem, 4vw, 3.25rem);
+}
+
+.kc-product-landing section:last-child a,
+.kc-product-landing section:last-child button {
+  box-shadow: 0 0 2rem color-mix(in oklch, var(--kc-product-accent) 18%, transparent);
+}
+
+@media (max-width: 63.99rem) {
+  .kc-product-landing > section:first-child h1,
+  .kc-product-landing > main > section:first-child h1 {
+    margin-inline: auto;
+  }
+}
+
+@media (max-width: 39.99rem) {
+  .kc-product-landing::before {
+    background-size: 2.75rem 2.75rem;
+  }
+
+  .kc-product-landing > section:first-child,
+  .kc-product-landing > main > section:first-child {
+    min-height: auto;
+    padding-block: 3.5rem 4.5rem;
+  }
+
+  .kc-product-landing .kc-card-grid > * {
+    min-height: auto;
+    padding: 1.2rem;
+  }
+
+  /* El titular, a tamaño de móvil.
+     `clamp(2.85rem, 5vw, 4.8rem)` parece adaptativo pero no lo es aquí: a 390 px
+     de ancho, 5vw son 19 px, así que gana el MÍNIMO de 45,6 px — un tamaño
+     elegido para escritorio aplicándose en un teléfono. En TabUp eso partía el
+     titular en cuatro líneas y se comía la primera pantalla entera.
+     Y `max-width: 13ch` empeoraba lo mismo: a ese tamaño son ~220 px de los 350
+     disponibles, forzando saltos de línea de más. */
+  .kc-product-landing > section:first-child h1,
+  .kc-product-landing > main > section:first-child h1 {
+    max-width: 20ch;
+    font-size: clamp(2.1rem, 8.5vw, 2.9rem);
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kc-product-landing .kc-card-grid > * {
+    transition: none;
+  }
+}
+
+/* Product workspace: the same level of material and hierarchy after sign-in. */
+/* `overflow: clip` no es adorno: el ::before de abajo se extiende -18vw por
+   cada lado y sin recortarlo la página entera gana scroll horizontal —230 px
+   a 1280 de ancho—. `.kc-product-landing` ya lo llevaba; aquí faltaba.
+   `clip` y no `hidden` a propósito: hidden crea un contenedor de scroll y
+   rompe cualquier `position: sticky` que cuelgue dentro. */
+.kc-workspace { --kc-product-accent: var(--primary, var(--accent)); position: relative; isolation: isolate; overflow: clip; }
+.kc-workspace::before { content: ""; position: absolute; z-index: -1; inset: -6rem -18vw auto; height: 30rem; pointer-events: none; background: radial-gradient(50% 70% at 50% 0%, color-mix(in oklch, var(--kc-product-accent) 10%, transparent), transparent 74%); }
+/* `5vw` y no `4vw`: con 4vw el mínimo de 2rem se aplicaba hasta los 800 px,
+   y el override de móvil de más abajo daba 44 px a 639 px de ancho. O sea que
+   al ENSANCHAR la ventana de 639 a 640 el titular ENCOGÍA de 44 a 32 px. Eso
+   es lo que se veía como "al hacer zoom se rompe": no se rompía nada, saltaba
+   de escalón. Con 5vw la curva es continua y el override sobra. */
+.kc-workspace h1 { font-size: clamp(2rem, 5vw, 3.25rem); line-height: 1.05; letter-spacing: -0.04em; }
+.kc-workspace h2 { letter-spacing: -0.03em; }
+.kc-workspace :is(input, textarea, select) { border-color: color-mix(in oklch, var(--kc-product-accent) 12%, var(--border, #2a2a3a)); background-color: color-mix(in oklch, var(--card, var(--surface, #15151e)) 82%, transparent); box-shadow: inset 0 1px 0 color-mix(in oklch, white 4%, transparent); }
+.kc-workspace :is(input, textarea, select):focus-visible { border-color: var(--kc-product-accent); box-shadow: 0 0 0 3px color-mix(in oklch, var(--kc-product-accent) 15%, transparent); }
+.kc-workspace :is(button, a)[class*="bg-primary"], .kc-workspace :is(button, a)[class*="bg-accent"] { box-shadow: 0 10px 30px color-mix(in oklch, var(--kc-product-accent) 16%, transparent); }
+.kc-workspace [class*="border"][class*="rounded"]:not(input):not(textarea):not(button) { border-color: color-mix(in oklch, var(--kc-product-accent) 10%, var(--border, #2a2a3a)); box-shadow: inset 0 1px 0 color-mix(in oklch, white 4%, transparent), 0 14px 38px color-mix(in oklch, black 12%, transparent); }
+.kc-workspace [role="dialog"] { border-color: color-mix(in oklch, var(--kc-product-accent) 24%, var(--border, #2a2a3a)); box-shadow: 0 30px 100px color-mix(in oklch, black 55%, transparent); }
+.kc-workspace [role="tablist"] { padding: 0.3rem; border: 1px solid color-mix(in oklch, var(--kc-product-accent) 10%, var(--border, #2a2a3a)); background: color-mix(in oklch, var(--card, var(--surface, #15151e)) 82%, transparent); }
+.kc-workspace table { border-collapse: separate; border-spacing: 0; overflow: hidden; border-radius: 0.85rem; }
+.kc-workspace thead { background: color-mix(in oklch, var(--kc-product-accent) 6%, var(--card, var(--surface, #15151e))); }
+.kc-workspace tbody tr { transition: background-color 160ms ease; }
+.kc-workspace tbody tr:hover { background: color-mix(in oklch, var(--kc-product-accent) 5%, transparent); }
+.kc-workspace ::selection { color: var(--foreground, white); background: color-mix(in oklch, var(--kc-product-accent) 35%, transparent); }
+@media (min-width: 48rem) { .kc-workspace { padding-top: 3.5rem; padding-bottom: 5rem; } }
+@media (prefers-reduced-motion: reduce) { .kc-workspace *, .kc-workspace *::before, .kc-workspace *::after { transition-duration: 0.01ms !important; } }

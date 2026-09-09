@@ -1,0 +1,20 @@
+{{define "content"}}
+<section class="ac-wrap">
+  <h1>Sign in to {{.Client.Name}}</h1>
+  <div class="ac-card">
+    <p><strong>{{.Client.Name}}</strong>{{if .Client.URI}} <span class="ac-small">({{.Client.URI}})</span>{{end}} is asking to sign you in as <strong>{{.User.Email}}</strong>. It will receive:</p>
+    <ul class="ac-scopes">
+      {{range .Scopes}}<li>{{.}}</li>{{end}}
+    </ul>
+    <form class="ac-form" method="post" action="/oauth/consent">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <input type="hidden" name="authorization_id" value="{{.AuthorizationID}}">
+      <div class="ac-actions">
+        <button class="btn btn-primary" type="submit" name="action" value="approve">Continue</button>
+        <button class="btn btn-ghost" type="submit" name="action" value="deny">Cancel</button>
+      </div>
+    </form>
+    <p class="ac-small">You will not be asked again for this tool. You can revoke it any time from Security.</p>
+  </div>
+</section>
+{{end}}

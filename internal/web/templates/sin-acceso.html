@@ -1,0 +1,20 @@
+{{define "content"}}
+<section class="ac-wrap">
+  <h1>{{.Grupo.Titulo}}</h1>
+  <div class="ac-card">
+    {{if .Pendiente}}
+      <p>Your request for <strong>{{.Grupo.Titulo}}</strong> is waiting for a person to read it. You will get an email when it is approved.</p>
+    {{else if .Grupo.Solicitable}}
+      <p>Your account does not have access to <strong>{{.Grupo.Titulo}}</strong> yet.</p>
+      <form class="ac-form" method="post" action="/solicitar/{{.Grupo.Nombre}}">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <input type="hidden" name="next" value="{{.Next}}">
+        <div class="ac-actions"><button class="btn btn-primary" type="submit">Ask for access</button><a class="btn btn-ghost" href="/">Your tools</a></div>
+      </form>
+    {{else}}
+      <p><strong>{{.Grupo.Titulo}}</strong> is by invitation only.</p>
+      <div class="ac-actions"><a class="btn btn-ghost" href="/">Your tools</a></div>
+    {{end}}
+  </div>
+</section>
+{{end}}

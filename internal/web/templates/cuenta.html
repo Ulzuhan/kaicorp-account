@@ -1,0 +1,83 @@
+{{define "content"}}
+<section class="ac-wrap wide">
+  <h1>Security</h1>
+  {{if .Flash}}<div class="ac-ok">{{.Flash}}</div>{{end}}
+  {{if .Error}}<div class="ac-error">{{.Error}}</div>{{end}}
+
+  <div class="ac-card">
+    <h2>Your details</h2>
+    <form class="ac-form" method="post" action="/cuenta/nombre">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <label for="name">Name</label>
+      <input id="name" name="name" type="text" required maxlength="80" value="{{.User.Nombre}}">
+      <p class="ac-note">Email: <strong>{{.User.Email}}</strong></p>
+      <div class="ac-actions"><button class="btn btn-ghost btn-sm" type="submit">Save name</button></div>
+    </form>
+  </div>
+
+  <div class="ac-card">
+    <h2>Password</h2>
+    <form class="ac-form" method="post" action="/cuenta/password">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <label for="password">New password <span class="ac-small">(12 characters or more)</span></label>
+      <input id="password" name="password" type="password" autocomplete="new-password" required minlength="12">
+      <label for="password2">Repeat it</label>
+      <input id="password2" name="password2" type="password" autocomplete="new-password" required minlength="12">
+      <div class="ac-actions"><button class="btn btn-ghost btn-sm" type="submit">Change password</button></div>
+    </form>
+  </div>
+
+  <div class="ac-card">
+    <h2>Second factor</h2>
+    {{if .Factores}}
+      <table class="ac-table"><thead><tr><th>Name</th><th>Type</th><th>Status</th><th></th></tr></thead><tbody>
+      {{range .Factores}}<tr><td>{{.FriendlyName}}</td><td>{{.FactorType}}</td><td>{{.Status}}</td>
+        <td><form method="post" action="/cuenta/factor/borrar"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="factor_id" value="{{.ID}}"><button class="btn btn-ghost btn-sm" type="submit">Remove</button></form></td></tr>{{end}}
+      </tbody></table>
+    {{else}}
+      <p class="ac-note">No second factor yet. With one, signing in asks for a code from your authenticator app besides the password.</p>
+    {{end}}
+    {{if .Enrolando}}
+      <p>Scan this code with your authenticator app, or type the secret, then enter the six digits it shows.</p>
+      <img class="ac-qr" src="{{.Enrolando.TOTP.QRCode}}" alt="QR code for the authenticator app">
+      <p class="ac-mono">{{.Enrolando.TOTP.Secret}}</p>
+      <form class="ac-form" method="post" action="/cuenta/factor/verificar">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <input type="hidden" name="factor_id" value="{{.Enrolando.ID}}">
+        <label for="code">Code</label>
+        <input id="code" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" autocomplete="one-time-code" required>
+        <div class="ac-actions"><button class="btn btn-primary btn-sm" type="submit">Activate</button></div>
+      </form>
+    {{else}}
+      <form class="ac-form" method="post" action="/cuenta/factor/alta">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <div class="ac-actions"><button class="btn btn-ghost btn-sm" type="submit">Add an authenticator app</button></div>
+      </form>
+    {{end}}
+  </div>
+
+  <div class="ac-card">
+    <h2>Tools you have signed in to</h2>
+    {{if .Grants}}
+      <table class="ac-table"><thead><tr><th>Tool</th><th>Since</th><th></th></tr></thead><tbody>
+      {{range .Grants}}<tr><td>{{.Client.Name}}</td><td>{{.GrantedAt}}</td>
+        <td><form method="post" action="/cuenta/grant/revocar"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="client_id" value="{{.Client.ID}}"><button class="btn btn-ghost btn-sm" type="submit">Sign out of it</button></form></td></tr>{{end}}
+      </tbody></table>
+      <p class="ac-small">Signing out of a tool ends its session immediately; you will be asked again the next time.</p>
+    {{else}}
+      <p class="ac-note">None yet.</p>
+    {{end}}
+  </div>
+
+  <div class="ac-card">
+    <h2>Sessions of this account page</h2>
+    <table class="ac-table"><thead><tr><th>Started</th><th>Last seen</th><th>Browser</th></tr></thead><tbody>
+    {{range .Sesiones}}<tr><td>{{.Creada.Format "2006-01-02 15:04"}}</td><td>{{.Ultima.Format "2006-01-02 15:04"}}</td><td class="ac-small">{{.Agente}}</td></tr>{{end}}
+    </tbody></table>
+    <form class="ac-form" method="post" action="/cuenta/sesiones/cerrar">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <div class="ac-actions"><button class="btn btn-ghost btn-sm" type="submit">Sign out everywhere else</button></div>
+    </form>
+  </div>
+</section>
+{{end}}

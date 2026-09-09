@@ -1,0 +1,18 @@
+{{define "content"}}
+<section class="ac-wrap">
+  <h1>Second factor</h1>
+  <p class="ac-note">Enter the six-digit code from your authenticator app.</p>
+  {{if .Error}}<div class="ac-error">{{.Error}}</div>{{end}}
+  <form class="ac-card ac-form" method="post" action="/factor">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <input type="hidden" name="next" value="{{.Next}}">
+    <input type="hidden" name="factor_id" value="{{.FactorID}}">
+    <input type="hidden" name="challenge_id" value="{{.ChallengeID}}">
+    <label for="code">Code</label>
+    <input id="code" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" autocomplete="one-time-code" required autofocus>
+    <div class="ac-actions"><button class="btn btn-primary" type="submit">Verify</button>
+      <form method="post" action="/salir"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn btn-ghost btn-sm" type="submit">Cancel</button></form>
+    </div>
+  </form>
+</section>
+{{end}}

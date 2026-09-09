@@ -1,0 +1,14 @@
+{{define "content"}}
+<section class="ac-wrap">
+  <h1>Choose a new password</h1>
+  {{if .Error}}<div class="ac-error">{{.Error}}</div>{{end}}
+  <form class="ac-card ac-form" method="post" action="/restablecer">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <label for="password">New password <span class="ac-small">(12 characters or more)</span></label>
+    <input id="password" name="password" type="password" autocomplete="new-password" required minlength="12" autofocus>
+    <label for="password2">Repeat it</label>
+    <input id="password2" name="password2" type="password" autocomplete="new-password" required minlength="12">
+    <div class="ac-actions"><button class="btn btn-primary" type="submit">Save</button></div>
+  </form>
+</section>
+{{end}}

@@ -1,0 +1,11 @@
+# Secretos, jamás.
+.env
+.env.*
+!.env.example
+*.pem
+*token*
+*credentials*
+
+# Binarios y basura local
+/account
+/dist

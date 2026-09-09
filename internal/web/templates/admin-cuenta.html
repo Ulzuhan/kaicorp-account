@@ -1,0 +1,42 @@
+{{define "content"}}
+<section class="ac-wrap wide">
+  <h1>{{.Cuenta.Email}}</h1>
+  <p class="ac-note">Created {{.Cuenta.Creada.Format "2006-01-02"}} · {{if .Cuenta.Confirmada}}confirmed{{else}}not confirmed{{end}}{{if .Cuenta.Bloqueada}} · <strong>blocked</strong>{{end}}{{if .Cuenta.Nombre}} · {{.Cuenta.Nombre}}{{end}}</p>
+  {{if .Flash}}<div class="ac-ok">{{.Flash}}</div>{{end}}
+  {{if .Error}}<div class="ac-error">{{.Error}}</div>{{end}}
+
+  <div class="ac-card">
+    <h2>Memberships</h2>
+    <table class="ac-table"><thead><tr><th>Group</th><th>Since</th><th>Granted by</th><th></th></tr></thead><tbody>
+    {{range .Membresias}}<tr><td>{{.Grupo}}</td><td>{{.Desde.Format "2006-01-02"}}</td><td>{{.Por}}</td>
+      <td><form method="post" action="/admin/revocar"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="user_id" value="{{$.Cuenta.ID}}"><input type="hidden" name="grupo" value="{{.Grupo}}"><button class="btn btn-ghost btn-sm" type="submit">Revoke</button></form></td></tr>{{end}}
+    </tbody></table>
+    <form class="ac-form ac-inline" method="post" action="/admin/conceder">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="user_id" value="{{.Cuenta.ID}}">
+      <select name="grupo">{{range .Grupos}}<option value="{{.Nombre}}">{{.Nombre}}</option>{{end}}</select>
+      <button class="btn btn-primary btn-sm" type="submit">Grant</button>
+    </form>
+  </div>
+
+  <div class="ac-card">
+    <h2>Requests</h2>
+    {{if .Solicitudes}}<table class="ac-table"><thead><tr><th>Tool</th><th>State</th><th>Asked</th><th>Resolved by</th></tr></thead><tbody>
+    {{range .Solicitudes}}<tr><td>{{.Grupo}}</td><td>{{.Estado}}</td><td>{{.Creada.Format "2006-01-02 15:04"}}</td><td>{{.Por}}</td></tr>{{end}}
+    </tbody></table>{{else}}<p class="ac-note">None.</p>{{end}}
+  </div>
+
+  <div class="ac-card">
+    <h2>Actions</h2>
+    <div class="ac-inline">
+      <form method="post" action="/admin/cerrar-sesiones"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="user_id" value="{{.Cuenta.ID}}"><button class="btn btn-ghost btn-sm" type="submit">Sign out everywhere</button></form>
+      {{if .Cuenta.Bloqueada}}
+        <form method="post" action="/admin/bloquear"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="user_id" value="{{.Cuenta.ID}}"><input type="hidden" name="accion" value="desbloquear"><button class="btn btn-ghost btn-sm" type="submit">Unblock</button></form>
+      {{else}}
+        <form method="post" action="/admin/bloquear"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="user_id" value="{{.Cuenta.ID}}"><input type="hidden" name="accion" value="bloquear"><button class="btn btn-ghost btn-sm" type="submit">Block account</button></form>
+      {{end}}
+    </div>
+    <p class="ac-small">Signing out everywhere kills every provider session: no tool can renew its tokens. Blocking also stops new sign-ins. Deleting a person and their data is <code>borrar-persona.py</code>, on purpose not a button.</p>
+  </div>
+  <p class="ac-note"><a href="/admin">Back to administration</a></p>
+</section>
+{{end}}

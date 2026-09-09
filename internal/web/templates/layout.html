@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{if .Title}}{{.Title}} · {{end}}Account · KaiCorp Labs</title>
+  <meta name="description" content="One account for the KaiCorp Labs tools: sign in, ask for access, manage your security.">
+  <meta name="color-scheme" content="dark">
+  <meta name="robots" content="noindex">
+  <link rel="stylesheet" href="/static/css/kaicorp.css?v={{.AssetVersion}}">
+  <link rel="stylesheet" href="/static/css/landing-polish.css?v={{.AssetVersion}}">
+  <link rel="stylesheet" href="/static/css/account.css?v={{.AssetVersion}}">
+  <link rel="icon" href="/static/kaicorp-mark.png" type="image/png">
+</head>
+<body>
+  {{/* El cromado es el de la casa, calcado de LinkUp: la misma barra y el
+       mismo pie que en las demás herramientas. */}}
+  <header class="kc-header">
+    <div class="kc-header-inner">
+      <a href="https://kaicorplabs.com" class="kc-brand" title="KaiCorp Labs">
+        <img src="/static/kaicorp-mark.png" alt="" width="24" height="24">
+      </a>
+      <span class="kc-sep" aria-hidden="true">/</span>
+      <a href="/" class="kc-app">Account</a>
+      <div class="kc-header-slot">
+        {{if .User}}
+          <details class="kc-account">
+            <summary aria-label="Account">
+              <span class="kc-account-name">{{if .User.Nombre}}{{.User.Nombre}}{{else}}{{.User.Email}}{{end}}</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            </summary>
+            <div class="kc-account-menu" role="menu">
+              <div class="kc-account-who">{{.User.Email}}{{if .IsAdmin}} <span class="kc-account-role">admin</span>{{end}}</div>
+              <a href="/" role="menuitem">Your tools</a>
+              <a href="/cuenta" role="menuitem">Security</a>
+              {{if .IsAdmin}}<a href="/admin" role="menuitem">Administration</a>{{end}}
+              <form method="post" action="/salir"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button type="submit" role="menuitem" class="kc-account-out">Sign out</button></form>
+            </div>
+          </details>
+        {{else}}
+          <a href="/registro" class="btn btn-ghost btn-sm kc-header-enroll">Create account</a>
+          <a href="/entrar" class="btn btn-primary btn-sm">Sign in</a>
+        {{end}}
+      </div>
+    </div>
+  </header>
+
+  <main>
+    {{template "content" .}}
+  </main>
+
+  <footer class="kc-footer">
+    <div class="kc-footer-inner">
+      <a href="https://kaicorplabs.com" class="kc-footer-brand">
+        <img src="/static/kaicorp-mark.png" alt="" width="18" height="18">
+        <span>Built by <strong>KaiCorp Labs</strong></span>
+      </a>
+      <nav class="kc-footer-nav" aria-label="Tools">
+        <a href="https://tabup.kaicorplabs.com">TabUp</a>
+        <a href="https://qr.kaicorplabs.com">QR-Forge</a>
+        <a href="https://docdrop.kaicorplabs.com">DocDrop</a>
+        <a href="https://secret.kaicorplabs.com">SecretDrop</a>
+        <a href="https://pixel.kaicorplabs.com">Pixelforge</a>
+        <a href="https://link.kaicorplabs.com">LinkUp</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>

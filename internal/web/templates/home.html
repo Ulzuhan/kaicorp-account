@@ -1,0 +1,35 @@
+{{define "content"}}
+<section class="ac-wrap">
+{{if .User}}
+  <h1>Your tools</h1>
+  <p class="ac-note">One account opens every KaiCorp Labs tool you have been given access to. The first request is read by a person; once you are in, the next tools open on their own.</p>
+  {{if .Flash}}<div class="ac-ok">{{.Flash}}</div>{{end}}
+  <ul class="ac-tools">
+  {{range .Herramientas}}
+    <li class="ac-tool">
+      <div><h3>{{.Titulo}}</h3><p>{{.Descripcion}}</p></div>
+      <div class="ac-inline">
+        {{if .Miembro}}
+          <span class="ac-badge si">access granted</span>
+          {{if .URL}}<a class="btn btn-primary btn-sm" href="{{.URL}}">Open</a>{{end}}
+        {{else if .Pendiente}}
+          <span class="ac-badge espera">waiting for approval</span>
+        {{else if .Solicitable}}
+          <form method="post" action="/solicitar/{{.Nombre}}"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button class="btn btn-ghost btn-sm" type="submit">Ask for access</button></form>
+        {{else}}
+          <span class="ac-badge">by invitation</span>
+        {{end}}
+      </div>
+    </li>
+  {{end}}
+  </ul>
+{{else}}
+  <h1>One account for the KaiCorp Labs tools</h1>
+  <p class="ac-note">Sign in to see the tools you can use, or create an account and ask for the one you need. A person reads the first request; that is deliberate.</p>
+  <div class="ac-actions">
+    <a class="btn btn-primary" href="/entrar">Sign in</a>
+    <a class="btn btn-ghost" href="/registro">Create an account</a>
+  </div>
+{{end}}
+</section>
+{{end}}
