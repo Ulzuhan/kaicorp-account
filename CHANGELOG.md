@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.3.2 — 2026-09-09
+
+- Los enlaces de los correos llevaban una barra invertida delante de cada `&`
+  (`\&type=signup`): el navegador mandaba `type=signup\` y la app respondía
+  «This link is not one we sent». Lo cazó el primer registro real; los
+  recorridos de prueba no lo vieron porque usaban enlaces generados por la API
+  de administración, no el correo.
+
 ## 0.3.1 — 2026-09-09
 
 - La barra a 320 px: «Sign in» se esconde por debajo de 420 px (queda «Create
