@@ -1,7 +1,12 @@
 {{define "content"}}
-<section class="ac-wrap">
-  <h1>{{.Title}}</h1>
-  <div class="ac-card"><p>{{.Mensaje}}</p></div>
-  <p class="ac-note"><a href="/">Back</a></p>
-</section>
+<div class="kc-workspace ac-auth">
+  <div class="ac-auth-card">
+    <span class="ac-auth-mark warn" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4m0 4h.01"/></svg></span>
+    <div class="ac-auth-head">
+      <h1>{{.Title}}</h1>
+      <p>{{.Mensaje}}</p>
+    </div>
+    <div class="ac-cta"><a class="btn btn-secondary" href="/">Back to the start</a></div>
+  </div>
+</div>
 {{end}}

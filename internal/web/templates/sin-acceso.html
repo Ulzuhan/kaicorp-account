@@ -1,20 +1,33 @@
 {{define "content"}}
-<section class="ac-wrap">
-  <h1>{{.Grupo.Titulo}}</h1>
-  <div class="ac-card">
+<div class="kc-workspace ac-auth">
+  <div class="ac-auth-card">
     {{if .Pendiente}}
-      <p>Your request for <strong>{{.Grupo.Titulo}}</strong> is waiting for a person to read it. You will get an email when it is approved.</p>
+      <span class="ac-auth-mark warn" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+      <div class="ac-auth-head">
+        <h1>{{.Grupo.Titulo}} is on its way</h1>
+        <p>Your request is waiting for a person to read it. You will get an email when it is approved, and the tool will open on its own from then on.</p>
+      </div>
+      <div class="ac-cta"><a class="btn btn-secondary" href="/">Your tools</a></div>
     {{else if .Grupo.Solicitable}}
-      <p>Your account does not have access to <strong>{{.Grupo.Titulo}}</strong> yet.</p>
+      <span class="ac-auth-mark quiet" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
+      <div class="ac-auth-head">
+        <h1>{{.Grupo.Titulo}}</h1>
+        <p>Your account does not have access to <strong>{{.Grupo.Titulo}}</strong> yet. Ask for it and a person will read the request; you will get an email when it is approved.</p>
+      </div>
       <form class="ac-form" method="post" action="/solicitar/{{.Grupo.Nombre}}">
         <input type="hidden" name="_csrf" value="{{.CSRF}}">
         <input type="hidden" name="next" value="{{.Next}}">
-        <div class="ac-actions"><button class="btn btn-primary" type="submit">Ask for access</button><a class="btn btn-ghost" href="/">Your tools</a></div>
+        <button class="btn btn-primary btn-block" type="submit">Ask for access</button>
+        <a class="btn btn-ghost btn-block" href="/">Your tools</a>
       </form>
     {{else}}
-      <p><strong>{{.Grupo.Titulo}}</strong> is by invitation only.</p>
-      <div class="ac-actions"><a class="btn btn-ghost" href="/">Your tools</a></div>
+      <span class="ac-auth-mark quiet" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
+      <div class="ac-auth-head">
+        <h1>{{.Grupo.Titulo}}</h1>
+        <p><strong>{{.Grupo.Titulo}}</strong> is by invitation only. If you were expecting access, the person who runs it can grant it to your account.</p>
+      </div>
+      <div class="ac-cta"><a class="btn btn-secondary" href="/">Your tools</a></div>
     {{end}}
   </div>
-</section>
+</div>
 {{end}}

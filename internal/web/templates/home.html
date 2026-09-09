@@ -1,35 +1,120 @@
 {{define "content"}}
-<section class="ac-wrap">
 {{if .User}}
-  <h1>Your tools</h1>
-  <p class="ac-note">One account opens every KaiCorp Labs tool you have been given access to. The first request is read by a person; once you are in, the next tools open on their own.</p>
-  {{if .Flash}}<div class="ac-ok">{{.Flash}}</div>{{end}}
-  <ul class="ac-tools">
+<div class="kc-workspace">
+<div class="ac-page">
+  <div class="ac-page-head">
+    <div>
+      <h1>Your tools</h1>
+      <p class="ac-page-sub">One account opens every KaiCorp Labs tool you have been given access to. The first request is read by a person; once you are in, the next tools open on their own.</p>
+    </div>
+    <div class="ac-page-side">
+      <span class="ac-pill ok">{{.Concedidas}} granted</span>
+      {{if .Esperando}}<span class="ac-pill warn">{{.Esperando}} waiting</span>{{end}}
+    </div>
+  </div>
+
+  {{if .Flash}}<div class="ac-alert ok" role="status"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><div>{{.Flash}}</div></div>{{end}}
+
+  <div class="ac-tool-grid">
   {{range .Herramientas}}
-    <li class="ac-tool">
-      <div><h3>{{.Titulo}}</h3><p>{{.Descripcion}}</p></div>
-      <div class="ac-inline">
+    <article class="ac-tool-card{{if .Miembro}} is-member{{else if .Pendiente}} is-pending{{end}}">
+      <div class="ac-tool-top">
+        <span class="ac-tool-mark" aria-hidden="true">{{slice .Titulo 0 1}}</span>
+        <div>
+          <h3>{{.Titulo}}</h3>
+          <p>{{.Descripcion}}</p>
+        </div>
+      </div>
+      <div class="ac-tool-foot">
         {{if .Miembro}}
-          <span class="ac-badge si">access granted</span>
-          {{if .URL}}<a class="btn btn-primary btn-sm" href="{{.URL}}">Open</a>{{end}}
+          {{if .URL}}<span class="ac-pill ok">Access granted</span><a class="btn btn-primary btn-sm" href="{{.URL}}">Open <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></a>
+          {{else}}<span class="ac-pill accent">Role</span>{{if eq .Nombre "account-admin"}}<a class="btn btn-secondary btn-sm" href="/admin">Open</a>{{end}}{{end}}
         {{else if .Pendiente}}
-          <span class="ac-badge espera">waiting for approval</span>
+          <span class="ac-pill warn">Waiting for approval</span>
+          <span class="ac-small">You will get an email</span>
         {{else if .Solicitable}}
-          <form method="post" action="/solicitar/{{.Nombre}}"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button class="btn btn-ghost btn-sm" type="submit">Ask for access</button></form>
+          <span class="ac-pill quiet">Not yet</span>
+          <form method="post" action="/solicitar/{{.Nombre}}"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button class="btn btn-secondary btn-sm" type="submit">Ask for access</button></form>
         {{else}}
-          <span class="ac-badge">by invitation</span>
+          <span class="ac-pill quiet">By invitation</span>
         {{end}}
       </div>
-    </li>
+    </article>
+  {{else}}
+    <div class="ac-empty">There are no tools to show yet.</div>
   {{end}}
-  </ul>
-{{else}}
-  <h1>One account for the KaiCorp Labs tools</h1>
-  <p class="ac-note">Sign in to see the tools you can use, or create an account and ask for the one you need. A person reads the first request; that is deliberate.</p>
-  <div class="ac-actions">
-    <a class="btn btn-primary" href="/entrar">Sign in</a>
-    <a class="btn btn-ghost" href="/registro">Create an account</a>
   </div>
+
+  <p class="ac-help">Each tool only receives your identifier, your email and your name when you sign in to it. What you have connected, your password and your second factor are under <a href="/cuenta">Security</a>.</p>
+</div>
+</div>
+{{else}}
+<div class="kc-product-landing ac-landing">
+  <section class="ac-hero">
+    <div class="ac-hero-grid">
+      <div>
+        <span class="ac-eyebrow rounded-full">One account · every tool</span>
+        <h1>One account for every KaiCorp Labs tool.</h1>
+        <p class="ac-lede">Sign in once, ask for the tools you need, and keep your security in one place. A person reads the first request; that is deliberate.</p>
+        <div class="ac-cta">
+          <a href="/registro" class="btn btn-primary">Create an account</a>
+          <a href="/entrar" class="btn btn-secondary">Sign in</a>
+        </div>
+      </div>
+      <figure class="ac-demo" aria-label="What your tools page looks like">
+        <div class="ac-demo-head"><span>Your tools</span><span class="ac-pill ok">1 granted</span></div>
+        <div class="ac-demo-row is-member"><span class="ac-tool-mark sm" aria-hidden="true">S</span><div><strong>SecretDrop</strong><span>One-time secrets, encrypted in your browser.</span></div><span class="ac-pill ok">Access granted</span></div>
+        <div class="ac-demo-row is-pending"><span class="ac-tool-mark sm" aria-hidden="true">D</span><div><strong>DocDrop</strong><span>Share files with links that expire.</span></div><span class="ac-pill warn">Waiting for approval</span></div>
+        <div class="ac-demo-row"><span class="ac-tool-mark sm" aria-hidden="true">L</span><div><strong>LinkUp</strong><span>Short links without the tracking.</span></div><span class="ac-pill quiet">Ask for access</span></div>
+        <figcaption>The first tool is approved by a person. After that, the next ones open on their own.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="ac-features">
+    <h2 class="uppercase">How it works</h2>
+    <div class="kc-card-grid">
+      <article>
+        <span class="ac-step" aria-hidden="true">1</span>
+        <h3>Create your account</h3>
+        <p>Your name, your email and a password of twelve characters or more. A link confirms the address; nothing else is asked.</p>
+      </article>
+      <article>
+        <span class="ac-step" aria-hidden="true">2</span>
+        <h3>Ask for a tool</h3>
+        <p>The first request is read by a person, not by a rule. You get an email when it is approved, and the tool appears as yours.</p>
+      </article>
+      <article>
+        <span class="ac-step" aria-hidden="true">3</span>
+        <h3>Sign in once, everywhere</h3>
+        <p>Once you are in, the next tools open on their own. Each one receives only your identifier, your email and your name.</p>
+      </article>
+      <article>
+        <span class="ac-icon-tile" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
+        <h3>A second factor, if you want one</h3>
+        <p>Add an authenticator app and signing in asks for a six-digit code besides the password. Remove it whenever you like.</p>
+      </article>
+      <article>
+        <span class="ac-icon-tile" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M3 12h18"/><circle cx="12" cy="12" r="9"/></svg></span>
+        <h3>You see what is connected</h3>
+        <p>Every tool you have signed in to is listed with the date. Sign out of one and its session ends immediately.</p>
+      </article>
+      <article>
+        <span class="ac-icon-tile" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V6l-8-3-8 3v6c0 6 8 10 8 10Z"/></svg></span>
+        <h3>Nothing sold, nothing tracked</h3>
+        <p>The account exists to open the tools, not to profile you. No advertising, no analytics, no address of yours read in the background.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="ac-closing">
+    <h2>Ready when you are</h2>
+    <p>Create the account, confirm your email and ask for the first tool. Accounts here are approved one by one by a person, which is why the first one takes a little longer than a click.</p>
+    <div class="ac-cta ac-cta-center">
+      <a href="/registro" class="btn btn-primary">Create an account</a>
+      <a href="/entrar" class="btn btn-secondary">Sign in</a>
+    </div>
+  </section>
+</div>
 {{end}}
-</section>
 {{end}}

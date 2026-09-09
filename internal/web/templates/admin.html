@@ -1,46 +1,84 @@
 {{define "content"}}
-<section class="ac-wrap wide">
-  <h1>Administration</h1>
-  {{if .Flash}}<div class="ac-ok">{{.Flash}}</div>{{end}}
-  {{if .Error}}<div class="ac-error">{{.Error}}</div>{{end}}
-
-  <div class="ac-card">
-    <h2>Waiting for approval</h2>
-    {{if .Pendientes}}
-      <table class="ac-table"><thead><tr><th>Who</th><th>Tool</th><th>Asked</th><th></th></tr></thead><tbody>
-      {{range .Pendientes}}<tr><td>{{.Email}}</td><td>{{.Grupo}}</td><td>{{.Creada.Format "2006-01-02 15:04"}}</td>
-        <td class="ac-inline">
-          <form method="post" action="/admin/solicitud"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="id" value="{{.ID}}"><button class="btn btn-primary btn-sm" name="decision" value="aprobar" type="submit">Approve</button> <button class="btn btn-ghost btn-sm" name="decision" value="rechazar" type="submit">Reject</button></form>
-        </td></tr>{{end}}
-      </tbody></table>
-    {{else}}<p class="ac-note">Nothing pending.</p>{{end}}
+<div class="kc-workspace">
+<div class="ac-page">
+  <div class="ac-page-head">
+    <div>
+      <h1>Administration</h1>
+      <p class="ac-page-sub">Who asked for what, who has an account, and which OAuth client opens for which group.</p>
+    </div>
   </div>
 
-  <div class="ac-card">
-    <h2>Accounts</h2>
-    <form class="ac-form" method="get" action="/admin">
-      <label for="q">Search by email</label>
-      <input id="q" name="q" type="search" value="{{.Q}}">
-      <div class="ac-actions"><button class="btn btn-ghost btn-sm" type="submit">Search</button></div>
-    </form>
-    {{if .Usuarios}}
-      <table class="ac-table"><thead><tr><th>Email</th><th>Created</th><th>Last sign-in</th><th>State</th><th></th></tr></thead><tbody>
-      {{range .Usuarios}}<tr><td>{{.Email}}</td><td>{{.Creada.Format "2006-01-02"}}</td><td>{{if .UltimaEntr}}{{.UltimaEntr.Format "2006-01-02 15:04"}}{{else}}never{{end}}</td>
-        <td>{{if .Bloqueada}}blocked{{else if .Confirmada}}active{{else}}unconfirmed{{end}}</td>
-        <td><a class="btn btn-ghost btn-sm" href="/admin/cuenta/{{.ID}}">Manage</a></td></tr>{{end}}
-      </tbody></table>
-    {{end}}
+  <div class="ac-stats">
+    <div class="ac-stat"><span class="ac-stat-label">Waiting for approval</span><span class="ac-stat-value{{if .Pendientes}} warn{{end}}">{{len .Pendientes}}</span></div>
+    <div class="ac-stat"><span class="ac-stat-label">Accounts shown</span><span class="ac-stat-value">{{len .Usuarios}}</span></div>
+    <div class="ac-stat"><span class="ac-stat-label">Groups linked to a client</span><span class="ac-stat-value accent">{{.Vinculados}}<span class="ac-stat-small"> / {{len .Grupos}}</span></span></div>
   </div>
 
-  <div class="ac-card">
-    <h2>OAuth clients and groups</h2>
-    <p class="ac-note">Each client opens for exactly one group. A client without a group lets nobody in.</p>
-    <table class="ac-table"><thead><tr><th>Group</th><th>Client</th><th></th></tr></thead><tbody>
-    {{range .Grupos}}<tr><td>{{.Nombre}} <span class="ac-small">{{.Titulo}}</span></td><td class="ac-mono">{{if .ClienteID}}{{.ClienteID}}{{else}}—{{end}}</td>
-      <td><form class="ac-inline" method="post" action="/admin/vincular"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="grupo" value="{{.Nombre}}">
-        <select name="cliente_id"><option value="">— none —</option>{{range $.Clientes}}<option value="{{.ID}}">{{.Nombre}}</option>{{end}}</select>
-        <button class="btn btn-ghost btn-sm" type="submit">Link</button></form></td></tr>{{end}}
-    </tbody></table>
+  {{if .Flash}}<div class="ac-alert ok" role="status"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><div>{{.Flash}}</div></div>{{end}}
+  {{if .Error}}<div class="ac-alert err" role="alert"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v4m0 4h.01"/></svg><div>{{.Error}}</div></div>{{end}}
+
+  <div class="ac-stack">
+    <section class="ac-card">
+      <div class="ac-card-head"><div><h2>Waiting for approval</h2><p>The first tool of every account is approved by hand. Approving adds the membership and tells the person by email.</p></div></div>
+      {{if .Pendientes}}
+        <div class="ac-table-wrap"><table class="ac-table">
+          <thead><tr><th>Who</th><th>Tool</th><th>Asked</th><th></th></tr></thead>
+          <tbody>
+          {{range .Pendientes}}<tr>
+            <td data-label="Who"><strong>{{.Email}}</strong></td>
+            <td data-label="Tool"><span class="ac-pill accent quiet">{{.Grupo}}</span></td>
+            <td data-label="Asked" class="muted">{{.Creada.Format "2006-01-02 15:04"}}</td>
+            <td class="actions"><form method="post" action="/admin/solicitud"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="id" value="{{.ID}}"><button class="btn btn-primary btn-sm" name="decision" value="aprobar" type="submit">Approve</button><button class="btn btn-ghost btn-sm" name="decision" value="rechazar" type="submit">Reject</button></form></td>
+          </tr>{{end}}
+          </tbody>
+        </table></div>
+      {{else}}
+        <div class="ac-empty">Nothing pending. New requests appear here and the person is told by email when you decide.</div>
+      {{end}}
+    </section>
+
+    <section class="ac-card">
+      <div class="ac-card-head">
+        <div><h2>Accounts</h2><p>Search by email to manage memberships, close sessions or block an account.</p></div>
+        <form class="ac-form-inline" method="get" action="/admin" role="search">
+          <input class="ac-input" id="q" name="q" type="search" value="{{.Q}}" placeholder="Search by email" aria-label="Search by email">
+          <button class="btn btn-secondary" type="submit">Search</button>
+        </form>
+      </div>
+      {{if .Usuarios}}
+        <div class="ac-table-wrap"><table class="ac-table">
+          <thead><tr><th>Email</th><th>Created</th><th>Last sign-in</th><th>State</th><th></th></tr></thead>
+          <tbody>
+          {{range .Usuarios}}<tr>
+            <td data-label="Email"><strong>{{.Email}}</strong>{{if .Nombre}}<span class="ac-small">{{.Nombre}}</span>{{end}}</td>
+            <td data-label="Created" class="muted">{{.Creada.Format "2006-01-02"}}</td>
+            <td data-label="Last sign-in" class="muted">{{if .UltimaEntr}}{{.UltimaEntr.Format "2006-01-02 15:04"}}{{else}}never{{end}}</td>
+            <td data-label="State">{{if .Bloqueada}}<span class="ac-pill danger">Blocked</span>{{else if .Confirmada}}<span class="ac-pill ok">Active</span>{{else}}<span class="ac-pill warn">Unconfirmed</span>{{end}}</td>
+            <td class="actions"><a class="btn btn-ghost btn-sm" href="/admin/cuenta/{{.ID}}">Manage</a></td>
+          </tr>{{end}}
+          </tbody>
+        </table></div>
+      {{else}}
+        <div class="ac-empty">No account matches{{if .Q}} “{{.Q}}”{{end}}.</div>
+      {{end}}
+    </section>
+
+    <section class="ac-card">
+      <div class="ac-card-head"><div><h2>OAuth clients and groups</h2><p>Each client opens for exactly one group. A client without a group lets nobody in, on purpose.</p></div></div>
+      <div class="ac-table-wrap"><table class="ac-table">
+        <thead><tr><th>Group</th><th>Client</th><th></th></tr></thead>
+        <tbody>
+        {{range .Grupos}}<tr>
+          <td data-label="Group"><strong>{{.Nombre}}</strong><span class="ac-small">{{.Titulo}}</span></td>
+          <td data-label="Client">{{if .ClienteID}}<span class="ac-mono">{{.ClienteID}}</span>{{else}}<span class="ac-pill quiet">Not linked</span>{{end}}</td>
+          <td class="actions"><form method="post" action="/admin/vincular"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="grupo" value="{{.Nombre}}">
+            <select class="ac-select" name="cliente_id" aria-label="Client for {{.Nombre}}"><option value="">— none —</option>{{range $.Clientes}}<option value="{{.ID}}">{{.Nombre}}</option>{{end}}</select>
+            <button class="btn btn-ghost btn-sm" type="submit">Link</button></form></td>
+        </tr>{{end}}
+        </tbody>
+      </table></div>
+    </section>
   </div>
-</section>
+</div>
+</div>
 {{end}}

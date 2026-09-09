@@ -4,13 +4,18 @@
  *   kaicorp.css        las primitivas de marca (--kc-*) — copia generada
  *   landing-polish.css cómo se componen portada y espacio de trabajo — copia generada
  *   account.css        este fichero: fuentes, base, cromado, botones, formularios
- *                      y lo que sólo tiene la app de cuenta (prefijo `ac-`)
+ *                      y los componentes de la app de cuenta (prefijo `ac-`)
  *
  * Las dos primeras no se editan aquí. Esta existe porque las primitivas son
  * sólo variables: sin una capa que ponga `body`, la cabecera, el pie y los
  * botones, la página sale con la letra y los enlaces del navegador. El
  * cromado y los botones están calcados de LinkUp (su app.css) sobre los tokens
  * de la casa, para que la app de cuenta se vea como las demás herramientas.
+ *
+ * Componentes, en el orden en que aparecen: portada (`ac-landing`), pantallas
+ * de autenticación (`ac-auth`), espacio de trabajo (`ac-page`), tarjetas de
+ * herramienta (`ac-tool-card`), tablas (`ac-table-wrap`), píldoras (`ac-pill`),
+ * avisos (`ac-alert`), cifras (`ac-stats`) y formularios (`ac-field`).
  *
  * Sin JavaScript: `script-src 'none'`. Todo lo interactivo es HTML.
  * Las fuentes van dentro del binario (`font-src 'self'`); ver static/fonts/. */
@@ -34,13 +39,15 @@
   --surface: var(--kc-panel);
   --foreground: var(--kc-text-1);
   --border: var(--kc-line);
-  --kc-surface: var(--kc-panel);
-  --kc-border: var(--kc-line);
+
+  /* Medidas propias. */
+  --ac-ancho: 72rem;
+  --ac-auth-ancho: 27rem;
 }
 
 /* ── Base ───────────────────────────────────────────────────────────────── */
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html { -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
 body {
   background-color: var(--kc-bg);
   color: var(--kc-text-1);
@@ -49,16 +56,17 @@ body {
   min-height: 100svh;
   display: flex;
   flex-direction: column;
+  -webkit-font-smoothing: antialiased;
 }
 main { flex: 1; display: flex; flex-direction: column; }
-h1, h2, h3, h4 { font-family: var(--kc-font-display); letter-spacing: -0.02em; font-weight: 700; }
-h1 { font-size: clamp(1.6rem, 5vw, 2.1rem); line-height: 1.15; }
-h2 { font-size: 1.2rem; margin-bottom: 0.75rem; }
+h1, h2, h3, h4 { font-family: var(--kc-font-display); letter-spacing: -0.02em; font-weight: 700; color: var(--kc-text-1); }
 code, pre, .mono { font-family: var(--kc-font-mono); }
-a { color: var(--kc-accent); }
+a { color: var(--kc-accent); text-underline-offset: 0.15em; }
 a:hover { color: var(--kc-accent-strong); }
-img { max-width: 100%; }
-strong { font-weight: 600; }
+img, svg { max-width: 100%; }
+strong { font-weight: 600; color: var(--kc-text-1); }
+:focus-visible { outline: 2px solid var(--kc-accent); outline-offset: 2px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* ── El cromado: cabecera y pie, los de la casa ─────────────────────────── */
 .kc-header {
@@ -68,7 +76,7 @@ strong { font-weight: 600; }
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
 }
 .kc-header-inner {
-  max-width: 72rem; margin: 0 auto; height: 3.5rem;
+  max-width: var(--ac-ancho); margin: 0 auto; height: 3.5rem;
   display: flex; align-items: center; gap: 0.75rem; padding: 0 1rem;
 }
 @media (min-width: 40rem) { .kc-header-inner { padding: 0 1.5rem; } }
@@ -120,7 +128,6 @@ strong { font-weight: 600; }
   color: var(--kc-accent); border: 1px solid color-mix(in oklab, var(--kc-accent) 40%, transparent);
   border-radius: 999px; padding: 0.05rem 0.4rem;
 }
-/* La salida es un <button> dentro de un <form>: que se vea como los enlaces. */
 .kc-account-menu form { display: block; }
 .kc-account-out { background: none; border: 0; text-align: left; font: inherit; font-size: 0.9rem; cursor: pointer; color: var(--kc-text-2); }
 
@@ -131,7 +138,7 @@ strong { font-weight: 600; }
 }
 @media (min-width: 40rem) { .kc-footer { padding: 1.25rem 1.5rem; } }
 .kc-footer-inner {
-  max-width: 72rem; margin: 0 auto;
+  max-width: var(--ac-ancho); margin: 0 auto;
   display: flex; flex-direction: column; align-items: center; gap: 0.75rem;
   text-align: center; font-size: 0.75rem;
 }
@@ -148,111 +155,333 @@ strong { font-weight: 600; }
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
   min-height: 2.5rem; padding: 0.55rem 1.1rem;
-  border-radius: 0.55rem; border: 1px solid transparent;
+  border-radius: 0.6rem; border: 1px solid transparent;
   font-family: var(--kc-font-sans); font-weight: 600; font-size: 0.875rem; line-height: 1.2;
   text-decoration: none; cursor: pointer; white-space: nowrap;
-  transition: background-color 0.15s, border-color 0.15s, opacity 0.15s, transform 0.15s, box-shadow 0.15s;
+  transition: background-color 0.15s, border-color 0.15s, opacity 0.15s, transform 0.15s, box-shadow 0.15s, color 0.15s;
 }
 .btn:focus-visible { outline: 2px solid var(--kc-accent); outline-offset: 2px; }
 .btn-primary {
   background: linear-gradient(135deg, var(--kc-accent), var(--kc-accent-strong));
   color: var(--kc-accent-ink);
-  box-shadow: 0 4px 12px color-mix(in oklab, var(--kc-accent) 25%, transparent);
+  box-shadow: 0 4px 14px color-mix(in oklab, var(--kc-accent) 22%, transparent);
 }
-.btn-primary:hover { opacity: 0.95; transform: translateY(-1px); color: var(--kc-accent-ink); box-shadow: 0 6px 16px color-mix(in oklab, var(--kc-accent) 35%, transparent); }
+.btn-primary:hover { opacity: 0.94; transform: translateY(-1px); color: var(--kc-accent-ink); box-shadow: 0 8px 20px color-mix(in oklab, var(--kc-accent) 30%, transparent); }
+.btn-secondary { background: var(--kc-panel); color: var(--kc-text-1); border-color: var(--kc-line-2); }
+.btn-secondary:hover { background: var(--kc-panel-2); border-color: var(--kc-text-3); color: var(--kc-text-1); }
 .btn-ghost { background: transparent; color: var(--kc-text-2); border-color: var(--kc-line); }
 .btn-ghost:hover { color: var(--kc-text-1); background: var(--kc-panel-2); border-color: var(--kc-line-2); }
 .btn-danger { background: var(--kc-danger-soft); color: var(--kc-danger); border-color: color-mix(in oklab, var(--kc-danger) 30%, transparent); }
 .btn-danger:hover { background: color-mix(in oklab, var(--kc-danger) 22%, transparent); color: var(--kc-danger); }
-.btn-sm { min-height: 2.25rem; padding: 0.4rem 0.8rem; font-size: 0.8rem; }
+.btn-sm { min-height: 2.25rem; padding: 0.4rem 0.85rem; font-size: 0.8rem; }
+.btn-block { width: 100%; }
+.btn svg { width: 1em; height: 1em; flex-shrink: 0; }
 @media (pointer: coarse) { .btn, .btn-sm { min-height: 2.75rem; } }
-@media (prefers-reduced-motion: reduce) { .btn { transition: none; } .btn-primary:hover { transform: none; } }
 
-/* ── Formularios ────────────────────────────────────────────────────────── */
-.ac-form label { display: block; margin: 1rem 0 0.4rem; font-size: 0.85rem; font-weight: 600; color: var(--kc-text-2); }
-.ac-form label:first-child { margin-top: 0; }
-.ac-form input:not([type=hidden]):not([type=checkbox]):not([type=radio]), .ac-form select, .ac-form textarea, .ac-table select {
-  width: 100%; min-height: 2.75rem; padding: 0.65rem 0.9rem;
-  background: var(--kc-bg-2); border: 1px solid var(--kc-line); border-radius: 0.55rem;
-  color: var(--kc-text-1); font-family: var(--kc-font-sans); font-size: 1rem;
-  transition: border-color 0.15s, box-shadow 0.15s;
+/* ── Píldoras de estado: el color es el significado, el texto lo dice ───── */
+.ac-pill {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  font-size: 0.72rem; font-weight: 600; letter-spacing: 0.01em;
+  padding: 0.22rem 0.65rem; border-radius: 999px; white-space: nowrap;
+  color: var(--kc-text-2); background: var(--kc-panel-2); border: 1px solid var(--kc-line-2);
 }
-@media (min-width: 40rem) { .ac-form input:not([type=hidden]):not([type=checkbox]):not([type=radio]), .ac-form select { font-size: 0.95rem; } }
-/* Los desplegables de las tablas de administración (vincular cliente y grupo)
-   van compactos y con el mismo vestido; sin esto salen blancos, del navegador. */
-.ac-table select { width: auto; min-height: 2.25rem; padding: 0.35rem 2rem 0.35rem 0.7rem; font-size: 0.85rem; }
-.ac-form input:focus, .ac-form select:focus, .ac-form textarea:focus, .ac-table select:focus {
-  outline: none; border-color: var(--kc-accent);
-  box-shadow: 0 0 0 3px var(--kc-accent-soft);
-}
-.ac-form input[inputmode=numeric], .ac-form input[autocomplete=one-time-code] { font-family: var(--kc-font-mono); letter-spacing: 0.15em; }
-.ac-form select, .ac-table select { appearance: none; -webkit-appearance: none; padding-right: 2rem; background-image: linear-gradient(45deg, transparent 50%, var(--kc-text-3) 50%), linear-gradient(135deg, var(--kc-text-3) 50%, transparent 50%); background-position: calc(100% - 1.1rem) 50%, calc(100% - 0.8rem) 50%; background-size: 0.3rem 0.3rem; background-repeat: no-repeat; }
-input[type=checkbox] { width: 1.1rem; height: 1.1rem; accent-color: var(--kc-accent); flex-shrink: 0; }
-.ac-form input::placeholder { color: var(--kc-text-3); }
+.ac-pill::before { content: ""; width: 0.45rem; height: 0.45rem; border-radius: 999px; background: currentColor; opacity: 0.9; }
+.ac-pill.ok { color: var(--kc-ok); background: var(--kc-ok-soft); border-color: color-mix(in oklab, var(--kc-ok) 30%, transparent); }
+.ac-pill.warn { color: var(--kc-warn); background: var(--kc-warn-soft); border-color: color-mix(in oklab, var(--kc-warn) 30%, transparent); }
+.ac-pill.danger { color: var(--kc-danger); background: var(--kc-danger-soft); border-color: color-mix(in oklab, var(--kc-danger) 30%, transparent); }
+.ac-pill.accent { color: var(--kc-accent); background: var(--kc-accent-soft); border-color: color-mix(in oklab, var(--kc-accent) 30%, transparent); }
+.ac-pill.quiet::before { display: none; }
 
-/* ── Lo propio de la app de cuenta ──────────────────────────────────────── */
-.ac-wrap { width: 100%; max-width: 36rem; margin: 0 auto; padding: 2.5rem 1rem 4rem; }
-@media (min-width: 40rem) { .ac-wrap { padding: 3rem 1.5rem 5rem; } }
-.ac-wrap.wide { max-width: 60rem; }
-.ac-wrap > h1 + .ac-note { margin-top: 0.75rem; }
+/* ── La portada, para quien aún no ha entrado ───────────────────────────── */
+.ac-landing { display: flex; flex-direction: column; flex: 1; }
+.ac-landing > section { width: 100%; max-width: var(--ac-ancho); margin: 0 auto; padding-inline: 1rem; }
+@media (min-width: 40rem) { .ac-landing > section { padding-inline: 1.5rem; } }
+
+.ac-hero-grid { display: grid; gap: 2.5rem; align-items: center; }
+@media (min-width: 64rem) {
+  .ac-hero-grid { grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); gap: clamp(3rem, 7vw, 7rem); }
+  .ac-hero-grid .ac-demo { margin-top: 0; max-width: none; }
+}
+.ac-eyebrow { display: inline-block; font-size: 0.72rem; color: var(--kc-text-2); margin-bottom: 1.5rem; }
+.ac-lede { margin-top: 1.25rem; font-size: 1.05rem; line-height: 1.65; color: var(--kc-text-2); }
+@media (min-width: 40rem) { .ac-lede { font-size: 1.15rem; } }
+.ac-cta { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.75rem; }
+.ac-cta-center { justify-content: center; }
+.ac-cta .btn { min-height: 2.75rem; padding-inline: 1.4rem; }
+
+/* La demostración: la lista de herramientas tal y como se ve dentro, con sus
+   tres estados. Los mismos componentes que la página real, para que lo que se
+   promete fuera sea exactamente lo que hay dentro. */
+.ac-demo {
+  margin-top: 2.5rem; max-width: 34rem;
+  border: 1px solid color-mix(in oklab, var(--kc-accent) 18%, var(--kc-line)); border-radius: var(--kc-radius-lg);
+  background: color-mix(in oklab, var(--kc-panel) 86%, transparent); padding: 1rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 30px 80px -40px #000;
+}
+.ac-demo-head { display: flex; justify-content: space-between; align-items: center; padding: 0.25rem 0.35rem 0.85rem; }
+.ac-demo-head span:first-child { font-family: var(--kc-font-display); font-weight: 600; font-size: 0.95rem; }
+.ac-demo-row {
+  display: grid; grid-template-columns: auto 1fr auto; gap: 0.85rem; align-items: center;
+  padding: 0.75rem 0.6rem; border-top: 1px solid var(--kc-line);
+}
+.ac-demo-row > div { min-width: 0; }
+.ac-demo-row strong { display: block; font-family: var(--kc-font-display); font-size: 0.92rem; }
+.ac-demo-row span:not(.ac-pill):not(.ac-tool-mark) { display: block; font-size: 0.8rem; color: var(--kc-text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ac-demo figcaption { padding: 0.9rem 0.35rem 0.1rem; font-size: 0.8rem; color: var(--kc-text-3); border-top: 1px solid var(--kc-line); }
+@media (max-width: 26rem) { .ac-demo-row { grid-template-columns: auto 1fr; } .ac-demo-row > :last-child { grid-column: 2; justify-self: start; } }
+
+.ac-features { padding-block: 2.5rem 3.5rem; }
+.ac-features h2.uppercase { font-size: 0.75rem; font-weight: 500; text-transform: uppercase; margin-bottom: 1.5rem; }
+.kc-card-grid { display: grid; grid-template-columns: 1fr; }
+@media (min-width: 40rem) { .kc-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 64rem) { .kc-card-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+/* landing-polish mezcla el acento con `transparent` en oklch y Chrome desplaza
+   el tono hacia el rojo: las tarjetas salían marrones. Misma composición, en srgb. */
+.ac-landing .kc-card-grid > article {
+  border-color: color-mix(in srgb, var(--kc-accent) 12%, var(--kc-line));
+  background: linear-gradient(145deg, color-mix(in srgb, var(--kc-accent) 7%, transparent), transparent 46%), color-mix(in srgb, var(--kc-panel) 88%, transparent);
+}
+.ac-landing .kc-card-grid > article:hover { border-color: color-mix(in srgb, var(--kc-accent) 38%, var(--kc-line)); }
+.kc-card-grid article { display: flex; flex-direction: column; gap: 0.5rem; }
+.kc-card-grid h3 { font-size: 1.05rem; font-weight: 600; }
+.kc-card-grid p { color: var(--kc-text-2); font-size: 0.9rem; line-height: 1.55; }
+.ac-step {
+  display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; margin-bottom: 0.5rem;
+  border-radius: 0.6rem; font-family: var(--kc-font-mono); font-size: 0.8rem; font-weight: 500;
+  color: var(--kc-accent); background: var(--kc-accent-soft); border: 1px solid color-mix(in oklab, var(--kc-accent) 30%, transparent);
+}
+.ac-icon-tile {
+  display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; margin-bottom: 0.5rem;
+  border-radius: 0.6rem; color: var(--kc-text-2); background: var(--kc-panel-2); border: 1px solid var(--kc-line-2);
+}
+.ac-icon-tile svg { width: 1rem; height: 1rem; }
+
+.ac-closing { text-align: center; padding-block: 3.5rem 4.5rem; }
+.ac-closing h2 { font-weight: 700; }
+.ac-closing p { max-width: 36rem; margin: 1rem auto 1.75rem; color: var(--kc-text-2); line-height: 1.6; }
+
+/* ── Las pantallas de autenticación: una tarjeta, centrada, y nada más ──── */
+.ac-auth { display: flex; flex: 1; align-items: center; justify-content: center; padding: 2.5rem 1rem 4rem; }
+@media (min-width: 48rem) { .ac-auth { padding-top: 3.5rem; } }
+.ac-auth-card {
+  width: 100%; max-width: var(--ac-auth-ancho);
+  background: color-mix(in oklab, var(--kc-panel) 92%, transparent);
+  border: 1px solid var(--kc-line); border-radius: var(--kc-radius-lg);
+  padding: 1.75rem 1.5rem; position: relative;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 30px 80px -40px #000;
+}
+@media (min-width: 40rem) { .ac-auth-card { padding: 2.25rem 2rem; } }
+.ac-auth-card::before {
+  content: ""; position: absolute; inset: -1px 15% auto; height: 1px;
+  background: var(--kc-edge); pointer-events: none;
+}
+.ac-auth-card.wide { max-width: 32rem; }
+.ac-auth-head { margin-bottom: 1.5rem; }
+.ac-auth-head h1 { font-size: 1.6rem; line-height: 1.15; }
+.ac-auth-head p { margin-top: 0.5rem; color: var(--kc-text-2); font-size: 0.92rem; line-height: 1.55; }
+.ac-auth-mark {
+  display: inline-flex; align-items: center; justify-content: center; width: 2.75rem; height: 2.75rem; margin-bottom: 1rem;
+  border-radius: 0.85rem; color: var(--kc-accent); background: var(--kc-accent-soft);
+  border: 1px solid color-mix(in oklab, var(--kc-accent) 30%, transparent);
+}
+.ac-auth-mark svg { width: 1.3rem; height: 1.3rem; }
+.ac-auth-mark.ok { color: var(--kc-ok); background: var(--kc-ok-soft); border-color: color-mix(in oklab, var(--kc-ok) 30%, transparent); }
+.ac-auth-mark.warn { color: var(--kc-warn); background: var(--kc-warn-soft); border-color: color-mix(in oklab, var(--kc-warn) 30%, transparent); }
+.ac-auth-mark.quiet { color: var(--kc-text-2); background: var(--kc-panel-2); border-color: var(--kc-line-2); }
+.ac-auth-card .btn-block { margin-top: 0.5rem; }
+.ac-auth-alt { margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--kc-line); text-align: center; font-size: 0.9rem; color: var(--kc-text-2); }
+.ac-auth-foot { margin-top: 1.25rem; font-size: 0.82rem; color: var(--kc-text-3); line-height: 1.55; }
+.ac-auth-foot a { color: var(--kc-text-2); }
+
+/* El código de seis cifras del segundo factor: grande, monoespaciado, centrado. */
+.ac-code { font-family: var(--kc-font-mono) !important; font-size: 1.6rem !important; letter-spacing: 0.35em; text-align: center; padding-inline: 0.5rem !important; }
+
+/* ── El espacio de trabajo: cabecera de página, rejillas y tarjetas ─────── */
+.ac-page { width: 100%; max-width: var(--ac-ancho); margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+@media (min-width: 40rem) { .ac-page { padding: 2rem 1.5rem 5rem; } }
+.ac-page.narrow { max-width: 48rem; }
+.ac-page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+.ac-page-head h1 { font-size: clamp(1.6rem, 4vw, 2.25rem) !important; line-height: 1.1 !important; }
+.ac-page-sub { color: var(--kc-text-2); font-size: 0.92rem; margin-top: 0.4rem; max-width: 42rem; line-height: 1.55; }
+.ac-page-sub strong { color: var(--kc-text-1); }
+.ac-page-side { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.ac-crumb { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.8rem; color: var(--kc-text-3); text-decoration: none; margin-bottom: 0.75rem; }
+.ac-crumb:hover { color: var(--kc-text-1); }
+.ac-crumb svg { width: 0.85rem; height: 0.85rem; }
+
+.ac-grid-2 { display: grid; gap: 1rem; align-items: start; }
+@media (min-width: 56rem) { .ac-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.ac-grid-2 > .span-2 { grid-column: 1 / -1; }
+.ac-stack { display: grid; gap: 1rem; }
 
 .ac-card {
   background: var(--kc-panel); border: 1px solid var(--kc-line);
-  border-radius: var(--kc-radius-lg); padding: 1.25rem; margin-top: 1.25rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  border-radius: var(--kc-radius-lg); padding: 1.25rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 14px 38px -24px #000;
 }
 @media (min-width: 40rem) { .ac-card { padding: 1.5rem; } }
-.ac-card > h2:first-child { margin-bottom: 1rem; }
+.ac-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.ac-card-head h2 { font-size: 1.15rem; line-height: 1.25; }
+.ac-card-head p { color: var(--kc-text-2); font-size: 0.88rem; margin-top: 0.3rem; line-height: 1.55; max-width: 38rem; }
 .ac-card > p { color: var(--kc-text-2); line-height: 1.6; }
-.ac-card > p strong { color: var(--kc-text-1); }
+.ac-card.danger { border-color: color-mix(in oklab, var(--kc-danger) 25%, var(--kc-line)); }
+.ac-card.danger .ac-card-head h2 { color: var(--kc-danger); }
 
-.ac-actions { display: flex; gap: 0.75rem; align-items: center; margin-top: 1.5rem; flex-wrap: wrap; }
+.ac-actions { display: flex; gap: 0.6rem; align-items: center; margin-top: 1.25rem; flex-wrap: wrap; }
+.ac-actions.end { justify-content: flex-end; }
+.ac-actions.tight { margin-top: 0.75rem; }
+.ac-inline { display: inline-flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+.ac-inline form { display: inline-flex; gap: 0.5rem; align-items: center; }
 .ac-note { color: var(--kc-text-2); font-size: 0.92rem; line-height: 1.6; margin-top: 1rem; }
 .ac-note strong { color: var(--kc-text-1); }
 .ac-small { font-size: 0.82rem; color: var(--kc-text-3); }
 .ac-mono { font-family: var(--kc-font-mono); font-size: 0.85rem; word-break: break-all; }
-.ac-inline { display: inline-flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+.ac-help { margin-top: 1rem; font-size: 0.82rem; color: var(--kc-text-3); line-height: 1.55; }
+.ac-help code { font-size: 0.8em; color: var(--kc-text-2); }
 
-/* Avisos: un borde de color y fondo suave; el color es el significado. */
-.ac-error, .ac-ok {
-  padding: 0.7rem 0.9rem; margin: 1rem 0; border-radius: 0 var(--kc-radius-sm) var(--kc-radius-sm) 0;
-  font-size: 0.92rem; line-height: 1.5;
+/* Vacíos: una frase, no un hueco. */
+.ac-empty {
+  padding: 1.5rem 1rem; text-align: center; color: var(--kc-text-3); font-size: 0.9rem;
+  border: 1px dashed var(--kc-line-2); border-radius: var(--kc-radius);
 }
-.ac-error { border-left: 3px solid var(--kc-danger); background: var(--kc-danger-soft); color: var(--kc-text-1); }
-.ac-ok { border-left: 3px solid var(--kc-ok); background: var(--kc-ok-soft); color: var(--kc-text-1); }
 
-/* Las herramientas, una tarjeta por fila. */
-.ac-tools { list-style: none; padding: 0; margin: 1.25rem 0 0; display: grid; gap: 0.75rem; }
-.ac-tool {
-  display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: center;
-  padding: 1rem 1.1rem; background: var(--kc-panel); border: 1px solid var(--kc-line); border-radius: var(--kc-radius);
+/* ── Avisos ─────────────────────────────────────────────────────────────── */
+.ac-alert {
+  display: flex; gap: 0.7rem; align-items: flex-start;
+  padding: 0.8rem 1rem; margin-bottom: 1.25rem; border-radius: var(--kc-radius);
+  font-size: 0.92rem; line-height: 1.5; color: var(--kc-text-1);
+  border: 1px solid var(--kc-line-2); background: var(--kc-panel-2);
 }
-@media (max-width: 30rem) { .ac-tool { grid-template-columns: 1fr; } }
-.ac-tool h3 { margin: 0 0 0.2rem; font-size: 1.05rem; font-weight: 600; }
-.ac-tool p { margin: 0; font-size: 0.9rem; color: var(--kc-text-2); line-height: 1.5; }
+.ac-alert svg { width: 1.1rem; height: 1.1rem; flex-shrink: 0; margin-top: 0.15rem; }
+.ac-alert.ok { border-color: color-mix(in oklab, var(--kc-ok) 35%, transparent); background: var(--kc-ok-soft); }
+.ac-alert.ok svg { color: var(--kc-ok); }
+.ac-alert.err { border-color: color-mix(in oklab, var(--kc-danger) 35%, transparent); background: var(--kc-danger-soft); }
+.ac-alert.err svg { color: var(--kc-danger); }
+.ac-auth-card .ac-alert { margin-bottom: 1.25rem; }
 
-.ac-badge {
-  display: inline-flex; align-items: center; font-size: 0.72rem; font-weight: 600;
-  padding: 0.2rem 0.6rem; border-radius: 999px; white-space: nowrap;
-  color: var(--kc-text-2); border: 1px solid var(--kc-line-2); background: var(--kc-panel-2);
+/* ── Cifras ─────────────────────────────────────────────────────────────── */
+.ac-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem; }
+@media (min-width: 40rem) { .ac-stats { gap: 1rem; } }
+.ac-stat {
+  background: var(--kc-bg-2); border: 1px solid var(--kc-line); border-radius: var(--kc-radius);
+  padding: 1rem 1.1rem; display: flex; flex-direction: column; gap: 0.3rem; min-width: 0;
 }
-.ac-badge.si { color: var(--kc-ok); border-color: color-mix(in oklab, var(--kc-ok) 30%, transparent); background: var(--kc-ok-soft); }
-.ac-badge.espera { color: var(--kc-warn); border-color: color-mix(in oklab, var(--kc-warn) 30%, transparent); background: var(--kc-warn-soft); }
+.ac-stat-label { font-size: 0.7rem; color: var(--kc-text-2); text-transform: uppercase; letter-spacing: 0.07em; font-weight: 600; }
+.ac-stat-value { font-size: 1.6rem; font-weight: 700; font-family: var(--kc-font-display); line-height: 1.1; }
+.ac-stat-value.accent { color: var(--kc-accent); }
+.ac-stat-value.warn { color: var(--kc-warn); }
+.ac-stat-small { font-size: 0.95rem; color: var(--kc-text-2); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* Tablas: administración y factores. */
-table.ac-table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.9rem; }
+/* ── Formularios ────────────────────────────────────────────────────────── */
+.ac-form { display: grid; gap: 1rem; }
+.ac-field { display: grid; gap: 0.4rem; min-width: 0; }
+.ac-field label, .ac-label { font-size: 0.85rem; font-weight: 600; color: var(--kc-text-2); }
+.ac-field-row { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+.ac-field-row a { font-size: 0.8rem; color: var(--kc-text-2); }
+.ac-hint { font-size: 0.78rem; color: var(--kc-text-3); }
+.ac-form-row { display: grid; gap: 1rem; }
+@media (min-width: 40rem) { .ac-form-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.ac-form input:not([type=hidden]):not([type=checkbox]):not([type=radio]), .ac-form select, .ac-form textarea, .ac-input {
+  width: 100%; min-height: 2.75rem; padding: 0.65rem 0.9rem;
+  background: var(--kc-bg-2); border: 1px solid var(--kc-line-2); border-radius: 0.6rem;
+  color: var(--kc-text-1); font-family: var(--kc-font-sans); font-size: 1rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+@media (min-width: 40rem) { .ac-form input:not([type=hidden]):not([type=checkbox]):not([type=radio]), .ac-form select, .ac-input { font-size: 0.95rem; } }
+.ac-form input:focus, .ac-form select:focus, .ac-form textarea:focus, .ac-input:focus {
+  outline: none; border-color: var(--kc-accent);
+  box-shadow: 0 0 0 3px var(--kc-accent-soft);
+}
+.ac-form input::placeholder { color: var(--kc-text-3); }
+.ac-form select, .ac-select {
+  appearance: none; -webkit-appearance: none; padding-right: 2.2rem; cursor: pointer;
+  background-image: linear-gradient(45deg, transparent 50%, var(--kc-text-3) 50%), linear-gradient(135deg, var(--kc-text-3) 50%, transparent 50%);
+  background-position: calc(100% - 1.1rem) 50%, calc(100% - 0.8rem) 50%; background-size: 0.3rem 0.3rem; background-repeat: no-repeat;
+}
+.ac-select {
+  width: auto; min-height: 2.25rem; padding: 0.35rem 2.2rem 0.35rem 0.7rem; font-size: 0.85rem;
+  background-color: var(--kc-bg-2); border: 1px solid var(--kc-line-2); border-radius: 0.5rem; color: var(--kc-text-1); font-family: var(--kc-font-sans);
+}
+.ac-select:focus { outline: none; border-color: var(--kc-accent); box-shadow: 0 0 0 3px var(--kc-accent-soft); }
+/* Por encima de `.kc-workspace :is(input, select)` de la hoja compartida, que
+   tiñe los campos con la misma mezcla en oklch. */
+.kc-workspace .ac-input, .kc-workspace .ac-select, .kc-workspace .ac-form input:not([type=hidden]), .kc-workspace .ac-form select { background-color: var(--kc-bg-2); border-color: var(--kc-line-2); box-shadow: none; }
+.kc-workspace .ac-input:focus, .kc-workspace .ac-select:focus, .kc-workspace .ac-form input:focus, .kc-workspace .ac-form select:focus { border-color: var(--kc-accent); box-shadow: 0 0 0 3px var(--kc-accent-soft); }
+input[type=checkbox] { width: 1.1rem; height: 1.1rem; accent-color: var(--kc-accent); flex-shrink: 0; }
+.ac-form-inline { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
+.ac-form-inline .ac-input { flex: 1 1 14rem; width: auto; }
+.ac-static { display: flex; align-items: center; min-height: 2.75rem; padding: 0.65rem 0.9rem; border-radius: 0.6rem; border: 1px dashed var(--kc-line-2); color: var(--kc-text-2); font-size: 0.95rem; }
+.ac-static strong { color: var(--kc-text-1); }
+
+/* ── Las herramientas, una tarjeta cada una ─────────────────────────────── */
+.ac-tool-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); }
+.ac-tool-card {
+  display: flex; flex-direction: column; gap: 1rem; min-width: 0;
+  background: var(--kc-panel); border: 1px solid var(--kc-line); border-radius: var(--kc-radius-lg); padding: 1.25rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 14px 38px -24px #000;
+  transition: border-color 0.18s, transform 0.18s;
+}
+.ac-tool-card:hover { border-color: var(--kc-line-2); }
+.ac-tool-card.is-member { border-color: color-mix(in oklab, var(--kc-ok) 22%, var(--kc-line)); }
+.ac-tool-card.is-member:hover { border-color: color-mix(in oklab, var(--kc-ok) 40%, var(--kc-line)); transform: translateY(-2px); }
+.ac-tool-card.is-pending { border-color: color-mix(in oklab, var(--kc-warn) 22%, var(--kc-line)); }
+.ac-tool-top { display: flex; gap: 0.9rem; align-items: flex-start; }
+.ac-tool-top > div { min-width: 0; }
+.ac-tool-top h3 { font-size: 1.05rem; font-weight: 600; line-height: 1.25; }
+.ac-tool-top p { margin-top: 0.25rem; font-size: 0.88rem; color: var(--kc-text-2); line-height: 1.5; }
+.ac-tool-mark {
+  flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem;
+  border-radius: 0.75rem; font-family: var(--kc-font-display); font-weight: 700; font-size: 1.05rem;
+  color: var(--kc-accent); background: var(--kc-accent-soft); border: 1px solid color-mix(in oklab, var(--kc-accent) 30%, transparent);
+}
+.ac-tool-mark.sm { width: 2rem; height: 2rem; font-size: 0.85rem; border-radius: 0.55rem; }
+.is-member .ac-tool-mark { color: var(--kc-ok); background: var(--kc-ok-soft); border-color: color-mix(in oklab, var(--kc-ok) 30%, transparent); }
+.is-pending .ac-tool-mark { color: var(--kc-warn); background: var(--kc-warn-soft); border-color: color-mix(in oklab, var(--kc-warn) 30%, transparent); }
+.ac-tool-foot { margin-top: auto; display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap; padding-top: 1rem; border-top: 1px solid var(--kc-line); }
+.ac-tool-foot form { display: contents; }
+
+/* ── Tablas: en el escritorio una tabla, en la mano una pila de tarjetas ─── */
+.ac-table-wrap { overflow-x: auto; border: 1px solid var(--kc-line); border-radius: var(--kc-radius); margin-top: 0.5rem; }
+.ac-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.875rem; }
 .ac-table th {
-  text-align: left; padding: 0.6rem 0.7rem;
-  font-size: 0.72rem; font-weight: 600; color: var(--kc-text-2); text-transform: uppercase; letter-spacing: 0.05em;
-  border-bottom: 1px solid var(--kc-line-2); white-space: nowrap;
+  background: var(--kc-bg-2); padding: 0.7rem 1rem;
+  font-size: 0.7rem; font-weight: 600; color: var(--kc-text-2); text-transform: uppercase; letter-spacing: 0.06em;
+  border-bottom: 1px solid var(--kc-line); white-space: nowrap;
 }
-.ac-table td { text-align: left; padding: 0.7rem; border-bottom: 1px solid var(--kc-line); vertical-align: top; }
+.ac-table td { padding: 0.85rem 1rem; border-bottom: 1px solid var(--kc-line); vertical-align: middle; color: var(--kc-text-1); }
 .ac-table tr:last-child td { border-bottom: 0; }
-.ac-table form { display: inline; }
-.ac-table a { text-decoration: none; }
-.ac-table a:hover { text-decoration: underline; }
+.ac-table td.actions { text-align: right; white-space: nowrap; }
+.ac-table td.actions form, .ac-table td.actions .ac-inline { display: inline-flex; gap: 0.4rem; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
+.ac-table td .ac-small { display: block; }
+.ac-table td.muted, .ac-table .muted { color: var(--kc-text-2); white-space: nowrap; }
+@media (max-width: 40rem) {
+  .ac-table thead { display: none; }
+  .ac-table, .ac-table tbody, .ac-table tr, .ac-table td { display: block; width: 100%; }
+  .ac-table tr { padding: 0.5rem 0; border-bottom: 1px solid var(--kc-line); }
+  .ac-table tr:last-child { border-bottom: 0; }
+  .ac-table td { padding: 0.4rem 1rem; border: 0; }
+  .ac-table td[data-label]::before { content: attr(data-label); display: block; font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--kc-text-3); margin-bottom: 0.15rem; }
+  .ac-table td.actions { text-align: left; padding-top: 0.6rem; padding-bottom: 0.9rem; }
+  .ac-table td.actions form, .ac-table td.actions .ac-inline { justify-content: flex-start; }
+}
 
-/* El QR del segundo factor sobre blanco: un lector no lee un QR oscuro. */
-.ac-qr { display: block; width: 200px; height: 200px; background: #fff; padding: 8px; border-radius: var(--kc-radius-sm); margin: 1rem 0; }
-.ac-scopes { margin: 0.75rem 0 0 1.25rem; padding: 0; color: var(--kc-text-2); }
-.ac-scopes li { margin: 0.2rem 0; }
+/* ── Lo que sólo tiene el consentimiento y la seguridad ─────────────────── */
+.ac-scope-list { list-style: none; margin: 1rem 0; padding: 0; display: grid; gap: 0.5rem; }
+.ac-scope-list li { display: flex; gap: 0.6rem; align-items: center; padding: 0.6rem 0.8rem; border-radius: var(--kc-radius-sm); background: var(--kc-bg-2); border: 1px solid var(--kc-line); font-size: 0.9rem; }
+.ac-scope-list svg { width: 1rem; height: 1rem; color: var(--kc-ok); flex-shrink: 0; }
+.ac-consent-who { display: flex; gap: 0.9rem; align-items: center; padding: 0.9rem 1rem; border-radius: var(--kc-radius); background: var(--kc-bg-2); border: 1px solid var(--kc-line); }
+.ac-consent-who > div { min-width: 0; }
+.ac-consent-who strong { display: block; font-family: var(--kc-font-display); }
+.ac-consent-who span { display: block; font-size: 0.82rem; color: var(--kc-text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ac-qr-box { display: grid; gap: 1rem; align-items: start; margin: 1rem 0; }
+@media (min-width: 40rem) { .ac-qr-box { grid-template-columns: auto 1fr; } }
+.ac-qr { display: block; width: 176px; height: 176px; background: #fff; padding: 8px; border-radius: var(--kc-radius-sm); }
+.ac-secret { font-family: var(--kc-font-mono); font-size: 0.82rem; word-break: break-all; padding: 0.6rem 0.8rem; border-radius: var(--kc-radius-sm); background: var(--kc-bg-2); border: 1px dashed var(--kc-line-2); color: var(--kc-text-2); }
+.ac-kv { display: grid; gap: 0.35rem 1rem; grid-template-columns: auto 1fr; font-size: 0.9rem; }
+.ac-kv dt { color: var(--kc-text-3); }
+.ac-kv dd { color: var(--kc-text-1); min-width: 0; word-break: break-word; }
+
+@media (prefers-reduced-motion: reduce) {
+  .btn, .ac-tool-card { transition: none; }
+  .btn-primary:hover, .ac-tool-card:hover { transform: none; }
+}

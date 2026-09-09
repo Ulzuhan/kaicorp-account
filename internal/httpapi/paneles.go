@@ -46,13 +46,20 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	var hs []herramientaVista
+	concedidas, esperando := 0, 0
 	for _, g := range grupos {
 		if g.URL == "" && !miembro[g.Nombre] {
 			continue // los roles sólo se enseñan a quien los tiene
 		}
-		hs = append(hs, herramientaVista{Grupo: g, Miembro: miembro[g.Nombre], Pendiente: pendiente[g.Nombre]})
+		h := herramientaVista{Grupo: g, Miembro: miembro[g.Nombre], Pendiente: pendiente[g.Nombre]}
+		if h.Miembro {
+			concedidas++
+		} else if h.Pendiente {
+			esperando++
+		}
+		hs = append(hs, h)
 	}
-	s.render(w, r, "home.html", "Your tools", map[string]any{"Herramientas": hs}, http.StatusOK)
+	s.render(w, r, "home.html", "Your tools", map[string]any{"Herramientas": hs, "Concedidas": concedidas, "Esperando": esperando}, http.StatusOK)
 }
 
 // ── Solicitar acceso ───────────────────────────────────────────────────────
@@ -373,9 +380,16 @@ func (s *Server) admin(w http.ResponseWriter, r *http.Request) {
 	if us, err := s.st.Usuarios(r.Context(), datos["Q"].(string), 50); err == nil {
 		datos["Usuarios"] = us
 	}
+	vinculados := 0
 	if gs, err := s.st.Grupos(r.Context()); err == nil {
 		datos["Grupos"] = gs
+		for _, g := range gs {
+			if g.ClienteID != "" {
+				vinculados++
+			}
+		}
 	}
+	datos["Vinculados"] = vinculados
 	if cs, err := s.st.Clientes(r.Context()); err == nil {
 		datos["Clientes"] = cs
 	}
