@@ -22,6 +22,14 @@ type herramientaVista struct {
 	Pendiente bool
 }
 
+// grupoVista es un grupo tal y como lo enseña la administración: los roles
+// (sin URL) no abren ninguna herramienta y no llevan cliente.
+type grupoVista struct {
+	store.Grupo
+	EsRol         bool
+	ClienteNombre string
+}
+
 func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 	a := sesionDe(r)
 	if a == nil {
@@ -380,19 +388,32 @@ func (s *Server) admin(w http.ResponseWriter, r *http.Request) {
 	if us, err := s.st.Usuarios(r.Context(), datos["Q"].(string), 50); err == nil {
 		datos["Usuarios"] = us
 	}
-	vinculados := 0
-	if gs, err := s.st.Grupos(r.Context()); err == nil {
-		datos["Grupos"] = gs
-		for _, g := range gs {
-			if g.ClienteID != "" {
-				vinculados++
-			}
-		}
-	}
-	datos["Vinculados"] = vinculados
+	// Los clientes por nombre: la tabla de grupos enseña «Pixelforge», no un
+	// UUID, y sabe si a un grupo le falta el cliente que abre su herramienta.
+	nombres := map[string]string{}
 	if cs, err := s.st.Clientes(r.Context()); err == nil {
 		datos["Clientes"] = cs
+		for _, c := range cs {
+			nombres[c.ID] = c.Nombre
+		}
 	}
+	vinculados, herramientas := 0, 0
+	if gs, err := s.st.Grupos(r.Context()); err == nil {
+		var vistas []grupoVista
+		for _, g := range gs {
+			v := grupoVista{Grupo: g, EsRol: g.URL == "", ClienteNombre: nombres[g.ClienteID]}
+			if !v.EsRol {
+				herramientas++
+				if g.ClienteID != "" {
+					vinculados++
+				}
+			}
+			vistas = append(vistas, v)
+		}
+		datos["Grupos"] = vistas
+	}
+	datos["Vinculados"] = vinculados
+	datos["Herramientas"] = herramientas
 	s.render(w, r, "admin.html", "Administration", datos, http.StatusOK)
 }
 
@@ -444,11 +465,14 @@ func (s *Server) adminVincular(w http.ResponseWriter, r *http.Request) {
 	if s.requiereAdmin(w, r) == nil {
 		return
 	}
-	if err := s.st.VincularCliente(r.Context(), r.PostFormValue("grupo"), r.PostFormValue("cliente_id")); err != nil {
+	grupo, cliente := r.PostFormValue("grupo"), r.PostFormValue("cliente_id")
+	if err := s.st.VincularCliente(r.Context(), grupo, cliente); err != nil {
 		log.Printf("vincular: %v", err)
-		s.ponerFlash(w, "Could not link the client.")
+		s.ponerFlash(w, "Could not change the client.")
+	} else if cliente == "" {
+		s.ponerFlash(w, grupo+": client unlinked. Nobody can sign in to that tool until one is linked again.")
 	} else {
-		s.ponerFlash(w, "Client linked.")
+		s.ponerFlash(w, grupo+": client linked. Members of the group can sign in to the tool.")
 	}
 	http.Redirect(w, r, "/admin", http.StatusSeeOther)
 }

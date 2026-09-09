@@ -414,6 +414,8 @@ select.input.sm { padding-right: 2.2rem; }
 .table tr:last-child td { border-bottom: 0; }
 .table td.muted { color: var(--text-2); white-space: nowrap; }
 .table td .sub { display: block; font-size: .8rem; color: var(--text-3); }
+.table td .sub.mono { font-family: var(--mono); font-size: .72rem; word-break: break-all; }
+.table td .pill + strong { margin-left: .5rem; }
 .table td.actions { text-align: right; white-space: nowrap; }
 .table td.actions form, .table td.actions .inline { display: inline-flex; gap: .45rem; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
 .table td .mono { font-family: var(--mono); font-size: .8rem; color: var(--text-2); word-break: break-all; }

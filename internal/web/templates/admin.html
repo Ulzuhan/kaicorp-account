@@ -15,7 +15,7 @@
     <div class="stats mt0">
       <div class="card"><div class="body"><b{{if .Pendientes}} class="warn"{{end}}>{{len .Pendientes}}</b><span>Waiting for approval</span></div></div>
       <div class="card"><div class="body"><b>{{len .Usuarios}}</b><span>Accounts shown</span></div></div>
-      <div class="card"><div class="body"><b class="cyan">{{.Vinculados}}<small>/ {{len .Grupos}}</small></b><span>Groups linked to a client</span></div></div>
+      <div class="card"><div class="body"><b class="cyan">{{.Vinculados}}<small>/ {{.Herramientas}}</small></b><span>Tools with their client linked</span></div></div>
     </div>
 
     <div class="stack">
@@ -65,16 +65,26 @@
       </div></div>
 
       <div class="card"><div class="body">
-        <div class="head"><div><p class="k">OAuth</p><h2>Clients and groups</h2><p>Each client opens for exactly one group. A client without a group lets nobody in, on purpose.</p></div></div>
+        <div class="head"><div><p class="k">Tools and their clients</p><h2>Which client opens each tool</h2><p>Every tool is registered in the identity provider as an <strong>OAuth client</strong>: when it asks to sign someone in, it presents its client. This table says which <strong>group</strong> a person must belong to for that sign-in to go through. It is set once, when a tool is added (<code>tools/kaicorp-oidc-cliente.sh</code>); here you check it, or fix it if a tool was re-registered. Roles are not tools: they open pages of this app and have no client.</p></div></div>
         <div class="table-wrap"><table class="table">
-          <thead><tr><th>Group</th><th>Client</th><th></th></tr></thead>
+          <thead><tr><th>Group</th><th>Opens with</th><th></th></tr></thead>
           <tbody>
           {{range .Grupos}}<tr>
-            <td data-label="Group"><strong>{{.Nombre}}</strong><span class="sub">{{.Titulo}}</span></td>
-            <td data-label="Client">{{if .ClienteID}}<span class="mono">{{.ClienteID}}</span>{{else}}<span class="pill off">Not linked</span>{{end}}</td>
-            <td class="actions"><form method="post" action="/admin/vincular"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="grupo" value="{{.Nombre}}">
-              <select class="input sm" name="cliente_id" aria-label="Client for {{.Nombre}}"><option value="">— none —</option>{{range $.Clientes}}<option value="{{.ID}}">{{.Nombre}}</option>{{end}}</select>
-              <button class="btn btn-ghost btn-sm" type="submit">Link</button></form></td>
+            <td data-label="Group"><strong>{{.Titulo}}</strong><span class="sub">{{.Nombre}}{{if .URL}} · {{.Host}}{{end}}</span></td>
+            {{if .EsRol}}
+              <td data-label="Opens with"><span class="pill off">Role · no client</span></td>
+              <td class="actions"></td>
+            {{else if .ClienteID}}
+              <td data-label="Opens with"><span class="pill live">Linked</span> <strong>{{.ClienteNombre}}</strong><span class="sub mono">{{.ClienteID}}</span></td>
+              <td class="actions"><form method="post" action="/admin/vincular"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="grupo" value="{{.Nombre}}">
+                <select class="input sm" name="cliente_id" aria-label="Client for {{.Titulo}}">{{$actual := .ClienteID}}{{range $.Clientes}}<option value="{{.ID}}"{{if eq .ID $actual}} selected{{end}}>{{.Nombre}}</option>{{end}}<option value="">— unlink: nobody gets in —</option></select>
+                <button class="btn btn-ghost btn-sm" type="submit">Change</button></form></td>
+            {{else}}
+              <td data-label="Opens with"><span class="pill bad">Not linked</span><span class="sub">Nobody can sign in to this tool until a client is linked</span></td>
+              <td class="actions"><form method="post" action="/admin/vincular"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="grupo" value="{{.Nombre}}">
+                <select class="input sm" name="cliente_id" aria-label="Client for {{.Titulo}}"><option value="">— choose the client —</option>{{range $.Clientes}}<option value="{{.ID}}">{{.Nombre}}</option>{{end}}</select>
+                <button class="btn btn-primary btn-sm" type="submit">Link</button></form></td>
+            {{end}}
           </tr>{{end}}
           </tbody>
         </table></div>

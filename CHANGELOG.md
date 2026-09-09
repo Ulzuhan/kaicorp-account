@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.3.8 — 2026-09-09
+
+- Administración: la tabla de clientes OAuth se explica. Cada herramienta abre
+  con un cliente, la fila dice qué grupo hace falta; el cliente sale por su
+  nombre (el identificador, pequeño y debajo), los roles no llevan cliente ni
+  formulario, y el desplegable es «Change» con el cliente actual
+  preseleccionado, o «Link» cuando falta. La cifra de arriba cuenta
+  herramientas, no grupos.
+
 ## 0.3.7 — 2026-09-09
 
 - Las tarjetas de autenticación llevan el material de la tarjeta del hero de la
