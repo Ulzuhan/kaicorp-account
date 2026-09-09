@@ -480,6 +480,18 @@ func (c *Client) AdminGenerateLink(ctx context.Context, typ, email, password str
 	return &g, nil
 }
 
+// AdminInvite crea la cuenta de un correo y le envía la invitación (plantilla
+// `invite`): el enlace la lleva a /verificar?type=invite y de ahí a elegir
+// contraseña. Devuelve la cuenta creada, con su id: es el `sub` con el que
+// sus datos de otro proveedor se pueden remapear antes de que entre.
+func (c *Client) AdminInvite(ctx context.Context, email string) (*User, error) {
+	var u User
+	if err := c.call(ctx, http.MethodPost, "/invite", "", true, map[string]any{"email": email}, &u); err != nil {
+		return nil, err
+	}
+	return &u, nil
+}
+
 // Health comprueba que GoTrue responde.
 func (c *Client) Health(ctx context.Context) error {
 	return c.call(ctx, http.MethodGet, "/health", "", false, nil, nil)

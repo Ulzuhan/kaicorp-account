@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.3.3 — 2026-09-09
+
+- `account invitar <correo> [grupo…]`: crea la cuenta por invitación (GoTrue
+  envía el correo con la plantilla de la casa) y concede los grupos de una vez.
+  Es la manera de traer a quien viene de otro proveedor con su `sub` definitivo
+  antes de que entre, para remapear sus datos de un solo golpe.
+- Quien llega por el enlace de invitación va a Seguridad a elegir contraseña,
+  con el aviso de por qué: sin ella no podría volver a entrar.
+
 ## 0.3.2 — 2026-09-09
 
 - Los enlaces de los correos llevaban una barra invertida delante de cada `&`

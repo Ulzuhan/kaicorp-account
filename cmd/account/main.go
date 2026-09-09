@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -67,6 +68,29 @@ func main() {
 				log.Fatal(err)
 			}
 			fmt.Printf("%s administra (%s)\n", u.Email, cfg.AdminGroup)
+			return
+		case "invitar":
+			// account invitar <correo> [grupo…]: crea la cuenta por invitación
+			// (GoTrue manda el correo) y le concede los grupos de una vez, para
+			// traer a alguien de otro proveedor con sus herramientas ya puestas.
+			if len(os.Args) < 3 {
+				log.Fatal("uso: account invitar <correo> [grupo…]")
+			}
+			ctx := context.Background()
+			gt := gotrue.New(cfg.GoTrueURL, cfg.AnonKey, cfg.ServiceKey)
+			u, err := gt.AdminInvite(ctx, os.Args[2])
+			if err != nil {
+				log.Fatalf("invitar: %v", err)
+			}
+			for _, g := range os.Args[3:] {
+				if _, err := st.Grupo(ctx, g); err != nil {
+					log.Fatalf("no hay grupo %q", g)
+				}
+				if err := st.Conceder(ctx, u.ID, g, "cli"); err != nil {
+					log.Fatal(err)
+				}
+			}
+			fmt.Printf("%s invitada · id %s · grupos: %s\n", u.Email, u.ID, strings.Join(os.Args[3:], ", "))
 			return
 		case "aprobar", "revocar":
 			if len(os.Args) != 4 {

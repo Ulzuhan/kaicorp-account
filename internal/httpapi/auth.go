@@ -270,7 +270,14 @@ func (s *Server) verificar(w http.ResponseWriter, r *http.Request) {
 		s.errorPagina(w, r, http.StatusInternalServerError, "Verified", "Your address is confirmed, but the session could not start. Sign in.")
 		return
 	}
-	if typ == "signup" || typ == "invite" {
+	if typ == "invite" {
+		// Quien llega por invitación no ha elegido contraseña: sin ésta no
+		// podría volver a entrar. A Seguridad, que es donde se pone.
+		s.ponerFlash(w, "Welcome. Choose a password below so you can sign in next time; your tools are already waiting under Your tools.")
+		http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
+		return
+	}
+	if typ == "signup" {
 		s.ponerFlash(w, "Your address is confirmed. Welcome.")
 	}
 	http.Redirect(w, r, s.nextSeguro(q.Get("next")), http.StatusSeeOther)
