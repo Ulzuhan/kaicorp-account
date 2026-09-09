@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.3.6 — 2026-09-09
+
+- Las pantallas de una sola tarjeta (entrar, registro, recuperación, segundo
+  factor, consentimiento, confirmaciones) van centradas en escritorio; estaban
+  pegadas a la izquierda.
+
 ## 0.3.5 — 2026-09-09
 
 - `form-action` de la CSP admite el dominio de la casa y sus subdominios. Chrome

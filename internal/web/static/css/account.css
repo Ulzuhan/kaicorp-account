@@ -276,8 +276,12 @@ footer a.link:hover { color: var(--cyan); }
 .btn svg { width: 1em; height: 1em; }
 
 /* La tarjeta de autenticación: una .card centrada, y nada más en la página */
+/* La tarjeta va centrada en la página, no en el flujo: `.wrap` ocupa todo el
+   ancho y la tarjeta tiene tope, así que sin el margen automático se quedaba
+   pegada a la izquierda en escritorio. */
 .auth { display: flex; justify-content: center; padding: 4.5rem 0; }
-.auth .card { width: 100%; max-width: 27rem; }
+.auth .wrap { display: flex; justify-content: center; }
+.auth .card { width: 100%; max-width: 27rem; margin: 0 auto; }
 .auth .card.wide { max-width: 32rem; }
 .auth .body { padding: 2rem 1.75rem 1.75rem; }
 @media (max-width: 520px) { .auth { padding: 3rem 0; } .auth .body { padding: 1.5rem 1.25rem 1.35rem; } }
