@@ -1,5 +1,10 @@
 # Cambios
 
+## 0.3.7 — 2026-09-09
+
+- Las tarjetas de autenticación llevan el material de la tarjeta del hero de la
+  web: degradado, sombra cian y el foco difuminado de la esquina.
+
 ## 0.3.6 — 2026-09-09
 
 - Las pantallas de una sola tarjeta (entrar, registro, recuperación, segundo

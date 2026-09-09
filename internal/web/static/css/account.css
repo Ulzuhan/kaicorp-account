@@ -283,6 +283,19 @@ footer a.link:hover { color: var(--cyan); }
 .auth .wrap { display: flex; justify-content: center; }
 .auth .card { width: 100%; max-width: 27rem; margin: 0 auto; }
 .auth .card.wide { max-width: 32rem; }
+/* El mismo material que la tarjeta del hero de la web (.hero-proof): fondo en
+   degradado, sombra cian y un foco difuminado en la esquina superior derecha.
+   El foco va en ::after porque ::before es la luz de borde de toda .card. */
+.auth .card {
+  border-color: var(--line-2); border-radius: 20px;
+  background: linear-gradient(145deg, #101722, #090c14);
+  box-shadow: 0 32px 80px -42px #45e0f588;
+}
+.auth .card::after {
+  content: ""; position: absolute; inset: -5rem -4rem auto auto; width: 12rem; height: 12rem;
+  border-radius: 50%; background: var(--cyan); filter: blur(75px); opacity: .11; pointer-events: none;
+}
+.auth .body { position: relative; z-index: 1; }
 .auth .body { padding: 2rem 1.75rem 1.75rem; }
 @media (max-width: 520px) { .auth { padding: 3rem 0; } .auth .body { padding: 1.5rem 1.25rem 1.35rem; } }
 .auth h1 { font-family: var(--display); font-weight: 700; font-size: 1.75rem; letter-spacing: -.02em; line-height: 1.15; }
