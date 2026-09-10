@@ -47,6 +47,10 @@ type Config struct {
 	SessionOrigins []string
 	// AdminGroup es la membresía que abre /admin.
 	AdminGroup string
+	// SMTP* es la cuenta con la que la app manda SUS correos (el aviso de acceso
+	// concedido); GoTrue manda los suyos con la suya. Sin SMTPHost no se envía
+	// nada y el acceso se concede igual.
+	SMTPHost, SMTPPort, SMTPUser, SMTPPass, SMTPFrom string
 	// InsecureCookies quita `Secure` de las cookies: sólo para pruebas por http.
 	InsecureCookies bool
 	// Addr es host:puerto de escucha.
@@ -128,6 +132,14 @@ func FromEnv() (*Config, error) {
 	}
 	if g := strings.TrimSpace(os.Getenv("ACCOUNT_ADMIN_GROUP")); g != "" {
 		c.AdminGroup = g
+	}
+	c.SMTPHost = strings.TrimSpace(os.Getenv("ACCOUNT_SMTP_HOST"))
+	c.SMTPPort = strings.TrimSpace(os.Getenv("ACCOUNT_SMTP_PORT"))
+	c.SMTPUser = strings.TrimSpace(os.Getenv("ACCOUNT_SMTP_USER"))
+	c.SMTPPass = os.Getenv("ACCOUNT_SMTP_PASS")
+	c.SMTPFrom = strings.TrimSpace(os.Getenv("ACCOUNT_SMTP_FROM"))
+	if c.SMTPHost != "" && (c.SMTPUser == "" || c.SMTPPass == "" || c.SMTPFrom == "") {
+		errs = append(errs, errors.New("ACCOUNT_SMTP_HOST está pero faltan ACCOUNT_SMTP_USER, ACCOUNT_SMTP_PASS o ACCOUNT_SMTP_FROM (\"Nombre <correo>\")"))
 	}
 	c.InsecureCookies = os.Getenv("ACCOUNT_INSECURE_COOKIES") == "1"
 

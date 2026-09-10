@@ -1,5 +1,15 @@
 # Cambios
 
+## 0.4.0 — 2026-09-10
+
+- Aviso por correo cuando se concede un acceso a mano: al aprobar una solicitud
+  o conceder una herramienta desde el panel o la línea de órdenes, la persona
+  recibe «Your access to <Tool> is ready» con el enlace a la herramienta. La app
+  lo manda por SMTP con STARTTLS (`ACCOUNT_SMTP_HOST`, `_PORT`, `_USER`,
+  `_PASS`, `_FROM`); sin esas variables se concede igual y el panel lo dice. Los
+  roles y las concesiones automáticas no avisan: los roles no abren nada y en
+  las automáticas la persona está delante.
+
 ## 0.3.8 — 2026-09-09
 
 - Administración: la tabla de clientes OAuth se explica. Cada herramienta abre

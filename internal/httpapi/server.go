@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/Ulzuhan/kaicorp-account/internal/config"
+	"github.com/Ulzuhan/kaicorp-account/internal/correo"
 	"github.com/Ulzuhan/kaicorp-account/internal/gotrue"
 	"github.com/Ulzuhan/kaicorp-account/internal/policy"
 	"github.com/Ulzuhan/kaicorp-account/internal/session"
@@ -32,6 +33,7 @@ type Server struct {
 	st        *store.Store
 	gt        *gotrue.Client
 	ses       *session.Manager
+	correo    *correo.Remitente // nil si no hay SMTP: se concede sin avisar
 	paginas   map[string]*template.Template
 	limitador *limitador
 	// enrolando guarda, por sesión y unos minutos, el factor TOTP a medias de
@@ -40,8 +42,8 @@ type Server struct {
 }
 
 // New construye el servidor y compila las plantillas.
-func New(cfg *config.Config, st *store.Store, gt *gotrue.Client, ses *session.Manager) (*Server, error) {
-	s := &Server{cfg: cfg, st: st, gt: gt, ses: ses, paginas: map[string]*template.Template{}, limitador: nuevoLimitador()}
+func New(cfg *config.Config, st *store.Store, gt *gotrue.Client, ses *session.Manager, rem *correo.Remitente) (*Server, error) {
+	s := &Server{cfg: cfg, st: st, gt: gt, ses: ses, correo: rem, paginas: map[string]*template.Template{}, limitador: nuevoLimitador()}
 	paginas := []string{"home.html", "entrar.html", "registro.html", "correo.html", "recuperar.html", "restablecer.html",
 		"factor.html", "consent.html", "sin-acceso.html", "cuenta.html", "admin.html", "admin-cuenta.html", "error.html", "salir.html"}
 	for _, p := range paginas {

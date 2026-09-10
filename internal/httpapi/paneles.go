@@ -1,7 +1,9 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
+	"github.com/Ulzuhan/kaicorp-account/internal/correo"
 	"html/template"
 	"log"
 	"net/http"
@@ -449,7 +451,7 @@ func (s *Server) adminSolicitud(w http.ResponseWriter, r *http.Request) {
 	case "aprobar":
 		if err := s.st.Conceder(r.Context(), x.UserID, x.Grupo, a.Email); err == nil {
 			_ = s.st.ResolverSolicitud(r.Context(), x.ID, "aprobada", a.Email)
-			s.ponerFlash(w, x.Email+" can now use "+x.Grupo+".")
+			s.ponerFlash(w, x.Email+" can now use "+x.Grupo+"."+s.avisarAcceso(r.Context(), x.UserID, x.Grupo))
 		} else {
 			log.Printf("aprobar %s/%s: %v", x.UserID, x.Grupo, err)
 			s.ponerFlash(w, "Could not grant the access.")
@@ -487,7 +489,7 @@ func (s *Server) adminConceder(w http.ResponseWriter, r *http.Request) {
 		log.Printf("conceder %s/%s: %v", uid, grupo, err)
 		s.ponerFlash(w, "Could not grant the membership.")
 	} else {
-		s.ponerFlash(w, "Granted "+grupo+".")
+		s.ponerFlash(w, "Granted "+grupo+"."+s.avisarAcceso(r.Context(), uid, grupo))
 	}
 	http.Redirect(w, r, "/admin/cuenta/"+url.PathEscape(uid), http.StatusSeeOther)
 }
@@ -604,4 +606,35 @@ func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	_ = json.NewEncoder(w).Encode(estado)
+}
+
+// avisarAcceso manda el correo de «tu acceso está listo» tras conceder una
+// herramienta a mano (aprobar una solicitud o conceder desde la ficha). Los
+// roles no llevan aviso (no abren nada), las concesiones automáticas tampoco
+// (la persona está delante y lo ve). Devuelve el remate para el aviso del
+// panel: quien aprueba sabe si el correo salió.
+func (s *Server) avisarAcceso(ctx context.Context, userID, grupo string) string {
+	g, err := s.st.Grupo(ctx, grupo)
+	if err != nil || g.URL == "" {
+		return ""
+	}
+	if s.correo == nil {
+		return " (no email: sending is not configured)"
+	}
+	u, err := s.st.UsuarioPorID(ctx, userID)
+	if err != nil {
+		return " (no email: could not read the account)"
+	}
+	if err := s.correo.EnviarAcceso(ctx, u.Email, correo.Acceso{Nombre: nombreDe(u), Herramienta: g.Titulo, URL: g.URL, Cuenta: s.cfg.PublicURL.String() + "/"}); err != nil {
+		log.Printf("aviso de acceso a %s (%s): %v", u.Email, grupo, err)
+		return " The email could not be sent; tell them yourself."
+	}
+	return " They have been told by email."
+}
+
+func nombreDe(u *store.Usuario) string {
+	if u.Nombre != "" {
+		return u.Nombre
+	}
+	return u.Email
 }

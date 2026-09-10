@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/Ulzuhan/kaicorp-account/internal/config"
+	"github.com/Ulzuhan/kaicorp-account/internal/correo"
 	"github.com/Ulzuhan/kaicorp-account/internal/gotrue"
 	"github.com/Ulzuhan/kaicorp-account/internal/httpapi"
 	"github.com/Ulzuhan/kaicorp-account/internal/session"
@@ -118,6 +119,19 @@ func main() {
 					}
 				}
 				fmt.Printf("%s puede usar %s\n", u.Email, g.Nombre)
+				if g.URL != "" {
+					if rem, err := correo.Nuevo(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.SMTPFrom); err == nil && rem != nil {
+						nombre := u.Nombre
+						if nombre == "" {
+							nombre = u.Email
+						}
+						if err := rem.EnviarAcceso(ctx, u.Email, correo.Acceso{Nombre: nombre, Herramienta: g.Titulo, URL: g.URL, Cuenta: cfg.PublicURL.String() + "/"}); err != nil {
+							fmt.Printf("  (el aviso por correo no salió: %v)\n", err)
+						} else {
+							fmt.Println("  avisada por correo")
+						}
+					}
+				}
 				return
 			}
 			if err := st.Revocar(ctx, u.ID, g.Nombre); err != nil {
@@ -149,7 +163,14 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	srv, err := httpapi.New(cfg, st, gt, ses)
+	rem, err := correo.Nuevo(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.SMTPFrom)
+	if err != nil {
+		log.Fatalf("correo: %v", err)
+	}
+	if rem == nil {
+		log.Print("sin ACCOUNT_SMTP_*: los accesos se conceden sin aviso por correo")
+	}
+	srv, err := httpapi.New(cfg, st, gt, ses, rem)
 	if err != nil {
 		log.Fatalf("plantillas: %v", err)
 	}
