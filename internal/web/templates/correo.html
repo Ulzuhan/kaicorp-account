@@ -5,7 +5,7 @@
       <p class="k ok">Email sent</p>
       <h1>{{.Title}}.</h1>
       <p class="sub">{{.Mensaje}}</p>
-      <p class="fine">The link in the email is valid for a short while. If nothing arrives in a few minutes, check the spam folder; if you typed the address wrong, or there is no account for it yet, start again.</p>
+      <p class="fine">The link in the email is valid for a short while. If nothing arrives in a few minutes, check the spam folder{{if .Email}}, or <a href="/reenviar?email={{.Email}}">send it again</a>{{end}}; if you typed the address wrong, start again.</p>
       <p class="alt"><a href="/entrar">Back to sign in</a></p>
     </div></div>
   </div>

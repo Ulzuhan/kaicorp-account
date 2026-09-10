@@ -5,7 +5,7 @@
       <p class="k">Sign in</p>
       <h1>Welcome back.</h1>
       <p class="sub">One account for every KaiCorp Labs tool.</p>
-      {{if .Error}}<div class="notice err" role="alert"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v4m0 4h.01"/></svg><div>{{.Error}}</div></div>{{end}}
+      {{if .Error}}<div class="notice err" role="alert"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v4m0 4h.01"/></svg><div>{{.Error}}{{if .Email}} <a href="/reenviar?email={{.Email}}">Not confirmed yet? Send the confirmation again.</a>{{end}}</div></div>{{end}}
       {{if .Flash}}<div class="notice ok" role="status"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><div>{{.Flash}}</div></div>{{end}}
       <form method="post" action="/entrar">
         <input type="hidden" name="_csrf" value="{{.CSRF}}">

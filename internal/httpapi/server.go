@@ -45,7 +45,7 @@ type Server struct {
 func New(cfg *config.Config, st *store.Store, gt *gotrue.Client, ses *session.Manager, rem *correo.Remitente) (*Server, error) {
 	s := &Server{cfg: cfg, st: st, gt: gt, ses: ses, correo: rem, paginas: map[string]*template.Template{}, limitador: nuevoLimitador()}
 	paginas := []string{"home.html", "entrar.html", "registro.html", "correo.html", "recuperar.html", "restablecer.html",
-		"factor.html", "consent.html", "sin-acceso.html", "cuenta.html", "admin.html", "admin-cuenta.html", "error.html", "salir.html"}
+		"factor.html", "consent.html", "sin-acceso.html", "cuenta.html", "admin.html", "admin-cuenta.html", "error.html", "salir.html", "reenviar.html"}
 	for _, p := range paginas {
 		t, err := template.New("layout.html").ParseFS(web.EmbeddedFS, "templates/layout.html", "templates/"+p)
 		if err != nil {
@@ -78,6 +78,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /registro", s.registroGET)
 	mux.HandleFunc("POST /registro", s.registroPOST)
 	mux.HandleFunc("GET /verificar", s.verificar)
+	mux.HandleFunc("GET /reenviar", s.reenviarGET)
+	mux.HandleFunc("POST /reenviar", s.reenviarPOST)
 	mux.HandleFunc("GET /recuperar", s.recuperarGET)
 	mux.HandleFunc("POST /recuperar", s.recuperarPOST)
 	mux.HandleFunc("GET /restablecer", s.restablecerGET)

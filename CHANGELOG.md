@@ -1,5 +1,22 @@
 # Cambios
 
+## 0.4.2 — 2026-09-10
+
+- Revisión de redirecciones. Quien confirma el correo de una cuenta nueva
+  aterriza en sus herramientas (donde toca pedir la primera), no en la página de
+  la web desde la que se registró; si venía de una herramienta sigue al
+  consentimiento como antes. `/registro` con sesión ya abierta vuelve a donde se
+  iba, no a la portada. `Sign out` sin sesión (enlace de la web con la sesión
+  ya caducada) vuelve a la web, no a la portada de la cuenta.
+- «Send the confirmation again» (`/reenviar`): desde la página de «check your
+  inbox» y desde el error de entrada, para quien no encuentra el correo de
+  confirmación; responde igual exista o no la cuenta.
+
+## 0.4.1 — 2026-09-10
+
+- Sin cambios: la etiqueta se puso sobre la 0.4.0 por error, antes de que los
+  cambios de arriba estuvieran en el árbol. La imagen es idéntica a la 0.4.0.
+
 ## 0.4.0 — 2026-09-10
 
 - Aviso por correo cuando se concede un acceso a mano: al aprobar una solicitud

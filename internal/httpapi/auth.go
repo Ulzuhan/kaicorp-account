@@ -189,7 +189,8 @@ func (s *Server) factorPOST(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) registroGET(w http.ResponseWriter, r *http.Request) {
 	if sesionDe(r) != nil {
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+		// Ya tiene cuenta y sesión: a donde iba (la web, el consentimiento), no a la portada.
+		http.Redirect(w, r, s.nextSeguro(r.URL.Query().Get("next")), http.StatusSeeOther)
 		return
 	}
 	s.render(w, r, "registro.html", "Create an account", map[string]any{"Next": s.nextSeguro(r.URL.Query().Get("next"))}, http.StatusOK)
@@ -237,7 +238,31 @@ func (s *Server) registroPOST(w http.ResponseWriter, r *http.Request) {
 		// sería decir qué correos tienen cuenta. Se vio en la prueba del 09-09.
 		log.Printf("signup: %v", err)
 	}
-	s.render(w, r, "correo.html", "Check your inbox", map[string]any{"Mensaje": mensajeRevisaCorreo}, http.StatusOK)
+	s.render(w, r, "correo.html", "Check your inbox", map[string]any{"Mensaje": mensajeRevisaCorreo, "Email": email}, http.StatusOK)
+}
+
+// ── Reenviar la confirmación ───────────────────────────────────────────────
+// Quien se registró y no encuentra el correo no tiene por qué registrarse otra
+// vez (GoTrue respondería 429 y la app lo taparía). GoTrue contesta igual
+// exista o no la cuenta, y esta app también: «check your inbox».
+
+func (s *Server) reenviarGET(w http.ResponseWriter, r *http.Request) {
+	s.render(w, r, "reenviar.html", "Send the confirmation again", map[string]any{"Email": r.URL.Query().Get("email")}, http.StatusOK)
+}
+
+func (s *Server) reenviarPOST(w http.ResponseWriter, r *http.Request) {
+	if s.frena(w, r, "reenviar", 3, 1) {
+		return
+	}
+	email, ok := correoValido(r.PostFormValue("email"))
+	if !ok {
+		s.render(w, r, "reenviar.html", "Send the confirmation again", map[string]any{"Error": "That does not look like an email address."}, http.StatusBadRequest)
+		return
+	}
+	if err := s.gt.Resend(r.Context(), "signup", email); err != nil {
+		log.Printf("reenviar confirmación: %v", err) // se tapa: decirlo delataría cuentas
+	}
+	s.render(w, r, "correo.html", "Check your inbox", map[string]any{"Mensaje": mensajeRevisaCorreo, "Email": email}, http.StatusOK)
 }
 
 // ── Verificar (confirmación, invitación, cambio de correo, enlace mágico) ──
@@ -282,10 +307,18 @@ func (s *Server) verificar(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
 		return
 	}
+	next := s.nextSeguro(q.Get("next"))
 	if typ == "signup" {
-		s.ponerFlash(w, "Your address is confirmed. Welcome.")
+		s.ponerFlash(w, "Your address is confirmed. Welcome. Ask for the tools you need below; a person reads the first request.")
+		// Quien se registró desde la web pública vuelve aquí, a sus herramientas,
+		// no a la página de la web: acaba de nacer sin ninguna y el siguiente
+		// paso es pedir una. Si venía de una herramienta (next interno hacia el
+		// consentimiento), sigue su camino.
+		if strings.HasPrefix(next, "https://") {
+			next = "/"
+		}
 	}
-	http.Redirect(w, r, s.nextSeguro(q.Get("next")), http.StatusSeeOther)
+	http.Redirect(w, r, next, http.StatusSeeOther)
 }
 
 // ── Recuperar contraseña ───────────────────────────────────────────────────
@@ -372,7 +405,9 @@ func (s *Server) salir(w http.ResponseWriter, r *http.Request) {
 // POST con CSRF; un GET que cerrase sesiones sería un blanco fácil.
 func (s *Server) salirGET(w http.ResponseWriter, r *http.Request) {
 	if sesionDe(r) == nil {
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+		// Sin sesión no hay nada que cerrar: de vuelta a donde estaba (la web),
+		// no a la portada de la cuenta.
+		http.Redirect(w, r, s.nextSeguro(r.URL.Query().Get("next")), http.StatusSeeOther)
 		return
 	}
 	s.render(w, r, "salir.html", "Sign out", map[string]any{"Next": s.nextSeguro(r.URL.Query().Get("next"))}, http.StatusOK)

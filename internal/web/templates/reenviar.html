@@ -1,0 +1,21 @@
+{{define "content"}}
+<section class="auth">
+  <div class="wrap">
+    <div class="card"><div class="body">
+      <p class="k">Confirmation</p>
+      <h1>Send the confirmation again.</h1>
+      <p class="sub">If you created an account and the confirmation email did not arrive, ask for it again. If there is an account for that address that is not confirmed yet, a new link is on its way.</p>
+      {{if .Error}}<div class="notice err" role="alert"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v4m0 4h.01"/></svg><div>{{.Error}}</div></div>{{end}}
+      <form method="post" action="/reenviar">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <div class="field">
+          <label for="email">Email</label>
+          <input class="input" id="email" name="email" type="email" autocomplete="username" required autofocus value="{{.Email}}" placeholder="you@example.com">
+        </div>
+        <div class="form-actions"><button class="btn btn-primary btn-block" type="submit">Send it again →</button></div>
+      </form>
+      <p class="alt"><a href="/entrar">Back to sign in</a></p>
+    </div></div>
+  </div>
+</section>
+{{end}}
