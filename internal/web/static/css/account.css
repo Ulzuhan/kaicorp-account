@@ -336,6 +336,8 @@ select.input.sm { padding-right: 2.2rem; }
 .check { display: flex; align-items: center; gap: .6rem; font-family: var(--sans); font-size: .9rem; color: var(--text-2); text-transform: none; letter-spacing: 0; cursor: pointer; }
 .check input { width: 1.05rem; height: 1.05rem; accent-color: var(--cyan); flex-shrink: 0; }
 .inline { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; }
+.checks { display: flex; flex-wrap: wrap; gap: .7rem 1.6rem; padding-top: .2rem; }
+.checks .check { font-size: .88rem; }
 .inline .input { flex: 1 1 14rem; width: auto; }
 .form-actions { margin-top: 1.4rem; display: flex; flex-wrap: wrap; align-items: center; gap: .8rem; }
 .hint { font-family: var(--mono); font-size: .68rem; color: var(--text-3); letter-spacing: .06em; }

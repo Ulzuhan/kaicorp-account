@@ -41,11 +41,15 @@ type Server struct {
 	enrolando sync.Map
 }
 
+// paginas son las plantillas de página; cada una se compila con layout.html.
+// Una página que no esté aquí da «plantilla desconocida» al servirse (pasó con
+// salir.html en 0.3.3), así que la prueba TestPlantillasCompilan las recorre.
+var paginas = []string{"home.html", "entrar.html", "registro.html", "correo.html", "recuperar.html", "restablecer.html",
+	"factor.html", "consent.html", "sin-acceso.html", "cuenta.html", "admin.html", "admin-cuenta.html", "error.html", "salir.html", "reenviar.html"}
+
 // New construye el servidor y compila las plantillas.
 func New(cfg *config.Config, st *store.Store, gt *gotrue.Client, ses *session.Manager, rem *correo.Remitente) (*Server, error) {
 	s := &Server{cfg: cfg, st: st, gt: gt, ses: ses, correo: rem, paginas: map[string]*template.Template{}, limitador: nuevoLimitador()}
-	paginas := []string{"home.html", "entrar.html", "registro.html", "correo.html", "recuperar.html", "restablecer.html",
-		"factor.html", "consent.html", "sin-acceso.html", "cuenta.html", "admin.html", "admin-cuenta.html", "error.html", "salir.html", "reenviar.html"}
 	for _, p := range paginas {
 		t, err := template.New("layout.html").ParseFS(web.EmbeddedFS, "templates/layout.html", "templates/"+p)
 		if err != nil {
@@ -107,6 +111,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /admin/cuenta/{id}", s.adminCuenta)
 	mux.HandleFunc("POST /admin/solicitud", s.adminSolicitud)
 	mux.HandleFunc("POST /admin/vincular", s.adminVincular)
+	mux.HandleFunc("POST /admin/invitar", s.adminInvitar)
 	mux.HandleFunc("POST /admin/conceder", s.adminConceder)
 	mux.HandleFunc("POST /admin/revocar", s.adminRevocar)
 	mux.HandleFunc("POST /admin/cerrar-sesiones", s.adminCerrarSesiones)

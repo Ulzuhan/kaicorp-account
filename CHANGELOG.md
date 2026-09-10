@@ -1,5 +1,25 @@
 # Cambios
 
+## 0.5.0 — 2026-09-10
+
+- Invitar desde `/admin`: el correo y las herramientas que tendrá al llegar.
+  GoTrue manda el enlace y las membresías quedan puestas, sin nada que aprobar.
+  Invitar a quien aún no ha aceptado reenvía sobre la misma cuenta; a quien ya
+  tiene cuenta se le conceden las herramientas desde su ficha.
+- Cuentas sin confirmar: las que se registraron solas y no confirmaron el correo
+  en `ACCOUNT_UNCONFIRMED_DAYS` días (14 por defecto; 0 desactiva) se borran una
+  vez al día, con su rastro en la app. Las invitadas no se tocan. `account
+  purgar [--de-verdad]` lo hace a mano y enseña qué borraría.
+- Línea de órdenes: `ver <correo>` (estado, membresías, solicitudes, sesiones y
+  grants, en columnas con tabulador y primera palabra fija, para personas y para
+  herramientas), `borrar <correo> [--de-verdad]` (el rastro en la app y la cuenta
+  en GoTrue; en seco por defecto), `revocar <correo> todo` (todas las
+  membresías, sus grants y todas las sesiones), `bloquear` y `desbloquear`.
+- Los correos llevan la paleta de la web: fondo `#05070d`, tarjeta `#0c1019`,
+  acento `#45e0f5`, textos `#e6ecf5` / `#9fb0c8` / `#6b7c94`.
+- Una prueba compila todas las plantillas con el layout y falla si hay una
+  plantilla fuera de la lista (el «plantilla desconocida» de 0.3.3).
+
 ## 0.4.3 — 2026-09-10
 
 - El consentimiento comprueba la autorización antes de pedir que se entre: sin

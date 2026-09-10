@@ -54,9 +54,15 @@ Then load your groups (one row per tool or role; see `db/grupos.example.sql`)
 and link each OAuth client to its group from `/admin` or with `account vincular`.
 
 Subcommands: `account migrar` (apply migrations and exit), `account admin
-<email>` (make an existing account an administrator), `account aprobar <email>
-<group>` and `account revocar <email> <group>`, `account vincular <group>
-<client_id>` (link an OAuth client to its group), `account sonda` (health probe).
+<email>` (make an existing account an administrator), `account ver <email>`
+(state, memberships, requests, sessions and grants, tab-separated), `account
+invitar <email> [group…]` (invite with the groups already granted), `account
+aprobar <email> <group>` and `account revocar <email> <group|todo>`, `account
+bloquear` / `desbloquear <email>`, `account borrar <email> [--de-verdad]` (the
+account and everything the app keeps about it; dry run without the flag),
+`account purgar [--de-verdad]` (unconfirmed self-registered accounts older than
+`ACCOUNT_UNCONFIRMED_DAYS`), `account vincular <group> <client_id>` (link an
+OAuth client to its group), `account sonda` (health probe).
 
 ## Configuration
 

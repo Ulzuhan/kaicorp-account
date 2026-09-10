@@ -3,7 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
-	"github.com/Ulzuhan/kaicorp-account/internal/correo"
+	"errors"
 	"html/template"
 	"log"
 	"net/http"
@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Ulzuhan/kaicorp-account/internal/correo"
 	"github.com/Ulzuhan/kaicorp-account/internal/gotrue"
 	"github.com/Ulzuhan/kaicorp-account/internal/policy"
 	"github.com/Ulzuhan/kaicorp-account/internal/store"
@@ -640,4 +641,62 @@ func nombreDe(u *store.Usuario) string {
 		return u.Nombre
 	}
 	return u.Email
+}
+
+// ── Invitar ────────────────────────────────────────────────────────────────
+
+// adminInvitar trae a alguien por invitación: GoTrue crea la cuenta y manda el
+// correo con el enlace para elegir contraseña; las herramientas marcadas se
+// conceden ya, para que al llegar no tenga que pedir nada ni esperar a nadie.
+// Invitar otra vez a quien aún no ha aceptado reenvía el enlace sobre la misma
+// cuenta (mismo id, así que el remapeo de datos que hubiera sigue valiendo).
+func (s *Server) adminInvitar(w http.ResponseWriter, r *http.Request) {
+	a := s.requiereAdmin(w, r)
+	if a == nil {
+		return
+	}
+	volver := func(msg string) {
+		s.ponerFlash(w, msg)
+		http.Redirect(w, r, "/admin", http.StatusSeeOther)
+	}
+	email, ok := correoValido(r.PostFormValue("email"))
+	if !ok {
+		volver("That does not look like an email address.")
+		return
+	}
+	var grupos []*store.Grupo
+	for _, nombre := range r.Form["grupo"] {
+		g, err := s.st.Grupo(r.Context(), nombre)
+		if err != nil {
+			volver("Unknown group: " + nombre + ".")
+			return
+		}
+		grupos = append(grupos, g)
+	}
+	u, err := s.gt.AdminInvite(r.Context(), email)
+	if err != nil {
+		var ge *gotrue.Error
+		if errors.As(err, &ge) && ge.Status == http.StatusUnprocessableEntity {
+			volver(email + " already has an account. Grant the tools from their page instead.")
+			return
+		}
+		log.Printf("invitar %s: %v", email, err)
+		volver("The invitation could not be sent. It has been logged.")
+		return
+	}
+	var titulos []string
+	for _, g := range grupos {
+		if err := s.st.Conceder(r.Context(), u.ID, g.Nombre, a.Email); err != nil {
+			log.Printf("invitar %s, conceder %s: %v", email, g.Nombre, err)
+			continue
+		}
+		titulos = append(titulos, g.Titulo)
+	}
+	msg := "Invitation sent to " + email + "."
+	if len(titulos) > 0 {
+		msg += " On arrival they can use " + strings.Join(titulos, ", ") + "."
+	}
+	msg += " If the link expires before they use it, invite them again from here: it re-sends to the same account."
+	s.ponerFlash(w, msg)
+	http.Redirect(w, r, "/admin?q="+url.QueryEscape(email), http.StatusSeeOther)
 }

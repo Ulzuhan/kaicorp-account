@@ -39,6 +39,22 @@
       </div></div>
 
       <div class="card"><div class="body">
+        <div class="head"><div><p class="k">Invitations</p><h2>Bring someone in</h2><p>They get an email with a link to choose a password. Tick the tools they should have on arrival: those open the moment they accept, with nothing to approve. If the link expires before they use it, invite them again from here; it re-sends to the same account.</p></div></div>
+        <form method="post" action="/admin/invitar">
+          <input type="hidden" name="_csrf" value="{{.CSRF}}">
+          <div class="field">
+            <label for="invite-email">Email</label>
+            <input class="input" id="invite-email" name="email" type="email" required placeholder="someone@example.com" autocomplete="off">
+          </div>
+          <div class="field">
+            <span class="lbl" id="invite-tools">Tools on arrival</span>
+            <div class="checks" role="group" aria-labelledby="invite-tools">{{range .Grupos}}<label class="check"><input type="checkbox" name="grupo" value="{{.Nombre}}"> {{.Titulo}}{{if .EsRol}} <span class="pill off">role</span>{{end}}</label>{{end}}</div>
+          </div>
+          <div class="form-actions"><button class="btn btn-primary" type="submit">Send the invitation</button></div>
+        </form>
+      </div></div>
+
+      <div class="card"><div class="body">
         <div class="head">
           <div><p class="k">Accounts</p><h2>Who has an account</h2><p>Search by email to manage memberships, close sessions or block an account.</p></div>
           <form class="inline" method="get" action="/admin" role="search">

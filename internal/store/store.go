@@ -576,3 +576,81 @@ func (s *Store) Usuarios(ctx context.Context, filtro string, limite int) ([]Usua
 	}
 	return out, rows.Err()
 }
+
+// ── Purga y borrado ────────────────────────────────────────────────────────
+
+// SinConfirmar lista las cuentas que se registraron solas, nunca confirmaron
+// el correo y son anteriores a `antes`. Las invitadas quedan fuera: la
+// invitación la decidió una persona, y si caduca se reenvía, no se purga.
+func (s *Store) SinConfirmar(ctx context.Context, antes time.Time) ([]Usuario, error) {
+	rows, err := s.pool.Query(ctx, usuarioSelect+` where u.deleted_at is null and u.email_confirmed_at is null
+		and u.invited_at is null and u.created_at < $1 order by u.created_at`, antes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Usuario
+	for rows.Next() {
+		u, err := scanUsuario(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *u)
+	}
+	return out, rows.Err()
+}
+
+// Rastro es lo que hay de una persona, contado antes de borrarlo: lo de esta
+// app y, aparte, lo del proveedor que el borrado de la cuenta se lleva.
+type Rastro struct {
+	Membresias, Solicitudes, Sesiones int64
+	Grants, SesionesProveedor         int64
+}
+
+// RastroDe cuenta el rastro de una persona.
+func (s *Store) RastroDe(ctx context.Context, userID string) (Rastro, error) {
+	var r Rastro
+	err := s.pool.QueryRow(ctx, `select
+		(select count(*) from account.membresias where user_id=$1),
+		(select count(*) from account.solicitudes where user_id=$1),
+		(select count(*) from account.sesiones where user_id=$1),
+		(select count(*) from auth.oauth_consents where user_id=$1 and revoked_at is null),
+		(select count(*) from auth.sessions where user_id=$1)`, userID).
+		Scan(&r.Membresias, &r.Solicitudes, &r.Sesiones, &r.Grants, &r.SesionesProveedor)
+	return r, err
+}
+
+// BorrarRastro borra lo que esta app guarda de una persona, en una transacción.
+// La cuenta en el proveedor es aparte (gotrue.AdminDeleteUser) y va después:
+// primero lo que apunta a ella, luego ella.
+func (s *Store) BorrarRastro(ctx context.Context, userID string) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	for _, q := range []string{
+		`delete from account.sesiones where user_id=$1`,
+		`delete from account.solicitudes where user_id=$1`,
+		`delete from account.membresias where user_id=$1`,
+	} {
+		if _, err := tx.Exec(ctx, q, userID); err != nil {
+			_ = tx.Rollback(ctx)
+			return err
+		}
+	}
+	return tx.Commit(ctx)
+}
+
+// PurgarHuerfanos quita las filas de la app cuya cuenta ya no existe en el
+// proveedor (borrada con la API de administración sin pasar por aquí).
+func (s *Store) PurgarHuerfanos(ctx context.Context) (int64, error) {
+	var total int64
+	for _, t := range []string{"account.sesiones", "account.solicitudes", "account.membresias"} {
+		ct, err := s.pool.Exec(ctx, `delete from `+t+` where user_id not in (select id from auth.users)`)
+		if err != nil {
+			return total, err
+		}
+		total += ct.RowsAffected()
+	}
+	return total, nil
+}

@@ -51,6 +51,10 @@ type Config struct {
 	// concedido); GoTrue manda los suyos con la suya. Sin SMTPHost no se envía
 	// nada y el acceso se concede igual.
 	SMTPHost, SMTPPort, SMTPUser, SMTPPass, SMTPFrom string
+	// UnconfirmedDays: una cuenta que se registró sola y nunca confirmó el correo
+	// se borra pasados estos días (14 por defecto; 0 desactiva la purga). Las
+	// invitadas no se tocan: la invitación la decidió una persona y se reenvía.
+	UnconfirmedDays int
 	// InsecureCookies quita `Secure` de las cookies: sólo para pruebas por http.
 	InsecureCookies bool
 	// Addr es host:puerto de escucha.
@@ -132,6 +136,14 @@ func FromEnv() (*Config, error) {
 	}
 	if g := strings.TrimSpace(os.Getenv("ACCOUNT_ADMIN_GROUP")); g != "" {
 		c.AdminGroup = g
+	}
+	c.UnconfirmedDays = 14
+	if v := strings.TrimSpace(os.Getenv("ACCOUNT_UNCONFIRMED_DAYS")); v != "" {
+		if d, err := strconv.Atoi(v); err != nil || d < 0 || d > 365 {
+			errs = append(errs, fmt.Errorf("ACCOUNT_UNCONFIRMED_DAYS: entero de 0 (desactivado) a 365: %q", v))
+		} else {
+			c.UnconfirmedDays = d
+		}
 	}
 	c.SMTPHost = strings.TrimSpace(os.Getenv("ACCOUNT_SMTP_HOST"))
 	c.SMTPPort = strings.TrimSpace(os.Getenv("ACCOUNT_SMTP_PORT"))
