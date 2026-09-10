@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.4.3 — 2026-09-10
+
+- El consentimiento comprueba la autorización antes de pedir que se entre: sin
+  `authorization_id` explica que no hay nada que autorizar, y una autorización
+  caducada lo dice al momento en vez de después de un login inútil.
+
 ## 0.4.2 — 2026-09-10
 
 - Revisión de redirecciones. Quien confirma el correo de una cuenta nueva

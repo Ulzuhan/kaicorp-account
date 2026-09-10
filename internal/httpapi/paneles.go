@@ -121,10 +121,9 @@ func (s *Server) solicitar(w http.ResponseWriter, r *http.Request) {
 // aprueba sola cuando ya hay un grant previo.
 
 func (s *Server) consentGET(w http.ResponseWriter, r *http.Request) {
-	a := s.requiereSesion(w, r)
-	if a == nil {
-		return
-	}
+	// Lo que no depende de quién mira, antes de pedirle que entre: sin
+	// autorización no hay nada que autorizar, y una autorización caducada no
+	// merece un login para descubrirlo después.
 	aid := r.URL.Query().Get("authorization_id")
 	if aid == "" {
 		s.errorPagina(w, r, http.StatusBadRequest, "Nothing to authorize", "This page is where a tool sends you to sign in. Open the tool and use its sign-in button.")
@@ -133,6 +132,10 @@ func (s *Server) consentGET(w http.ResponseWriter, r *http.Request) {
 	clienteID, err := s.st.ClienteDeAutorizacion(r.Context(), aid)
 	if err != nil {
 		s.errorPagina(w, r, http.StatusGone, "This sign-in has expired", "Go back to the tool and try again.")
+		return
+	}
+	a := s.requiereSesion(w, r)
+	if a == nil {
 		return
 	}
 	g, err := s.st.GrupoDeCliente(r.Context(), clienteID)
