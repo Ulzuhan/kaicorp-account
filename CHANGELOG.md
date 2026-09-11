@@ -1,5 +1,21 @@
 # Cambios
 
+## 0.7.0 — 2026-09-11
+
+- Passkeys como segundo factor, opcionales, junto al autenticador TOTP. Se dan de
+  alta en Seguridad («Add a passkey»: el navegador pide huella, cara, PIN o
+  llave) y al entrar se ofrecen antes que el código; quien tenga las dos cosas
+  elige. GoTrue las guarda como factores `webauthn` (hacen falta
+  `GOTRUE_MFA_WEB_AUTHN_ENROLL_ENABLED` y `_VERIFY_ENABLED`); el RP ID es el
+  host público de la app.
+- El primer y único script: `static/js/passkey.js`, porque WebAuthn sólo existe
+  en el navegador. Convierte las opciones de GoTrue, llama a
+  `navigator.credentials` y envía la credencial por el formulario; sin red
+  desde el navegador. La CSP pasa de `script-src 'none'` a `'self'`; nada inline.
+- La forma de la API WebAuthn de GoTrue 2.189 va en camelCase (`rpId`,
+  `rpOrigins`) y con `type` create/request, al revés que el resto: está en el
+  cliente, con cómo se averiguó.
+
 ## 0.6.0 — 2026-09-11
 
 - Cambio de correo desde Seguridad. GoTrue manda un enlace a la dirección vieja

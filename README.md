@@ -7,7 +7,7 @@ the administration of memberships. It is the user-facing half of a self-hosted
 as an OpenID Connect provider: GoTrue keeps the accounts, passwords, factors and
 sessions; this app keeps **who may enter what**, and paints every screen.
 
-It is a single Go binary with the pages embedded. No JavaScript, strict CSP,
+It is a single Go binary with the pages embedded. One script (passkeys need the browser's WebAuthn API), strict CSP,
 server-rendered forms with CSRF.
 
 ## How it fits

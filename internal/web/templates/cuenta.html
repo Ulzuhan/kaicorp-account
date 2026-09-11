@@ -45,23 +45,37 @@
 
       <div class="card span"><div class="body">
         <div class="head">
-          <div><p class="k">Second factor</p><h2>An authenticator app</h2><p>With one, signing in asks for a six-digit code besides the password. It protects the account even if the password leaks.</p></div>
-          {{if not .Enrolando}}<form method="post" action="/cuenta/factor/alta"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn btn-ghost btn-sm" type="submit">Add an authenticator app</button></form>{{end}}
+          <div><p class="k">Second factor</p><h2>Passkeys and authenticator apps</h2><p>With a second factor, signing in asks for more than the password: a <strong>passkey</strong> (your phone or computer proving it is you with a fingerprint, your face or its PIN) or a six-digit code from an <strong>authenticator app</strong>. Either protects the account even if the password leaks; you can have both.</p></div>
+          {{if and (not .Enrolando) (not .Passkey)}}<div class="stack-sm">
+            <form method="post" action="/cuenta/passkey/alta"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn btn-primary btn-sm" type="submit">Add a passkey</button></form>
+            <form method="post" action="/cuenta/factor/alta"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn btn-ghost btn-sm" type="submit">Add an authenticator app</button></form>
+          </div>{{end}}
         </div>
         {{if .Factores}}
           <div class="table-wrap"><table class="table">
             <thead><tr><th>Name</th><th>Type</th><th>Status</th><th></th></tr></thead>
             <tbody>
             {{range .Factores}}<tr>
-              <td data-label="Name">{{if .FriendlyName}}{{.FriendlyName}}{{else}}Authenticator app{{end}}</td>
-              <td data-label="Type" class="muted">{{.FactorType}}</td>
+              <td data-label="Name">{{if .FriendlyName}}{{.FriendlyName}}{{else if eq .FactorType "webauthn"}}Passkey{{else}}Authenticator app{{end}}</td>
+              <td data-label="Type" class="muted">{{if eq .FactorType "webauthn"}}Passkey{{else if eq .FactorType "totp"}}Authenticator app{{else}}{{.FactorType}}{{end}}</td>
               <td data-label="Status">{{if eq .Status "verified"}}<span class="pill live">Active</span>{{else}}<span class="pill soon">Not activated</span>{{end}}</td>
               <td class="actions"><form method="post" action="/cuenta/factor/borrar"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="factor_id" value="{{.ID}}"><button class="btn btn-ghost btn-sm" type="submit">Remove</button></form></td>
             </tr>{{end}}
             </tbody>
           </table></div>
-        {{else if not .Enrolando}}
-          <div class="content"><div class="empty">No second factor yet. Add an authenticator app and every sign-in will ask for its code.</div></div>
+        {{else if and (not .Enrolando) (not .Passkey)}}
+          <div class="content"><div class="empty">No second factor yet. Add a passkey or an authenticator app and every sign-in will ask for it.</div></div>
+        {{end}}
+        {{if .Passkey}}
+          <div class="passkey-box">
+            <p class="lede mt0">Your browser will now ask you to create the passkey: with your fingerprint, your face or the device PIN, or with a security key. It never leaves your device; this account keeps only its public half.</p>
+            <form method="post" action="/cuenta/passkey/verificar" class="passkey" data-passkey="create" data-options="{{.Passkey.Options}}">
+              <input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="factor_id" value="{{.Passkey.FactorID}}"><input type="hidden" name="challenge_id" value="{{.Passkey.ChallengeID}}"><input type="hidden" name="credential" value="">
+              <div class="form-actions inline"><button class="btn btn-primary btn-sm" type="button" data-passkey-go>Create the passkey</button><span class="fine status" data-passkey-status hidden></span></div>
+            </form>
+            <form method="post" action="/cuenta/factor/borrar"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="factor_id" value="{{.Passkey.FactorID}}"><button class="btn btn-ghost btn-sm" type="submit">Cancel</button></form>
+          </div>
+          <script src="/static/js/passkey.js?v={{.AssetVersion}}" defer></script>
         {{end}}
         {{if .Enrolando}}
           <div class="qr-box">

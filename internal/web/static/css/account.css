@@ -442,6 +442,10 @@ select.input.sm { padding-right: 2.2rem; }
 .scopes li { display: flex; align-items: center; gap: .6rem; padding: .6rem .8rem; border-radius: 9px; border: 1px solid var(--line); background: #ffffff03; font-size: .9rem; color: var(--text-2); }
 .scopes svg { width: 1rem; height: 1rem; color: var(--ok); flex-shrink: 0; }
 .qr-box { display: grid; gap: 1.2rem; align-items: start; margin-top: 1.2rem; }
+.passkey-box { display: grid; gap: .9rem; margin-top: 1.2rem; justify-items: start; }
+.stack-sm { display: grid; gap: .5rem; justify-items: end; }
+.status { color: var(--text-2); font-size: .85rem; }
+.auth .alt.or { margin-top: 1.2rem; padding-top: .9rem; font-family: var(--mono); font-size: .68rem; letter-spacing: .16em; text-transform: uppercase; color: var(--text-3); }
 @media (min-width: 640px) { .qr-box { grid-template-columns: auto 1fr; } }
 .qr { display: block; width: 176px; height: 176px; background: #fff; padding: 8px; border-radius: 9px; }
 .secret { margin-top: .8rem; padding: .6rem .8rem; border-radius: 9px; border: 1px dashed var(--line-2); font-family: var(--mono); font-size: .8rem; color: var(--text-2); word-break: break-all; }

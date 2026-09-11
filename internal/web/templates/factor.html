@@ -4,8 +4,21 @@
     <div class="card"><div class="body">
       <p class="k">Second factor</p>
       <h1>One more step.</h1>
-      <p class="sub">Enter the six-digit code your authenticator app shows right now.</p>
+      <p class="sub">{{if .Passkeys}}Confirm it is you with your passkey{{if .FactorID}}, or enter the code from your authenticator app{{end}}.{{else}}Enter the six-digit code your authenticator app shows right now.{{end}}</p>
       {{if .Error}}<div class="notice err" role="alert"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v4m0 4h.01"/></svg><div>{{.Error}}</div></div>{{end}}
+      {{range .Passkeys}}
+      <form method="post" action="/factor" class="passkey" data-passkey="request" data-options="{{.Options}}">
+        <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+        <input type="hidden" name="next" value="{{$.Next}}">
+        <input type="hidden" name="factor_id" value="{{.FactorID}}">
+        <input type="hidden" name="challenge_id" value="{{.ChallengeID}}">
+        <input type="hidden" name="credential" value="">
+        <div class="form-actions"><button class="btn btn-primary btn-block" type="button" data-passkey-go>Use {{if .Nombre}}“{{.Nombre}}”{{else}}your passkey{{end}} →</button></div>
+        <p class="fine status" data-passkey-status hidden></p>
+      </form>
+      {{end}}
+      {{if .FactorID}}
+      {{if .Passkeys}}<p class="alt or">or</p>{{end}}
       <form method="post" action="/factor">
         <input type="hidden" name="_csrf" value="{{.CSRF}}">
         <input type="hidden" name="next" value="{{.Next}}">
@@ -13,10 +26,11 @@
         <input type="hidden" name="challenge_id" value="{{.ChallengeID}}">
         <div class="field">
           <label for="code">Code</label>
-          <input class="input code" id="code" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required autofocus placeholder="······">
+          <input class="input code" id="code" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required{{if not .Passkeys}} autofocus{{end}} placeholder="······">
         </div>
-        <div class="form-actions"><button class="btn btn-primary btn-block" type="submit">Verify →</button></div>
+        <div class="form-actions"><button class="btn {{if .Passkeys}}btn-ghost{{else}}btn-primary{{end}} btn-block" type="submit">Verify →</button></div>
       </form>
+      {{end}}
       <form class="alt" method="post" action="/salir">
         <input type="hidden" name="_csrf" value="{{.CSRF}}">
         <button class="btn btn-ghost btn-sm" type="submit">Cancel and sign out</button>
@@ -24,4 +38,5 @@
     </div></div>
   </div>
 </section>
+{{if .Passkeys}}<script src="/static/js/passkey.js?v={{.AssetVersion}}" defer></script>{{end}}
 {{end}}

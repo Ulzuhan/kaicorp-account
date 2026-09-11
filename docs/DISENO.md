@@ -15,7 +15,7 @@
 
 ## Decisiones
 
-1. **Plantillas Go y cero JavaScript**, no React. La casa había migrado tres
+1. **Plantillas Go y cero JavaScript** (uno desde la 0.7.0: `passkey.js`, porque WebAuthn sólo existe en el navegador; rellena un campo y envía el formulario, y sólo se carga en las páginas con passkey), no React. La casa había migrado tres
    servicios a React + Go, pero una interfaz de autenticación es formularios y
    redirecciones; sin scripts la CSP es `script-src 'none'`, no hay build ni
    dependencias de npm que auditar, y el cromado se calca de LinkUp, que ya lo

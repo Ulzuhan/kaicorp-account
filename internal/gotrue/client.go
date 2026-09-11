@@ -372,6 +372,73 @@ func (c *Client) VerifyFactor(ctx context.Context, token, factorID, challengeID,
 	return &s, nil
 }
 
+// ── Passkeys (WebAuthn como segundo factor) ────────────────────────────────
+
+// webauthnParams es lo que GoTrue 2.189 espera dentro de "webauthn" al pedir
+// un reto y al verificarlo. Las claves van en camelCase (rpId, rpOrigins), al
+// revés que el resto de su API, y `type` dice si es alta (create) o entrada
+// (request). Averiguado a golpes contra la instancia el 11-09: con rp_id
+// contesta «RP ID cannot be empty» y con web_authn, «config required».
+type webauthnParams struct {
+	Type       string          `json:"type"`
+	RPID       string          `json:"rpId"`
+	RPOrigins  []string        `json:"rpOrigins"`
+	Credential json.RawMessage `json:"credential_response,omitempty"`
+}
+
+// EnrollWebAuthn da de alta un factor passkey (queda unverified hasta VerifyWebAuthn).
+func (c *Client) EnrollWebAuthn(ctx context.Context, token, friendlyName string) (*EnrolledFactor, error) {
+	var f EnrolledFactor
+	err := c.call(ctx, http.MethodPost, "/factors", token, false,
+		map[string]string{"factor_type": "webauthn", "friendly_name": friendlyName}, &f)
+	if err != nil {
+		return nil, err
+	}
+	return &f, nil
+}
+
+// WebAuthnChallenge es un reto con las opciones que el navegador necesita
+// (PublicKeyCredentialCreationOptions al dar de alta, RequestOptions al entrar)
+// tal cual las manda GoTrue: JSON con los binarios en base64url, envuelto en
+// {"publicKey": …}.
+type WebAuthnChallenge struct {
+	ID        string
+	ExpiresAt int64
+	Options   json.RawMessage
+}
+
+// ChallengeWebAuthn abre un reto de alta ("create") o de entrada ("request").
+func (c *Client) ChallengeWebAuthn(ctx context.Context, token, factorID, typ, rpID string, origins []string) (*WebAuthnChallenge, error) {
+	var out struct {
+		ID        string `json:"id"`
+		ExpiresAt int64  `json:"expires_at"`
+		WebAuthn  struct {
+			Options json.RawMessage `json:"credential_options"`
+		} `json:"webauthn"`
+	}
+	err := c.call(ctx, http.MethodPost, "/factors/"+url.PathEscape(factorID)+"/challenge", token, false,
+		map[string]any{"webauthn": webauthnParams{Type: typ, RPID: rpID, RPOrigins: origins}}, &out)
+	if err != nil {
+		return nil, err
+	}
+	if len(out.WebAuthn.Options) == 0 {
+		return nil, errors.New("gotrue: reto webauthn sin opciones")
+	}
+	return &WebAuthnChallenge{ID: out.ID, ExpiresAt: out.ExpiresAt, Options: out.WebAuthn.Options}, nil
+}
+
+// VerifyWebAuthn responde al reto con la credencial que devolvió el navegador
+// (un PublicKeyCredential serializado en JSON); devuelve una sesión aal2.
+func (c *Client) VerifyWebAuthn(ctx context.Context, token, factorID, challengeID, typ, rpID string, origins []string, credential json.RawMessage) (*Session, error) {
+	var s Session
+	err := c.call(ctx, http.MethodPost, "/factors/"+url.PathEscape(factorID)+"/verify", token, false,
+		map[string]any{"challenge_id": challengeID, "webauthn": webauthnParams{Type: typ, RPID: rpID, RPOrigins: origins, Credential: credential}}, &s)
+	if err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+
 // DeleteFactor retira un factor.
 func (c *Client) DeleteFactor(ctx context.Context, token, factorID string) error {
 	return c.call(ctx, http.MethodDelete, "/factors/"+url.PathEscape(factorID), token, false, nil, nil)

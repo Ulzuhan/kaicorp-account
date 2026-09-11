@@ -105,6 +105,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /cuenta/factor/alta", s.factorAlta)
 	mux.HandleFunc("POST /cuenta/factor/verificar", s.factorVerificar)
 	mux.HandleFunc("POST /cuenta/factor/borrar", s.factorBorrar)
+	mux.HandleFunc("POST /cuenta/passkey/alta", s.passkeyAlta)
+	mux.HandleFunc("POST /cuenta/passkey/verificar", s.passkeyVerificar)
 	mux.HandleFunc("POST /cuenta/grant/revocar", s.grantRevocar)
 	mux.HandleFunc("POST /cuenta/sesiones/cerrar", s.sesionesCerrar)
 
@@ -147,8 +149,9 @@ func (c *conCodigo) WriteHeader(code int) {
 	c.ResponseWriter.WriteHeader(code)
 }
 
-// contentSecurityPolicy: sin scripts, sin inline, sin nada de fuera. Las
-// imágenes en data: son los QR de los factores, que GoTrue devuelve así.
+// contentSecurityPolicy: un solo script (el nuestro, passkey.js: WebAuthn sólo
+// existe en el navegador), nada inline, nada de fuera. Las imágenes en data:
+// son los QR de los factores, que GoTrue devuelve así.
 //
 // `form-action` lleva, además de 'self', el dominio de la casa y sus
 // subdominios. No porque haya formularios que envíen fuera: porque Chrome
@@ -164,7 +167,7 @@ func contentSecurityPolicy(publicURL *url.URL) string {
 		padre := host[strings.Index(host, ".")+1:]
 		formAction += " https://" + padre + " https://*." + padre
 	}
-	return "default-src 'self'; script-src 'none'; style-src 'self'; img-src 'self' data:; " +
+	return "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; " +
 		"font-src 'self'; connect-src 'none'; form-action " + formAction + "; base-uri 'none'; frame-ancestors 'none'"
 }
 

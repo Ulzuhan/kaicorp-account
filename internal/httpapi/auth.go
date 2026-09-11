@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log"
@@ -128,31 +129,60 @@ func (s *Server) factorGET(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/entrar", http.StatusSeeOther)
 		return
 	}
-	u, err := s.gt.Me(r.Context(), p.Access)
-	if err != nil {
-		s.borrarPendienteMFA(w)
-		http.Redirect(w, r, "/entrar", http.StatusSeeOther)
-		return
-	}
-	var factorID string
-	for _, f := range u.Factors {
-		if f.Status == "verified" && f.FactorType == "totp" {
-			factorID = f.ID
-			break
-		}
-	}
-	if factorID == "" {
-		// Tiene factor verificado pero no TOTP (webauthn, aún sin pantalla aquí).
-		s.borrarPendienteMFA(w)
-		s.errorPagina(w, r, http.StatusNotImplemented, "Second factor", "Your account uses a security key, which this page cannot ask for yet. Ask an administrator to reset your factors.")
-		return
-	}
-	ch, err := s.gt.ChallengeFactor(r.Context(), p.Access, factorID)
+	datos, err := s.datosFactor(r.Context(), p)
 	if err != nil {
 		s.errorPagina(w, r, http.StatusBadGateway, "Second factor", mensajeGoTrue(err))
 		return
 	}
-	s.render(w, r, "factor.html", "Second factor", map[string]any{"Next": p.Next, "FactorID": factorID, "ChallengeID": ch.ID}, http.StatusOK)
+	if datos == nil {
+		s.borrarPendienteMFA(w)
+		s.errorPagina(w, r, http.StatusNotImplemented, "Second factor", "Your account has a second factor of a kind this page cannot ask for. Ask an administrator to reset your factors.")
+		return
+	}
+	s.render(w, r, "factor.html", "Second factor", datos, http.StatusOK)
+}
+
+// datosFactor prepara la página del segundo factor: un reto TOTP si hay
+// autenticador, y un reto de entrada por cada passkey activa (cada una lleva su
+// credencial en allowCredentials, así que un reto por factor). Devuelve nil sin
+// error si la cuenta no tiene ningún factor que esta página sepa pedir.
+func (s *Server) datosFactor(ctx context.Context, p *pendienteMFA) (map[string]any, error) {
+	u, err := s.gt.Me(ctx, p.Access)
+	if err != nil {
+		return nil, err
+	}
+	datos := map[string]any{"Next": p.Next}
+	var passkeys []*passkeyPendiente
+	rpID, origins := s.rp()
+	for _, f := range u.Factors {
+		if f.Status != "verified" {
+			continue
+		}
+		switch f.FactorType {
+		case "totp":
+			if _, ya := datos["FactorID"]; ya {
+				continue
+			}
+			ch, err := s.gt.ChallengeFactor(ctx, p.Access, f.ID)
+			if err != nil {
+				return nil, err
+			}
+			datos["FactorID"], datos["ChallengeID"] = f.ID, ch.ID
+		case "webauthn":
+			ch, err := s.gt.ChallengeWebAuthn(ctx, p.Access, f.ID, "request", rpID, origins)
+			if err != nil {
+				return nil, err
+			}
+			passkeys = append(passkeys, &passkeyPendiente{FactorID: f.ID, ChallengeID: ch.ID, Options: string(ch.Options), Nombre: f.FriendlyName})
+		}
+	}
+	if len(passkeys) > 0 {
+		datos["Passkeys"] = passkeys
+	}
+	if _, ok := datos["FactorID"]; !ok && len(passkeys) == 0 {
+		return nil, nil
+	}
+	return datos, nil
 }
 
 func (s *Server) factorPOST(w http.ResponseWriter, r *http.Request) {
@@ -164,16 +194,28 @@ func (s *Server) factorPOST(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/entrar", http.StatusSeeOther)
 		return
 	}
-	code := strings.TrimSpace(r.PostFormValue("code"))
-	gs, err := s.gt.VerifyFactor(r.Context(), p.Access, r.PostFormValue("factor_id"), r.PostFormValue("challenge_id"), code)
-	if err != nil {
-		// Reto nuevo para el siguiente intento.
-		ch, cerr := s.gt.ChallengeFactor(r.Context(), p.Access, r.PostFormValue("factor_id"))
-		chID := ""
-		if cerr == nil {
-			chID = ch.ID
+	var gs *gotrue.Session
+	var err error
+	if cred := strings.TrimSpace(r.PostFormValue("credential")); cred != "" {
+		// Passkey: la credencial firmada que devolvió el navegador.
+		if len(cred) > 32<<10 || !json.Valid([]byte(cred)) {
+			err = errors.New("credencial inválida")
+		} else {
+			rpID, origins := s.rp()
+			gs, err = s.gt.VerifyWebAuthn(r.Context(), p.Access, r.PostFormValue("factor_id"), r.PostFormValue("challenge_id"), "request", rpID, origins, json.RawMessage(cred))
 		}
-		s.render(w, r, "factor.html", "Second factor", map[string]any{"Next": p.Next, "FactorID": r.PostFormValue("factor_id"), "ChallengeID": chID, "Error": mensajeGoTrue(err)}, http.StatusUnauthorized)
+	} else {
+		gs, err = s.gt.VerifyFactor(r.Context(), p.Access, r.PostFormValue("factor_id"), r.PostFormValue("challenge_id"), strings.TrimSpace(r.PostFormValue("code")))
+	}
+	if err != nil {
+		// Retos nuevos para el siguiente intento: los usados ya no valen.
+		datos, derr := s.datosFactor(r.Context(), p)
+		if derr != nil || datos == nil {
+			s.errorPagina(w, r, http.StatusBadGateway, "Second factor", "The second factor could not be checked. Sign in again.")
+			return
+		}
+		datos["Error"] = "That did not work: " + mensajeGoTrue(err) + " Try again."
+		s.render(w, r, "factor.html", "Second factor", datos, http.StatusUnauthorized)
 		return
 	}
 	s.borrarPendienteMFA(w)

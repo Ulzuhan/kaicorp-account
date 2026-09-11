@@ -224,8 +224,26 @@ func (s *Server) consentPOST(w http.ResponseWriter, r *http.Request) {
 // ── Seguridad de la cuenta ─────────────────────────────────────────────────
 
 type enrolamiento struct {
-	factor *gotrue.EnrolledFactor
-	hasta  time.Time
+	factor  *gotrue.EnrolledFactor
+	passkey *passkeyPendiente
+	hasta   time.Time
+}
+
+// passkeyPendiente es un reto WebAuthn abierto: el factor existe en GoTrue y
+// espera la credencial del navegador. Options es el JSON de GoTrue tal cual,
+// para el atributo data-options que lee passkey.js. Nombre sólo al entrar, para
+// distinguir varias passkeys.
+type passkeyPendiente struct {
+	FactorID    string
+	ChallengeID string
+	Options     string
+	Nombre      string
+}
+
+// rp devuelve el RP ID (el host público) y el origen para WebAuthn: la passkey
+// queda atada a account.<dominio>, que es donde se crea y donde se usa.
+func (s *Server) rp() (string, []string) {
+	return s.cfg.PublicURL.Hostname(), []string{s.cfg.PublicURL.Scheme + "://" + s.cfg.PublicURL.Host}
 }
 
 func (s *Server) cuenta(w http.ResponseWriter, r *http.Request) {
@@ -256,10 +274,14 @@ func (s *Server) cuenta(w http.ResponseWriter, r *http.Request) {
 	if v, ok := s.enrolando.Load(a.ID); ok {
 		e := v.(enrolamiento)
 		if time.Now().Before(e.hasta) {
-			datos["Enrolando"] = e.factor
-			// html/template convierte una URL data: en "#ZgotmplZ" salvo que
-			// llegue marcada como segura; el QR viene de GoTrue y va en base64.
-			datos["EnrolandoQR"] = template.URL(e.factor.QRDataURL())
+			if e.passkey != nil {
+				datos["Passkey"] = e.passkey
+			} else {
+				datos["Enrolando"] = e.factor
+				// html/template convierte una URL data: en "#ZgotmplZ" salvo que
+				// llegue marcada como segura; el QR viene de GoTrue y va en base64.
+				datos["EnrolandoQR"] = template.URL(e.factor.QRDataURL())
+			}
 		} else {
 			s.enrolando.Delete(a.ID)
 		}
@@ -372,6 +394,66 @@ func (s *Server) factorVerificar(w http.ResponseWriter, r *http.Request) {
 	}
 	s.enrolando.Delete(a.ID)
 	s.ponerFlash(w, "Second factor active. From now on, signing in asks for a code.")
+	http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
+}
+
+// passkeyAlta crea el factor y abre el reto de alta; la credencial la crea el
+// navegador en la página de Seguridad (passkey.js) y llega a passkeyVerificar.
+func (s *Server) passkeyAlta(w http.ResponseWriter, r *http.Request) {
+	a := s.requiereSesion(w, r)
+	if a == nil {
+		return
+	}
+	nombre := strings.TrimSpace(r.PostFormValue("name"))
+	if nombre == "" {
+		nombre = "Passkey"
+	}
+	if len(nombre) > 60 {
+		nombre = nombre[:60]
+	}
+	f, err := s.gt.EnrollWebAuthn(r.Context(), a.Token(), nombre)
+	if err != nil {
+		s.ponerFlash(w, mensajeGoTrue(err))
+		http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
+		return
+	}
+	rpID, origins := s.rp()
+	ch, err := s.gt.ChallengeWebAuthn(r.Context(), a.Token(), f.ID, "create", rpID, origins)
+	if err != nil {
+		_ = s.gt.DeleteFactor(r.Context(), a.Token(), f.ID)
+		s.ponerFlash(w, mensajeGoTrue(err))
+		http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
+		return
+	}
+	s.enrolando.Store(a.ID, enrolamiento{passkey: &passkeyPendiente{FactorID: f.ID, ChallengeID: ch.ID, Options: string(ch.Options)}, hasta: time.Now().Add(5 * time.Minute)})
+	http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
+}
+
+// passkeyVerificar recibe la credencial que creó el navegador y la verifica en
+// GoTrue: el factor pasa a verified y la sesión de la app a aal2.
+func (s *Server) passkeyVerificar(w http.ResponseWriter, r *http.Request) {
+	a := s.requiereSesion(w, r)
+	if a == nil {
+		return
+	}
+	cred := strings.TrimSpace(r.PostFormValue("credential"))
+	if cred == "" || len(cred) > 32<<10 || !json.Valid([]byte(cred)) {
+		s.ponerFlash(w, "The browser did not return a passkey. Try again.")
+		http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
+		return
+	}
+	rpID, origins := s.rp()
+	gs, err := s.gt.VerifyWebAuthn(r.Context(), a.Token(), r.PostFormValue("factor_id"), r.PostFormValue("challenge_id"), "create", rpID, origins, json.RawMessage(cred))
+	if err != nil {
+		s.ponerFlash(w, mensajeGoTrue(err))
+		http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
+		return
+	}
+	if err := s.ses.Actualizar(r.Context(), a, gs, "aal2"); err != nil {
+		log.Printf("actualizar sesión aal2 tras passkey: %v", err)
+	}
+	s.enrolando.Delete(a.ID)
+	s.ponerFlash(w, "Passkey added. From now on, signing in asks for it.")
 	http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
 }
 
