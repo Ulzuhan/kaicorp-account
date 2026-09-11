@@ -455,6 +455,13 @@ func (s *Store) SesionesDe(ctx context.Context, userID string) ([]Sesion, error)
 	return out, rows.Err()
 }
 
+// ActualizarCorreoSesiones pone el correo nuevo en todas las sesiones vivas de
+// una persona: la barra lo enseña, y sin esto seguiría el viejo hasta re-entrar.
+func (s *Store) ActualizarCorreoSesiones(ctx context.Context, userID, email string) error {
+	_, err := s.pool.Exec(ctx, `update account.sesiones set email=$2 where user_id=$1`, userID, email)
+	return err
+}
+
 // PurgarSesiones borra las caducadas.
 func (s *Store) PurgarSesiones(ctx context.Context) (int64, error) {
 	tag, err := s.pool.Exec(ctx, `delete from account.sesiones where expira<now()`)

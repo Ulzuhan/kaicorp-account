@@ -19,12 +19,17 @@
   <div class="wrap">
     <div class="two">
       <div class="card"><div class="body">
-        <div class="head"><div><p class="k">Your details</p><h2>Name and email</h2><p>The name is what the tools show. The email is the account itself and does not change here.</p></div></div>
+        <div class="head"><div><p class="k">Your details</p><h2>Name and email</h2><p>The name is what the tools show. The email is the account itself: changing it asks you to confirm from both addresses, the old one and the new one, and nothing changes until both links are opened.</p></div></div>
         <form class="content" method="post" action="/cuenta/nombre">
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
           <div class="field"><label for="name">Name</label><input class="input" id="name" name="name" type="text" required maxlength="80" value="{{.User.Nombre}}"></div>
-          <div class="field"><span class="lbl">Email</span><div class="static"><strong>{{.User.Email}}</strong></div></div>
           <div class="form-actions"><button class="btn btn-ghost btn-sm" type="submit">Save name</button></div>
+        </form>
+        <form class="content" method="post" action="/cuenta/correo">
+          <input type="hidden" name="_csrf" value="{{.CSRF}}">
+          <div class="field"><span class="lbl">Email</span><div class="static"><strong>{{.User.Email}}</strong></div></div>
+          <div class="field"><label for="new-email">New email</label><input class="input" id="new-email" name="email" type="email" required autocomplete="email" placeholder="you@example.com"></div>
+          <div class="form-actions"><button class="btn btn-ghost btn-sm" type="submit">Change email</button></div>
         </form>
       </div></div>
 

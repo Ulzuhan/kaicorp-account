@@ -100,6 +100,7 @@ func (s *Server) Handler() http.Handler {
 
 	mux.HandleFunc("GET /cuenta", s.cuenta)
 	mux.HandleFunc("POST /cuenta/nombre", s.cuentaNombre)
+	mux.HandleFunc("POST /cuenta/correo", s.cuentaCorreo)
 	mux.HandleFunc("POST /cuenta/password", s.cuentaPassword)
 	mux.HandleFunc("POST /cuenta/factor/alta", s.factorAlta)
 	mux.HandleFunc("POST /cuenta/factor/verificar", s.factorVerificar)

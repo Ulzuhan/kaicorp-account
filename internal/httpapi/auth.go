@@ -288,6 +288,21 @@ func (s *Server) verificar(w http.ResponseWriter, r *http.Request) {
 		s.errorPagina(w, r, http.StatusBadRequest, "The link does not work", mensajeGoTrue(err)+" You can sign in and ask for a new one, or create the account again.")
 		return
 	}
+	if gs.Parcial() {
+		// Cambio de correo seguro: GoTrue ha aceptado uno de los dos enlaces y
+		// espera el otro. No hay sesión que abrir ni nada que cambiar todavía.
+		s.render(w, r, "correo.html", "One confirmed, one to go", map[string]any{"Mensaje": "This link is accepted. The change happens when you also open the link we sent to your other address: the old one if this was the new, the new one if this was the old."}, http.StatusOK)
+		return
+	}
+	if typ == "email_change" {
+		// Las dos confirmaciones hechas: el correo ya es el nuevo en GoTrue. Las
+		// sesiones de esta app guardan el correo de cuando nacieron; se ponen al día.
+		if err := s.st.ActualizarCorreoSesiones(r.Context(), gs.User.ID, gs.User.Email); err != nil {
+			log.Printf("actualizar correo en sesiones de %s: %v", gs.User.ID, err)
+		}
+		s.ponerFlash(w, "Your email is now "+gs.User.Email+". Use it to sign in from now on.")
+		q.Set("next", "/cuenta")
+	}
 	// Una cuenta recién confirmada no tiene factores; si los tuviera (cambio de
 	// correo de una cuenta con TOTP), pasa por el factor como al entrar.
 	if gs.User.HasVerifiedFactor() {

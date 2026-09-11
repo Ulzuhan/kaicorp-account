@@ -1,5 +1,16 @@
 # Cambios
 
+## 0.6.0 — 2026-09-11
+
+- Cambio de correo desde Seguridad. GoTrue manda un enlace a la dirección vieja
+  y otro a la nueva (cambio seguro, el valor por defecto) y no cambia nada hasta
+  que se abren los dos; por eso no se vuelve a pedir la contraseña: quien robe
+  una sesión no tiene el buzón viejo. `/verificar` distingue el primer enlace
+  («one confirmed, one to go») del segundo, que pone el correo nuevo en las
+  sesiones de la app y vuelve a Seguridad. Tres intentos cada diez minutos por IP.
+- La plantilla `cambio-correo.html` habla a las dos direcciones (dice de cuál a
+  cuál, y a quién se envió con `SendingTo`).
+
 ## 0.5.0 — 2026-09-10
 
 - Invitar desde `/admin`: el correo y las herramientas que tendrá al llegar.

@@ -191,7 +191,14 @@ type Session struct {
 	ExpiresAt    int64  `json:"expires_at"`
 	RefreshToken string `json:"refresh_token"`
 	User         User   `json:"user"`
+	// Msg viene en vez de la sesión cuando GoTrue acepta un enlace pero aún no
+	// ha terminado: el cambio de correo seguro exige confirmar desde las dos
+	// direcciones, y tras la primera contesta «Confirmation link accepted…».
+	Msg string `json:"msg"`
 }
+
+// Parcial dice si la respuesta es un paso intermedio y no una sesión.
+func (s *Session) Parcial() bool { return s.AccessToken == "" && s.Msg != "" }
 
 // Signup registra una cuenta nueva con nombre. Con la confirmación de correo
 // activa GoTrue no devuelve sesión: devuelve la ficha con confirmation_sent_at.

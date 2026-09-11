@@ -283,6 +283,41 @@ func (s *Server) cuentaNombre(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
 }
 
+// cuentaCorreo pide a GoTrue el cambio de correo. Con el cambio seguro (el
+// valor por defecto) GoTrue manda un enlace a cada dirección y no cambia nada
+// hasta que se abren los dos: quien robe una sesión no puede quedarse la cuenta
+// sin el buzón viejo, así que aquí no se vuelve a pedir la contraseña. Las
+// herramientas guardan el `sub`, no el correo, y no se enteran; LinkUp adopta
+// además lo que tuviera a nombre del correo antiguo al entrar.
+func (s *Server) cuentaCorreo(w http.ResponseWriter, r *http.Request) {
+	a := s.requiereSesion(w, r)
+	if a == nil {
+		return
+	}
+	email, ok := correoValido(r.PostFormValue("email"))
+	switch {
+	case !ok:
+		s.ponerFlash(w, "That does not look like an email address.")
+	case strings.EqualFold(email, a.Email):
+		s.ponerFlash(w, "That is already the email of this account.")
+	case s.frena(w, r, "cambio-correo", 3, 0.3):
+		return
+	default:
+		if _, err := s.gt.UpdateUser(r.Context(), a.Token(), "", "", email); err != nil {
+			var ge *gotrue.Error
+			if errors.As(err, &ge) && ge.ErrorCode == "email_exists" {
+				s.ponerFlash(w, "That address already belongs to another account.")
+			} else {
+				s.ponerFlash(w, mensajeGoTrue(err))
+			}
+			break
+		}
+		s.render(w, r, "correo.html", "Two links, two inboxes", map[string]any{"Mensaje": "We sent one link to " + a.Email + " and another to " + email + ". Open both, in any order; the account keeps its current email until the second one is confirmed."}, http.StatusOK)
+		return
+	}
+	http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
+}
+
 func (s *Server) cuentaPassword(w http.ResponseWriter, r *http.Request) {
 	a := s.requiereSesion(w, r)
 	if a == nil {
