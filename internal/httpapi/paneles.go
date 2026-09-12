@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
@@ -551,6 +552,15 @@ func (s *Server) adminCuenta(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	datos := map[string]any{"IsAdmin": true, "Cuenta": u}
+	// Cuánto hace que se le invitó, en palabras. La plantilla no sabe restar
+	// fechas y el dato en crudo no dice nada: lo que quien administra necesita
+	// saber de un vistazo es si el enlace que esa persona tiene es de esta
+	// semana o de hace un mes. No se afirma si ha caducado —el plazo lo fija
+	// GoTrue con GOTRUE_MAILER_OTP_EXP, no esta app, y una etiqueta que se
+	// desincronizara mentiría—; reenviar es inofensivo en cualquier caso.
+	if !u.Confirmada && u.Invitada != nil {
+		datos["InvitadaHace"] = enPalabras(time.Since(*u.Invitada))
+	}
 	datos["Membresias"], _ = s.st.MembresiasDe(r.Context(), u.ID)
 	datos["Solicitudes"], _ = s.st.SolicitudesDe(r.Context(), u.ID)
 	datos["Grupos"], _ = s.st.Grupos(r.Context())
@@ -655,6 +665,63 @@ func (s *Server) adminCerrarSesiones(w http.ResponseWriter, r *http.Request) {
 		s.ponerFlash(w, "Every session of that account is closed.")
 	}
 	http.Redirect(w, r, "/admin/cuenta/"+url.PathEscape(uid), http.StatusSeeOther)
+}
+
+// adminReenviarInvitacion vuelve a mandar el correo de invitación a quien no lo
+// ha aceptado. GoTrue conserva su id, su fecha de alta y las membresías ya
+// concedidas: sólo cambia el enlace, que vuelve a valer lo que diga
+// GOTRUE_MAILER_OTP_EXP.
+//
+// POR QUÉ EXISTE: esto ya se podía hacer —escribir otra vez la misma dirección
+// en el formulario de invitar reenvía—, pero nada en el panel lo decía, así que
+// en la práctica no existía: el 12-09 hubo cuatro personas con la invitación
+// caducada y quien administra no tenía forma de saber que repetirla bastaba. Una
+// capacidad que no se puede descubrir no es una capacidad.
+// enPalabras redondea una duración a lo que diría una persona: «today»,
+// «2 days ago», «3 weeks ago». Sin minutos ni segundos, que para una invitación
+// no significan nada.
+func enPalabras(d time.Duration) string {
+	switch dias := int(d.Hours() / 24); {
+	case d < 24*time.Hour:
+		return "today"
+	case dias == 1:
+		return "yesterday"
+	case dias < 14:
+		return fmt.Sprintf("%d days ago", dias)
+	case dias < 60:
+		return fmt.Sprintf("%d weeks ago", dias/7)
+	default:
+		return fmt.Sprintf("%d months ago", dias/30)
+	}
+}
+
+func (s *Server) adminReenviarInvitacion(w http.ResponseWriter, r *http.Request) {
+	a := s.requiereAdmin(w, r)
+	if a == nil {
+		return
+	}
+	uid := r.PostFormValue("user_id")
+	volver := func(msg string) {
+		s.ponerFlash(w, msg)
+		http.Redirect(w, r, "/admin/cuenta/"+url.PathEscape(uid), http.StatusSeeOther)
+	}
+	u, err := s.st.UsuarioPorID(r.Context(), uid)
+	if err != nil {
+		volver("That account no longer exists.")
+		return
+	}
+	// Reenviar a quien ya entró no tiene sentido y GoTrue lo rechazaría: su
+	// invitación se consumió al confirmar. Se para aquí para poder decir por qué.
+	if u.Confirmada {
+		volver(u.Email + " has already accepted. There is nothing to resend.")
+		return
+	}
+	if _, err := s.gt.AdminInvite(r.Context(), u.Email); err != nil {
+		log.Printf("reenviar invitación a %s: %v", u.Email, err)
+		volver(mensajeGoTrue(err))
+		return
+	}
+	volver("Invitation sent again to " + u.Email + ". Their memberships are untouched.")
 }
 
 func (s *Server) adminBloquear(w http.ResponseWriter, r *http.Request) {

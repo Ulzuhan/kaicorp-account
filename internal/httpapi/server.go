@@ -115,6 +115,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /admin/solicitud", s.adminSolicitud)
 	mux.HandleFunc("POST /admin/vincular", s.adminVincular)
 	mux.HandleFunc("POST /admin/invitar", s.adminInvitar)
+	mux.HandleFunc("POST /admin/reenviar-invitacion", s.adminReenviarInvitacion)
 	mux.HandleFunc("POST /admin/conceder", s.adminConceder)
 	mux.HandleFunc("POST /admin/revocar", s.adminRevocar)
 	mux.HandleFunc("POST /admin/cerrar-sesiones", s.adminCerrarSesiones)

@@ -535,6 +535,11 @@ type Usuario struct {
 	Confirmada bool
 	Bloqueada  bool
 	Nombre     string
+	// Invitada es cuándo se le mandó la invitación, si llegó por ahí. Se enseña
+	// en /admin para que quien administra sepa de cuándo es el enlace que esa
+	// persona tiene en el correo: sin ese dato, «sin confirmar» no dice si hace
+	// falta reenviar o si acaba de invitarse. Nil = se registró por su cuenta.
+	Invitada *time.Time
 }
 
 // UsuarioPorCorreo busca una cuenta por correo (exacto, sin distinguir mayúsculas).
@@ -549,11 +554,11 @@ func (s *Store) UsuarioPorID(ctx context.Context, id string) (*Usuario, error) {
 
 const usuarioSelect = `select u.id::text, coalesce(u.email,''), u.created_at, u.last_sign_in_at,
 	u.email_confirmed_at is not null, coalesce(u.banned_until > now(), false),
-	coalesce(u.raw_user_meta_data->>'name','') from auth.users u`
+	coalesce(u.raw_user_meta_data->>'name',''), u.invited_at from auth.users u`
 
 func scanUsuario(row pgx.Row) (*Usuario, error) {
 	var u Usuario
-	if err := row.Scan(&u.ID, &u.Email, &u.Creada, &u.UltimaEntr, &u.Confirmada, &u.Bloqueada, &u.Nombre); err != nil {
+	if err := row.Scan(&u.ID, &u.Email, &u.Creada, &u.UltimaEntr, &u.Confirmada, &u.Bloqueada, &u.Nombre, &u.Invitada); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNoExiste
 		}

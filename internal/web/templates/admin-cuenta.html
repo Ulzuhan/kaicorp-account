@@ -15,6 +15,29 @@
   </div>
 </section>
 
+{{if not .Cuenta.Confirmada}}{{if not .Cuenta.Bloqueada}}
+<section class="tight">
+  <div class="wrap">
+    <div class="card"><div class="body">
+      <div class="head">
+        <div>
+          <p class="k">Pending invitation</p>
+          <h2>This account has not been opened yet</h2>
+          <p>{{if .InvitadaHace}}Invited <strong>{{.InvitadaHace}}</strong>, on {{.Cuenta.Invitada.Format "2006-01-02"}}. The link in that
+          email expires on its own, so if they say it no longer works, send it again: it keeps their
+          id and the memberships below, and only the link changes.{{else}}They signed up on their own and have not confirmed their
+          email yet. Sending an invitation now gives them a fresh link to finish.{{end}}</p>
+        </div>
+        <form class="inline" method="post" action="/admin/reenviar-invitacion">
+          <input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="user_id" value="{{.Cuenta.ID}}">
+          <button class="btn btn-primary btn-sm" type="submit">Resend invitation</button>
+        </form>
+      </div>
+    </div></div>
+  </div>
+</section>
+{{end}}{{end}}
+
 <section class="tight">
   <div class="wrap">
     <div class="two">

@@ -1,5 +1,21 @@
 # Cambios
 
+## 0.8.0 — 2026-09-12
+
+- **Reenviar una invitación, desde la ficha de la persona.** Repetir la
+  invitación ya reenviaba el correo y conservaba id y membresías, pero nada en
+  el panel lo decía, así que en la práctica no existía: el 12-09 hubo cuatro
+  invitaciones caducadas y quien administra no tenía forma de saber que bastaba
+  con repetirlas. Ahora, en `/admin/cuenta/{id}` de quien no ha aceptado, hay una
+  tarjeta con el botón y la explicación de qué cambia y qué no.
+- **Cuándo se invitó a cada quien.** La ficha dice «invited 3 days ago» y la
+  fecha exacta; la lista de `/admin` acompaña el «Unconfirmed» con el día. Sin
+  ese dato, «sin confirmar» no distingue a quien se invitó esta mañana de quien
+  lleva un mes con un enlace muerto.
+- No se afirma si el enlace ha caducado, a propósito: el plazo lo fija GoTrue
+  con `GOTRUE_MAILER_OTP_EXP` y no esta aplicación, así que una etiqueta aquí
+  podría desincronizarse y mentir. Reenviar es inofensivo en cualquier caso.
+
 ## 0.7.0 — 2026-09-11
 
 - Passkeys como segundo factor, opcionales, junto al autenticador TOTP. Se dan de

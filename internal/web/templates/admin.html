@@ -70,7 +70,7 @@
               <td data-label="Email"><strong>{{.Email}}</strong>{{if .Nombre}}<span class="sub">{{.Nombre}}</span>{{end}}</td>
               <td data-label="Created" class="muted">{{.Creada.Format "2006-01-02"}}</td>
               <td data-label="Last sign-in" class="muted">{{if .UltimaEntr}}{{.UltimaEntr.Format "2006-01-02 15:04"}}{{else}}never{{end}}</td>
-              <td data-label="State">{{if .Bloqueada}}<span class="pill bad">Blocked</span>{{else if .Confirmada}}<span class="pill live">Active</span>{{else}}<span class="pill soon">Unconfirmed</span>{{end}}</td>
+              <td data-label="State">{{if .Bloqueada}}<span class="pill bad">Blocked</span>{{else if .Confirmada}}<span class="pill live">Active</span>{{else}}<span class="pill soon">Unconfirmed</span>{{if .Invitada}}<span class="muted"> · invited {{.Invitada.Format "2006-01-02"}}</span>{{end}}{{end}}</td>
               <td class="actions"><a class="btn btn-ghost btn-sm" href="/admin/cuenta/{{.ID}}">Manage</a></td>
             </tr>{{end}}
             </tbody>
