@@ -96,6 +96,14 @@ jobs:
           # dependencies from scratch.
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          # Una release nunca reutiliza la capa de `apk upgrade` de ayer. El
+          # Dockerfile la ejecuta, pero si la caché devuelve la de un build
+          # viejo el upgrade no llega a correr y la imagen sale con los paquetes
+          # de aquel día — le pasó a PixelForge el 02-09 con libexpat1 y a TabUp
+          # el 14-09 con libpcre2, las dos veces detectado por el escaneo semanal
+          # y no por la puerta del release. Base Alpine. En main la caché sigue
+          # valiendo; en un tag se construye de cero, que es lo que se ancla.
+          no-cache: ${{ startsWith(github.ref, 'refs/tags/') }}
 
       # Un nombre de imagen tiene que ir en minúsculas y github.repository
       # conserva la U del usuario; metadata-action ya lo normaliza para los
