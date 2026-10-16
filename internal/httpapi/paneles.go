@@ -2,6 +2,8 @@ package httpapi
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -330,12 +332,38 @@ func (s *Server) cuentaNombre(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
 }
 
-// cuentaCorreo pide a GoTrue el cambio de correo. Con el cambio seguro (el
-// valor por defecto) GoTrue manda un enlace a cada dirección y no cambia nada
-// hasta que se abren los dos: quien robe una sesión no puede quedarse la cuenta
-// sin el buzón viejo, así que aquí no se vuelve a pedir la contraseña. Las
-// herramientas guardan el `sub`, no el correo, y no se enteran; LinkUp adopta
-// además lo que tuviera a nombre del correo antiguo al entrar.
+const (
+	vidaCambioCorreo    = 15 * time.Minute
+	mensajeCambioCorreo = "If the request can proceed, private next-step instructions are on their way. The account keeps its current email until the required mailbox confirmations are complete."
+)
+
+type cambioCorreoPendiente struct {
+	UserID string
+	Email  string
+	Hasta  time.Time
+}
+
+func claveCambioCorreo(token string) (string, bool) {
+	if len(token) != 64 {
+		return "", false
+	}
+	if _, err := hex.DecodeString(token); err != nil {
+		return "", false
+	}
+	suma := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(suma[:]), true
+}
+
+func (s *Server) responderCambioCorreo(w http.ResponseWriter, r *http.Request) {
+	s.ponerFlash(w, mensajeCambioCorreo)
+	http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
+}
+
+// cuentaCorreo abre una prueba preliminar en el buzón propuesto sin consultar
+// a GoTrue. Así ni la respuesta HTTP ni el buzón actual distinguen si la
+// dirección ya pertenece a otra cuenta. GoTrue sólo ve la petición después de
+// que el mismo usuario demuestra acceso al buzón propuesto; entonces conserva
+// su confirmación final obligatoria en ambos buzones.
 func (s *Server) cuentaCorreo(w http.ResponseWriter, r *http.Request) {
 	a := s.requiereSesion(w, r)
 	if a == nil {
@@ -350,19 +378,93 @@ func (s *Server) cuentaCorreo(w http.ResponseWriter, r *http.Request) {
 	case s.frena(w, r, "cambio-correo", 3, 0.3):
 		return
 	default:
-		if _, err := s.gt.UpdateUser(r.Context(), a.Token(), "", email); err != nil {
-			var ge *gotrue.Error
-			if errors.As(err, &ge) && ge.ErrorCode == "email_exists" {
-				s.ponerFlash(w, "That address already belongs to another account.")
-			} else {
-				s.ponerFlash(w, mensajeGoTrue(err))
-			}
-			break
+		token, err := identificadorCapacidad()
+		if err != nil {
+			log.Printf("preparar cambio de correo para %s: no se pudo crear la capacidad", a.UserID)
+		} else {
+			clave, _ := claveCambioCorreo(token)
+			pendiente := &cambioCorreoPendiente{UserID: a.UserID, Email: email, Hasta: time.Now().Add(vidaCambioCorreo)}
+			s.cambiosCorreo.Store(clave, pendiente)
+			time.AfterFunc(vidaCambioCorreo, func() { s.cambiosCorreo.CompareAndDelete(clave, pendiente) })
+			s.enviarPruebaCambioCorreo(a.UserID, a.Email, email, token)
 		}
-		s.render(w, r, "correo.html", "Two links, two inboxes", map[string]any{"Mensaje": "We sent one link to " + a.Email + " and another to " + email + ". Open both, in any order; the account keeps its current email until the second one is confirmed."}, http.StatusOK)
-		return
+		s.ponerFlash(w, mensajeCambioCorreo)
 	}
 	http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
+}
+
+func (s *Server) enviarPruebaCambioCorreo(userID, actual, propuesta, token string) {
+	if s.correo == nil {
+		log.Printf("cambio de correo para %s: correo de la app no configurado", userID)
+		return
+	}
+	confirmar := *s.cfg.PublicURL
+	confirmar.Path = strings.TrimRight(confirmar.Path, "/") + "/cuenta/correo/confirmar"
+	confirmar.RawQuery = url.Values{"token": {token}}.Encode()
+	confirmar.Fragment = ""
+	cuenta := *s.cfg.PublicURL
+	cuenta.Path = strings.TrimRight(cuenta.Path, "/") + "/cuenta"
+	cuenta.RawQuery, cuenta.Fragment = "", ""
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+		defer cancel()
+		if err := s.correo.EnviarCambioCorreo(ctx, actual, propuesta, correo.CambioCorreo{Cuenta: cuenta.String(), Confirmar: confirmar.String()}); err != nil {
+			log.Printf("cambio de correo para %s: falló el envío privado", userID)
+		}
+	}()
+}
+
+// El GET sólo presenta el formulario: no busca ni consume la capacidad y nunca
+// consulta al proveedor. El POST protegido por sesión, origen y CSRF es la
+// única transición con efecto.
+func (s *Server) cuentaCorreoConfirmarGET(w http.ResponseWriter, r *http.Request) {
+	if s.requiereSesion(w, r) == nil {
+		return
+	}
+	token := r.URL.Query().Get("token")
+	if _, ok := claveCambioCorreo(token); !ok {
+		s.responderCambioCorreo(w, r)
+		return
+	}
+	s.render(w, r, "confirmar-correo.html", "Confirm email change", map[string]any{"Token": token}, http.StatusOK)
+}
+
+func (s *Server) cuentaCorreoConfirmarPOST(w http.ResponseWriter, r *http.Request) {
+	a := s.requiereSesion(w, r)
+	if a == nil {
+		return
+	}
+	clave, ok := claveCambioCorreo(r.PostFormValue("token"))
+	if !ok {
+		s.responderCambioCorreo(w, r)
+		return
+	}
+	v, ok := s.cambiosCorreo.Load(clave)
+	if !ok {
+		s.responderCambioCorreo(w, r)
+		return
+	}
+	pendiente, ok := v.(*cambioCorreoPendiente)
+	if !ok || pendiente.UserID != a.UserID || !time.Now().Before(pendiente.Hasta) {
+		if ok && !time.Now().Before(pendiente.Hasta) {
+			s.cambiosCorreo.CompareAndDelete(clave, pendiente)
+		}
+		s.responderCambioCorreo(w, r)
+		return
+	}
+	if !s.cambiosCorreo.CompareAndDelete(clave, pendiente) {
+		s.responderCambioCorreo(w, r)
+		return
+	}
+	if _, err := s.gt.UpdateUser(r.Context(), a.Token(), "", pendiente.Email); err != nil {
+		var ge *gotrue.Error
+		if errors.As(err, &ge) {
+			log.Printf("confirmar cambio de correo para %s: status=%d code=%q msg=%q", a.UserID, ge.Status, ge.ErrorCode, ge.Msg)
+		} else {
+			log.Printf("confirmar cambio de correo para %s: %q", a.UserID, err.Error())
+		}
+	}
+	s.responderCambioCorreo(w, r)
 }
 
 func (s *Server) cuentaPassword(w http.ResponseWriter, r *http.Request) {

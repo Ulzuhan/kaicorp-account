@@ -11,7 +11,7 @@
 | Emisor OIDC: discovery, authorize, token, userinfo, grants | **La pantalla de consentimiento y la política**: quién puede entrar a qué |
 | Sus sesiones y refresh tokens | Sesiones propias que los envuelven, cifrados, en `account.sesiones` |
 | Auditoría (`auth.audit_log_entries`) | Membresías y solicitudes (`account.*`), que son la historia de quién aprobó qué |
-| Envío de correo (SMTP) | Las plantillas, servidas en `/plantillas/*.html` |
+| Confirmaciones finales de correo (SMTP) | Plantillas de GoTrue en `/plantillas/*.html` y avisos privados preliminares de la app |
 
 ## Decisiones
 
@@ -42,9 +42,14 @@
    Cada POST exige el origen exacto de `ACCOUNT_PUBLIC_URL`; sin Origin sólo
    se acepta Referer del mismo origen, y sin ambos se rechaza. Los formularios
    caducan al cambiar o terminar la sesión, incluido el ascenso a aal2.
-7. **No se enumeran correos**: registro, recuperación y entrada dan la misma
-   respuesta exista o no la cuenta. GoTrue ya lo hace por su lado (devuelve una
-   ficha falsa en el registro de un correo existente); esta app no lo deshace.
+7. **No se enumeran correos**: registro, recuperación, entrada e inicio del
+   cambio de correo dan la misma respuesta exista la cuenta o no. El cambio se
+   queda primero en una capacidad opaca de quince minutos, ligada a la persona
+   y guardada sólo por su huella; la prueba se envía al buzón propuesto sin
+   consultar a GoTrue. Un POST con sesión y CSRF consume esa capacidad una sola
+   vez y entonces pide a GoTrue sus confirmaciones finales para los dos buzones.
+   Así el buzón actual tampoco distingue `email_exists`; ese detalle sólo queda
+   en el diagnóstico interno después de demostrar acceso al buzón propuesto.
 8. **Permisos acotados sobre `auth`** en vez de la clave de servicio para todo.
    La clave de servicio sólo bloquea y borra cuentas; lo demás son `select` y
    dos escrituras concretas, enumeradas en `db/bootstrap.sql` con su motivo.
@@ -67,7 +72,6 @@
 - Aviso por correo a la persona cuando se aprueba su solicitud: GoTrue no
   manda correos arbitrarios; hará falta Resend por HTTP desde esta app
   (egress 443 para su contenedor), o el `aprobar.py` de la casa.
-- Cambio de correo desde `/cuenta` (GoTrue lo soporta; la pantalla no está).
 - Borrar una cuenta desde la interfaz: a propósito no. Es `borrar-persona.py`,
   que borra también lo que cada herramienta guarda.
 
@@ -79,6 +83,7 @@
 | `/entrar`, `/registro`, `/recuperar`, `/restablecer`, `/factor`, `POST /salir` | Entrada, alta, recuperación, segundo factor |
 | `GET /verificar?token_hash&type&next`, `GET /restablecer?token_hash` | Presentación inerte de los enlaces de correo; no canjean tokens ni cambian la autoridad del navegador |
 | `POST /verificar` | Confirmación explícita, con origen, CSRF y correo esperado, antes de canjear signup, invite, email_change, magiclink o recovery |
+| `GET/POST /cuenta/correo/confirmar` | Presentación inerte y consumo con sesión y CSRF de la prueba preliminar enviada al buzón propuesto; sólo el POST llega a GoTrue |
 | `POST /solicitar/{grupo}` | Pedir una herramienta (pendiente o automática según la política) |
 | `GET/POST /oauth/consent` | El consentimiento OAuth, con la política delante |
 | `/cuenta/*` | Nombre, contraseña, factores, herramientas autorizadas, sesiones |

@@ -34,19 +34,25 @@ type Server struct {
 	st        *store.Store
 	gt        *gotrue.Client
 	ses       *session.Manager
-	correo    *correo.Remitente // nil si no hay SMTP: se concede sin avisar
+	correo    remitenteCorreo // nil si no hay SMTP propio
 	paginas   map[string]*template.Template
 	limitador *limitador
 	// enrolando guarda, por sesión y unos minutos, el factor TOTP a medias de
 	// dar de alta: el QR es demasiado grande para una cookie.
 	enrolando           sync.Map
 	capacidadesPassword sync.Map
+	cambiosCorreo       sync.Map
+}
+
+type remitenteCorreo interface {
+	EnviarAcceso(context.Context, string, correo.Acceso) error
+	EnviarCambioCorreo(context.Context, string, string, correo.CambioCorreo) error
 }
 
 // paginas son las plantillas de página; cada una se compila con layout.html.
 // Una página que no esté aquí da «plantilla desconocida» al servirse (pasó con
 // salir.html en 0.3.3), así que la prueba TestPlantillasCompilan las recorre.
-var paginas = []string{"home.html", "entrar.html", "registro.html", "correo.html", "enlace.html", "recuperar.html", "restablecer.html",
+var paginas = []string{"home.html", "entrar.html", "registro.html", "correo.html", "enlace.html", "confirmar-correo.html", "recuperar.html", "restablecer.html",
 	"factor.html", "consent.html", "sin-acceso.html", "cuenta.html", "admin.html", "admin-cuenta.html", "error.html", "salir.html", "reenviar.html"}
 
 // New construye el servidor y compila las plantillas.
@@ -104,6 +110,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /cuenta", s.cuenta)
 	mux.HandleFunc("POST /cuenta/nombre", s.cuentaNombre)
 	mux.HandleFunc("POST /cuenta/correo", s.cuentaCorreo)
+	mux.HandleFunc("GET /cuenta/correo/confirmar", s.cuentaCorreoConfirmarGET)
+	mux.HandleFunc("POST /cuenta/correo/confirmar", s.cuentaCorreoConfirmarPOST)
 	mux.HandleFunc("POST /cuenta/password", s.cuentaPassword)
 	mux.HandleFunc("POST /cuenta/factor/alta", s.factorAlta)
 	mux.HandleFunc("POST /cuenta/factor/verificar", s.factorVerificar)
@@ -129,7 +137,7 @@ func (s *Server) Handler() http.Handler {
 }
 
 // registrando escribe una línea por petición: método, ruta (sin query, que
-// lleva token_hash y authorization_id), código y milisegundos. Nada de quién.
+// lleva capacidades y autorizaciones), código y milisegundos. Nada de quién.
 func (s *Server) registrando(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/static/") || r.URL.Path == "/api/health" {
