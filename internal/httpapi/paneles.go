@@ -84,32 +84,20 @@ func (s *Server) solicitar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	nombre := r.PathValue("grupo")
-	g, err := s.st.Grupo(r.Context(), nombre)
+	g, decision, err := s.st.SolicitarAcceso(r.Context(), a.UserID, nombre)
 	if err != nil {
-		s.errorPagina(w, r, http.StatusNotFound, "Unknown tool", "There is no tool with that name.")
+		if errors.Is(err, store.ErrNoExiste) {
+			s.errorPagina(w, r, http.StatusNotFound, "Unknown tool", "There is no tool with that name.")
+		} else {
+			s.errorPagina(w, r, http.StatusServiceUnavailable, "Try again", "Could not record the request.")
+		}
 		return
 	}
-	grupos, _ := s.st.Grupos(r.Context())
-	herramientas := map[string]bool{}
-	for _, x := range grupos {
-		if x.Solicitable {
-			herramientas[x.Nombre] = true
-		}
-	}
 	next := s.nextSeguro(r.PostFormValue("next"))
-	switch policy.Solicitar(g.Nombre, g.Solicitable, s.membresias(r.Context(), a.UserID), herramientas) {
+	switch decision {
 	case policy.Automatica:
-		if err := s.st.Conceder(r.Context(), a.UserID, g.Nombre, "automática"); err != nil {
-			s.errorPagina(w, r, http.StatusServiceUnavailable, "Try again", "Could not record the access.")
-			return
-		}
-		_, _ = s.st.CrearSolicitud(r.Context(), a.UserID, g.Nombre, "automatica", "automática")
 		s.ponerFlash(w, g.Titulo+": access granted. You already had an approved account, so no one needs to read this one.")
 	case policy.Pendiente:
-		if _, err := s.st.CrearSolicitud(r.Context(), a.UserID, g.Nombre, "pendiente", ""); err != nil {
-			s.errorPagina(w, r, http.StatusServiceUnavailable, "Try again", "Could not record the request.")
-			return
-		}
 		s.ponerFlash(w, g.Titulo+": request sent. A person reads the first one; you will get access once it is approved.")
 	default:
 		s.ponerFlash(w, g.Titulo+" is by invitation only.")

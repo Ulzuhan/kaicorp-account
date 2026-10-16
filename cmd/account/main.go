@@ -268,21 +268,12 @@ func orden(ctx context.Context, cfg *config.Config, st *store.Store, gt *gotrue.
 			// Todo: cada membresía con su grant, y además las sesiones del
 			// proveedor y las de esta app. Quitar el grupo cierra la puerta para
 			// la próxima vez; esto saca a quien ya está dentro.
-			ms, err := st.MembresiasDe(ctx, u.ID)
+			grupos, err := st.RevocarTodo(ctx, u.ID)
 			if err != nil {
 				return err
 			}
-			for _, m := range ms {
-				if err := revocarUna(ctx, st, u.ID, m.Grupo); err != nil {
-					return err
-				}
-				fmt.Printf("%s ya no puede usar %s\n", u.Email, m.Grupo)
-			}
-			if err := st.CerrarSesionesGoTrue(ctx, u.ID); err != nil {
-				return err
-			}
-			if err := st.BorrarSesionesDe(ctx, u.ID, ""); err != nil {
-				return err
+			for _, grupo := range grupos {
+				fmt.Printf("%s ya no puede usar %s\n", u.Email, grupo)
 			}
 			fmt.Printf("%s: sin membresías y sin sesiones\n", u.Email)
 			return nil

@@ -327,15 +327,22 @@ func (s *Store) EsMiembro(ctx context.Context, userID, grupo string) (bool, erro
 
 // Conceder da la membresía (idempotente).
 func (s *Store) Conceder(ctx context.Context, userID, grupo, por string) error {
-	_, err := s.pool.Exec(ctx, `insert into account.membresias(user_id, grupo, por) values ($1,$2,$3)
-		on conflict (user_id, grupo) do nothing`, userID, grupo, por)
-	return err
+	tx, err := s.transaccionMembresias(ctx, userID)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, `insert into account.membresias(user_id, grupo, por) values ($1,$2,$3)
+		on conflict (user_id, grupo) do nothing`, userID, grupo, por); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 // Revocar quita la membresía y sus grants en una sola transacción; las guardas
 // de la base ordenan también las aprobaciones del proveedor que sigan en vuelo.
 func (s *Store) Revocar(ctx context.Context, userID, grupo string) error {
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.transaccionMembresias(ctx, userID)
 	if err != nil {
 		return err
 	}
@@ -417,22 +424,7 @@ func scanSolicitudes(rows pgx.Rows) ([]Solicitud, error) {
 // CrearSolicitud registra una petición. Si ya había una pendiente para el
 // mismo grupo, no crea otra y devuelve false: repetir no es ruido para nadie.
 func (s *Store) CrearSolicitud(ctx context.Context, userID, grupo, estado, por string) (bool, error) {
-	var resuelta *time.Time
-	var p *string
-	if estado != "pendiente" {
-		now := time.Now()
-		resuelta = &now
-		if por != "" {
-			p = &por
-		}
-	}
-	tag, err := s.pool.Exec(ctx, `insert into account.solicitudes(user_id, grupo, estado, resuelta, por)
-		values ($1,$2,$3,$4,$5)
-		on conflict (user_id, grupo) where estado='pendiente' do nothing`, userID, grupo, estado, resuelta, p)
-	if err != nil {
-		return false, err
-	}
-	return tag.RowsAffected() == 1, nil
+	return crearSolicitud(ctx, s.pool, userID, grupo, estado, por)
 }
 
 // SolicitudesPendientes es la lista de trabajo de quien aprueba.
@@ -958,7 +950,7 @@ func (s *Store) RastroDe(ctx context.Context, userID string) (Rastro, error) {
 // La cuenta en el proveedor es aparte (gotrue.AdminDeleteUser) y va después:
 // primero lo que apunta a ella, luego ella.
 func (s *Store) BorrarRastro(ctx context.Context, userID string) error {
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.transaccionMembresias(ctx, userID)
 	if err != nil {
 		return err
 	}
