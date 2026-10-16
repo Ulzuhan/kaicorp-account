@@ -69,7 +69,7 @@ func (s *Server) entrarPOST(w http.ResponseWriter, r *http.Request) {
 	if gs.User.HasVerifiedFactor() {
 		// Segundo factor: los tokens aal1 no se convierten en sesión de la app.
 		// Van sellados en una cookie de cinco minutos hasta que llegue el código.
-		s.ponerPendienteMFA(w, gs, next, recordar)
+		s.ponerPendienteMFA(w, gs, next, recordar, "")
 		http.Redirect(w, r, "/factor", http.StatusSeeOther)
 		return
 	}
@@ -86,15 +86,20 @@ func (s *Server) entrarPOST(w http.ResponseWriter, r *http.Request) {
 const cookieMFA = "account_mfa"
 
 type pendienteMFA struct {
-	Access   string `json:"a"`
-	Refresh  string `json:"r"`
-	Next     string `json:"n"`
-	Hasta    int64  `json:"h"`
-	Recordar bool   `json:"k,omitempty"`
+	Access    string            `json:"a"`
+	Refresh   string            `json:"r"`
+	Next      string            `json:"n"`
+	Hasta     int64             `json:"h"`
+	Recordar  bool              `json:"k,omitempty"`
+	Proposito propositoPassword `json:"p,omitempty"`
+	UserID    string            `json:"u"`
+	Email     string            `json:"e"`
+	Nombre    string            `json:"m,omitempty"`
 }
 
-func (s *Server) ponerPendienteMFA(w http.ResponseWriter, gs *gotrue.Session, next string, recordar bool) {
-	p := pendienteMFA{Access: gs.AccessToken, Refresh: gs.RefreshToken, Next: next, Hasta: time.Now().Add(5 * time.Minute).Unix(), Recordar: recordar}
+func (s *Server) ponerPendienteMFA(w http.ResponseWriter, gs *gotrue.Session, next string, recordar bool, proposito propositoPassword) {
+	p := pendienteMFA{Access: gs.AccessToken, Refresh: gs.RefreshToken, Next: next, Hasta: time.Now().Add(5 * time.Minute).Unix(), Recordar: recordar,
+		Proposito: proposito, UserID: gs.User.ID, Email: gs.User.Email, Nombre: gs.User.Name()}
 	b, _ := json.Marshal(p)
 	sellado, err := s.ses.Sellar(string(b))
 	if err != nil {
@@ -219,10 +224,37 @@ func (s *Server) factorPOST(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.borrarPendienteMFA(w)
+	if gs.User.ID == "" {
+		gs.User.ID, gs.User.Email = p.UserID, p.Email
+		if p.Nombre != "" {
+			gs.User.UserMetadata = map[string]any{"name": p.Nombre}
+		}
+	}
+	if gs.User.ID == "" || gs.User.ID != p.UserID {
+		s.errorPagina(w, r, http.StatusBadGateway, "Second factor", "The verified identity did not match. Start again.")
+		return
+	}
+	if p.Proposito == propositoRecuperacion {
+		if err := s.emitirCapacidadPassword(w, gs, "aal2", propositoRecuperacion); err != nil {
+			log.Printf("crear capacidad de recuperación: %v", err)
+			s.errorPagina(w, r, http.StatusInternalServerError, "Reset", "Could not finish the recovery. Ask for a new link.")
+			return
+		}
+		http.Redirect(w, r, "/restablecer", http.StatusSeeOther)
+		return
+	}
 	if _, err := s.ses.Crear(r.Context(), w, r, gs, "aal2", p.Recordar); err != nil {
 		log.Printf("crear sesión aal2: %v", err)
 		s.errorPagina(w, r, http.StatusInternalServerError, "Sign in", "Could not start the session. Try again.")
 		return
+	}
+	if p.Proposito == propositoInvitacion {
+		if err := s.emitirCapacidadPassword(w, gs, "aal2", propositoInvitacion); err != nil {
+			log.Printf("crear capacidad de invitación: %v", err)
+			s.errorPagina(w, r, http.StatusInternalServerError, "Invitation", "Could not prepare the password form. Open the invitation link again.")
+			return
+		}
+		s.ponerFlash(w, "Welcome. Choose a password below so you can sign in next time; your tools are already waiting under Your tools.")
 	}
 	http.Redirect(w, r, s.nextSeguro(p.Next), http.StatusSeeOther)
 }
@@ -348,7 +380,13 @@ func (s *Server) verificar(w http.ResponseWriter, r *http.Request) {
 	// Una cuenta recién confirmada no tiene factores; si los tuviera (cambio de
 	// correo de una cuenta con TOTP), pasa por el factor como al entrar.
 	if gs.User.HasVerifiedFactor() {
-		s.ponerPendienteMFA(w, gs, s.nextSeguro(q.Get("next")), false)
+		proposito := propositoPassword("")
+		next := s.nextSeguro(q.Get("next"))
+		if typ == "invite" {
+			proposito = propositoInvitacion
+			next = "/cuenta"
+		}
+		s.ponerPendienteMFA(w, gs, next, false, proposito)
 		http.Redirect(w, r, "/factor", http.StatusSeeOther)
 		return
 	}
@@ -358,6 +396,11 @@ func (s *Server) verificar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if typ == "invite" {
+		if err := s.emitirCapacidadPassword(w, gs, "aal1", propositoInvitacion); err != nil {
+			log.Printf("crear capacidad de invitación: %v", err)
+			s.errorPagina(w, r, http.StatusInternalServerError, "Invitation", "Could not prepare the password form. Open the invitation link again.")
+			return
+		}
 		// Quien llega por invitación no ha elegido contraseña: sin ésta no
 		// podría volver a entrar. A Seguridad, que es donde se pone.
 		s.ponerFlash(w, "Welcome. Choose a password below so you can sign in next time; your tools are already waiting under Your tools.")
@@ -414,37 +457,63 @@ func (s *Server) restablecerGET(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if gs.User.HasVerifiedFactor() {
-			s.ponerPendienteMFA(w, gs, "/restablecer", false)
+			s.ponerPendienteMFA(w, gs, "/restablecer", false, propositoRecuperacion)
 			http.Redirect(w, r, "/factor", http.StatusSeeOther)
 			return
 		}
-		if _, err := s.ses.Crear(r.Context(), w, r, gs, "aal1", false); err != nil {
-			s.errorPagina(w, r, http.StatusInternalServerError, "Reset", "Could not start the session. Try the link again.")
+		if err := s.emitirCapacidadPassword(w, gs, "aal1", propositoRecuperacion); err != nil {
+			log.Printf("crear capacidad de recuperación: %v", err)
+			s.errorPagina(w, r, http.StatusInternalServerError, "Reset", "Could not prepare the reset. Try the link again.")
 			return
 		}
 		http.Redirect(w, r, "/restablecer", http.StatusSeeOther)
 		return
 	}
-	if s.requiereSesion(w, r) == nil {
+	if !s.capacidadPasswordDisponible(r, propositoRecuperacion, "") {
+		http.Redirect(w, r, "/recuperar", http.StatusSeeOther)
 		return
 	}
 	s.render(w, r, "restablecer.html", "Choose a new password", nil, http.StatusOK)
 }
 
 func (s *Server) restablecerPOST(w http.ResponseWriter, r *http.Request) {
-	a := s.requiereSesion(w, r)
-	if a == nil {
-		return
-	}
 	p1, p2 := r.PostFormValue("password"), r.PostFormValue("password2")
 	if len(p1) < 12 || p1 != p2 {
 		s.render(w, r, "restablecer.html", "Choose a new password", map[string]any{"Error": "Use 12 characters or more, and type it twice the same."}, http.StatusBadRequest)
 		return
 	}
-	if _, err := s.gt.UpdateUser(r.Context(), a.Token(), p1, "", ""); err != nil {
+	id, capacidad, ok := s.reclamarCapacidadPassword(r, propositoRecuperacion, "")
+	if !ok {
+		http.Redirect(w, r, "/recuperar", http.StatusSeeOther)
+		return
+	}
+	u, err := s.gt.UpdatePassword(r.Context(), capacidad.proveedor.AccessToken, p1, "", "")
+	if err != nil {
+		if falloPasswordReintentable(err) {
+			s.liberarCapacidadPassword(capacidad)
+		} else {
+			s.descartarCapacidadPassword(w, id, capacidad)
+		}
 		s.render(w, r, "restablecer.html", "Choose a new password", map[string]any{"Error": mensajeGoTrue(err)}, http.StatusBadRequest)
 		return
 	}
+	if u != nil && u.ID == capacidad.proveedor.User.ID {
+		capacidad.proveedor.User = *u
+	}
+	a, err := s.ses.CrearUnica(r.Context(), w, r, &capacidad.proveedor, capacidad.aal, false)
+	if err != nil {
+		s.descartarCapacidadPassword(w, id, capacidad)
+		_ = s.gt.Logout(r.Context(), capacidad.proveedor.AccessToken, "local")
+		s.errorPagina(w, r, http.StatusInternalServerError, "Reset", "The password changed, but the session could not start. Sign in with the new password.")
+		return
+	}
+	if err := s.ses.CerrarOtrasProveedor(r.Context(), a); err != nil {
+		s.descartarCapacidadPassword(w, id, capacidad)
+		s.ses.Cerrar(r.Context(), w, a)
+		s.errorPagina(w, r, http.StatusBadGateway, "Reset", "The password changed, but every provider session could not be closed. Sign in with the new password and try closing other sessions again.")
+		return
+	}
+	s.descartarCapacidadPassword(w, id, capacidad)
 	s.ponerFlash(w, "Your password is changed.")
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }

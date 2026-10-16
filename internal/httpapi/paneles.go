@@ -276,6 +276,7 @@ func (s *Server) cuenta(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	datos := map[string]any{}
+	datos["PasswordSetup"] = s.capacidadPasswordDisponible(r, propositoInvitacion, a.UserID)
 	if u, err := s.gt.Me(r.Context(), a.Token()); err == nil {
 		datos["Factores"] = u.Factors
 		if n := u.Name(); n != "" {
@@ -321,7 +322,7 @@ func (s *Server) cuentaNombre(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimSpace(r.PostFormValue("name"))
 	if name == "" || len(name) > 80 {
 		s.ponerFlash(w, "The name has to be between 1 and 80 characters.")
-	} else if _, err := s.gt.UpdateUser(r.Context(), a.Token(), "", name, ""); err != nil {
+	} else if _, err := s.gt.UpdateUser(r.Context(), a.Token(), name, ""); err != nil {
 		s.ponerFlash(w, mensajeGoTrue(err))
 	} else {
 		s.ponerFlash(w, "Name saved.")
@@ -349,7 +350,7 @@ func (s *Server) cuentaCorreo(w http.ResponseWriter, r *http.Request) {
 	case s.frena(w, r, "cambio-correo", 3, 0.3):
 		return
 	default:
-		if _, err := s.gt.UpdateUser(r.Context(), a.Token(), "", "", email); err != nil {
+		if _, err := s.gt.UpdateUser(r.Context(), a.Token(), "", email); err != nil {
 			var ge *gotrue.Error
 			if errors.As(err, &ge) && ge.ErrorCode == "email_exists" {
 				s.ponerFlash(w, "That address already belongs to another account.")
@@ -372,11 +373,90 @@ func (s *Server) cuentaPassword(w http.ResponseWriter, r *http.Request) {
 	p1, p2 := r.PostFormValue("password"), r.PostFormValue("password2")
 	if len(p1) < 12 || p1 != p2 {
 		s.ponerFlash(w, "Use 12 characters or more, and type it twice the same.")
-	} else if _, err := s.gt.UpdateUser(r.Context(), a.Token(), p1, "", ""); err != nil {
-		s.ponerFlash(w, mensajeGoTrue(err))
-	} else {
-		s.ponerFlash(w, "Password changed.")
+		http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
+		return
 	}
+
+	if id, capacidad, ok := s.reclamarCapacidadPassword(r, propositoInvitacion, a.UserID); ok {
+		if _, err := s.gt.UpdatePassword(r.Context(), capacidad.proveedor.AccessToken, p1, "", ""); err != nil {
+			if falloPasswordReintentable(err) {
+				s.liberarCapacidadPassword(capacidad)
+			} else {
+				s.descartarCapacidadPassword(w, id, capacidad)
+			}
+			s.ponerFlash(w, mensajeGoTrue(err))
+			http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
+			return
+		}
+		if err := s.ses.Reautenticar(r.Context(), w, a, &capacidad.proveedor); err != nil {
+			s.descartarCapacidadPassword(w, id, capacidad)
+			s.ses.Cerrar(r.Context(), w, a)
+			s.errorPagina(w, r, http.StatusInternalServerError, "Password", "The password changed, but the session could not be renewed. Sign in with the new password.")
+			return
+		}
+		if err := s.ses.CerrarOtrasProveedor(r.Context(), a); err != nil {
+			s.descartarCapacidadPassword(w, id, capacidad)
+			s.ses.Cerrar(r.Context(), w, a)
+			s.errorPagina(w, r, http.StatusBadGateway, "Password", "The password changed, but every provider session could not be closed. Sign in with the new password and try closing other sessions again.")
+			return
+		}
+		s.descartarCapacidadPassword(w, id, capacidad)
+		s.ponerFlash(w, "Password saved.")
+		http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
+		return
+	}
+
+	actual := r.PostFormValue("current_password")
+	if actual == "" {
+		s.ponerFlash(w, "Type your current password to change it.")
+		http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
+		return
+	}
+	prueba, err := s.gt.Login(r.Context(), a.Email, actual)
+	if err != nil {
+		s.ponerFlash(w, "The current password is not correct.")
+		http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
+		return
+	}
+	conservarPrueba := false
+	defer func() {
+		if !conservarPrueba {
+			_ = s.gt.Logout(r.Context(), prueba.AccessToken, "local")
+		}
+	}()
+	if prueba.AccessToken == "" || prueba.User.ID == "" || prueba.User.ID != a.UserID {
+		s.ponerFlash(w, "The current password is not correct.")
+		http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
+		return
+	}
+	token := prueba.AccessToken
+	if a.EsAAL2() {
+		// La prueba fresca es la contraseña; se conserva el bearer aal2 para
+		// que el proveedor no rebaje una cuenta con segundo factor.
+		token = a.Token()
+	}
+	if _, err := s.gt.UpdatePassword(r.Context(), token, p1, actual, ""); err != nil {
+		s.ponerFlash(w, mensajeGoTrue(err))
+		http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
+		return
+	}
+	if a.EsAAL2() {
+		err = s.ses.RotarPortador(r.Context(), w, a)
+	} else {
+		err = s.ses.Reautenticar(r.Context(), w, a, prueba)
+		conservarPrueba = err == nil
+	}
+	if err != nil {
+		s.ses.Cerrar(r.Context(), w, a)
+		s.errorPagina(w, r, http.StatusInternalServerError, "Password", "The password changed, but the session could not be renewed. Sign in with the new password.")
+		return
+	}
+	if err := s.ses.CerrarOtrasProveedor(r.Context(), a); err != nil {
+		s.ses.Cerrar(r.Context(), w, a)
+		s.errorPagina(w, r, http.StatusBadGateway, "Password", "The password changed, but every provider session could not be closed. Sign in with the new password and try closing other sessions again.")
+		return
+	}
+	s.ponerFlash(w, "Password changed.")
 	http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
 }
 
@@ -516,8 +596,11 @@ func (s *Server) sesionesCerrar(w http.ResponseWriter, r *http.Request) {
 	if a == nil {
 		return
 	}
-	s.ses.CerrarOtras(r.Context(), a)
-	s.ponerFlash(w, "Every other session is closed.")
+	if err := s.ses.CerrarOtras(r.Context(), a); err != nil {
+		s.ponerFlash(w, "Some sessions could not be closed. Try again.")
+	} else {
+		s.ponerFlash(w, "Every other session is closed.")
+	}
 	http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
 }
 

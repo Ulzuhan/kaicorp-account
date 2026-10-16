@@ -30,6 +30,11 @@ bounty.
   Rotating it closes every session at once.
   Database session IDs alone cannot authenticate. Unsigned cookies from older
   versions are rejected; users must sign in again when signed cookies are introduced.
+- **Changing a password needs proof beyond the app session.** An ordinary change
+  verifies the current password for the same provider user. Recovery and initial
+  invitation setup use separate five-minute, single-purpose, one-use capabilities;
+  neither can authenticate as a normal session. A successful change rotates the
+  app credential and closes the account's other sessions.
 - **The service key is used for one thing**: blocking and deleting accounts. It
   is not the key the app runs on.
 - **The second factor is optional and double**: a TOTP authenticator, and since

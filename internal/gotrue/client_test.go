@@ -92,6 +92,31 @@ func TestHasVerifiedFactor(t *testing.T) {
 	}
 }
 
+func TestUpdatePasswordLigaLaPrueba(t *testing.T) {
+	var visto struct {
+		Password        string `json:"password"`
+		CurrentPassword string `json:"current_password"`
+		Nonce           string `json:"nonce"`
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut || r.URL.Path != "/user" || r.Header.Get("Authorization") != "Bearer prueba-fresca" {
+			t.Fatalf("petición inesperada: %s %s %q", r.Method, r.URL.Path, r.Header.Get("Authorization"))
+		}
+		if err := json.NewDecoder(r.Body).Decode(&visto); err != nil {
+			t.Fatal(err)
+		}
+		_, _ = w.Write([]byte(`{"id":"u1"}`))
+	}))
+	t.Cleanup(srv.Close)
+	c := New(srv.URL, "anon", "")
+	if _, err := c.UpdatePassword(context.Background(), "prueba-fresca", "nueva-muy-larga", "anterior", "nonce-validado"); err != nil {
+		t.Fatal(err)
+	}
+	if visto.Password != "nueva-muy-larga" || visto.CurrentPassword != "anterior" || visto.Nonce != "nonce-validado" {
+		t.Fatalf("prueba incompleta: %+v", visto)
+	}
+}
+
 func TestQRDataURL(t *testing.T) {
 	var f EnrolledFactor
 	f.TOTP.QRCode = "<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>"

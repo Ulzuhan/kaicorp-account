@@ -39,7 +39,8 @@ type Server struct {
 	limitador *limitador
 	// enrolando guarda, por sesión y unos minutos, el factor TOTP a medias de
 	// dar de alta: el QR es demasiado grande para una cookie.
-	enrolando sync.Map
+	enrolando           sync.Map
+	capacidadesPassword sync.Map
 }
 
 // paginas son las plantillas de página; cada una se compila con layout.html.

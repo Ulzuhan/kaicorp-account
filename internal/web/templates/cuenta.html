@@ -34,9 +34,10 @@
       </div></div>
 
       <div class="card"><div class="body">
-        <div class="head"><div><p class="k">Password</p><h2>Change it</h2><p>Twelve characters or more. Changing it does not sign you out anywhere.</p></div></div>
+        <div class="head"><div><p class="k">Password</p><h2>{{if .PasswordSetup}}Choose it{{else}}Change it{{end}}</h2><p>Twelve characters or more. Other sessions are signed out after it changes.</p></div></div>
         <form class="content" method="post" action="/cuenta/password">
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
+          {{if not .PasswordSetup}}<div class="field"><label for="current-password">Current password</label><input class="input" id="current-password" name="current_password" type="password" autocomplete="current-password" required></div>{{end}}
           <div class="field"><label for="password">New password</label><input class="input" id="password" name="password" type="password" autocomplete="new-password" required minlength="12"></div>
           <div class="field"><label for="password2">Repeat it</label><input class="input" id="password2" name="password2" type="password" autocomplete="new-password" required minlength="12"></div>
           <div class="form-actions"><button class="btn btn-ghost btn-sm" type="submit">Change password</button></div>

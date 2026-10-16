@@ -20,6 +20,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -124,10 +125,38 @@ func expiraDe(s *gotrue.Session) time.Time {
 	return time.Now().Add(time.Duration(s.ExpiresIn) * time.Second)
 }
 
+func emitidoDe(token string) int64 {
+	partes := strings.Split(token, ".")
+	if len(partes) != 3 {
+		return 0
+	}
+	b, err := base64.RawURLEncoding.DecodeString(partes[1])
+	if err != nil {
+		return 0
+	}
+	var claims struct {
+		IAT int64 `json:"iat"`
+	}
+	if json.Unmarshal(b, &claims) != nil || claims.IAT <= 0 {
+		return 0
+	}
+	return claims.IAT
+}
+
 // Crear abre una sesión de la app a partir de una sesión de GoTrue y pone la
 // cookie. Con `recordar` la sesión vive el TTL largo («keep me signed in»);
 // sin él, el corto. La cookie caduca con la sesión.
 func (m *Manager) Crear(ctx context.Context, w http.ResponseWriter, r *http.Request, gs *gotrue.Session, aal string, recordar bool) (*Actual, error) {
+	return m.crear(ctx, w, r, gs, aal, recordar, false)
+}
+
+// CrearUnica abre una sesión sólo si puede eliminar atómicamente todas las
+// demás sesiones locales de la misma persona.
+func (m *Manager) CrearUnica(ctx context.Context, w http.ResponseWriter, r *http.Request, gs *gotrue.Session, aal string, recordar bool) (*Actual, error) {
+	return m.crear(ctx, w, r, gs, aal, recordar, true)
+}
+
+func (m *Manager) crear(ctx context.Context, w http.ResponseWriter, r *http.Request, gs *gotrue.Session, aal string, recordar, unica bool) (*Actual, error) {
 	id, err := aleatorio(32)
 	if err != nil {
 		return nil, err
@@ -151,9 +180,14 @@ func (m *Manager) Crear(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	x := &store.Sesion{
 		ID: id, UserID: gs.User.ID, Email: gs.User.Email, Nombre: gs.User.Name(), AAL: aal,
 		AccessToken: access, RefreshToken: refresh, AccessExpira: expiraDe(gs),
-		Creada: now, Ultima: now, Expira: now.Add(vida), Agente: recortar(r.UserAgent(), 200),
+		Creada: now, Ultima: now, Expira: now.Add(vida), Agente: recortar(r.UserAgent(), 200), Emitido: emitidoDe(gs.AccessToken),
 	}
-	if err := m.store.CrearSesion(ctx, x); err != nil {
+	if unica {
+		err = m.store.CrearSesionUnica(ctx, x)
+	} else {
+		err = m.store.CrearSesion(ctx, x)
+	}
+	if err != nil {
 		return nil, err
 	}
 	m.ponerCookie(w, id, x.Expira)
@@ -174,6 +208,47 @@ func (m *Manager) Actualizar(ctx context.Context, a *Actual, gs *gotrue.Session)
 		return err
 	}
 	a.token = gs.AccessToken
+	return nil
+}
+
+// Reautenticar instala una sesión reciente del proveedor bajo un portador
+// nuevo y elimina atómicamente las demás sesiones locales. La referencia
+// estable, el AAL y la caducidad absoluta se conservan.
+func (m *Manager) Reautenticar(ctx context.Context, w http.ResponseWriter, a *Actual, gs *gotrue.Session) error {
+	id, err := aleatorio(32)
+	if err != nil {
+		return err
+	}
+	access, err := m.cifrar(gs.AccessToken)
+	if err != nil {
+		return err
+	}
+	refresh, err := m.cifrar(gs.RefreshToken)
+	if err != nil {
+		return err
+	}
+	expira, err := m.store.ReautenticarSesion(ctx, a.ID, id, access, refresh, expiraDe(gs))
+	if err != nil {
+		return err
+	}
+	a.ID, a.Expira, a.token = id, expira, gs.AccessToken
+	m.ponerCookie(w, id, expira)
+	return nil
+}
+
+// RotarPortador invalida copias de la cookie, conserva los tokens actuales y
+// elimina atómicamente las demás sesiones locales.
+func (m *Manager) RotarPortador(ctx context.Context, w http.ResponseWriter, a *Actual) error {
+	id, err := aleatorio(32)
+	if err != nil {
+		return err
+	}
+	expira, err := m.store.RotarPortadorSesion(ctx, a.ID, id)
+	if err != nil {
+		return err
+	}
+	a.ID, a.Expira = id, expira
+	m.ponerCookie(w, id, expira)
 	return nil
 }
 
@@ -295,10 +370,17 @@ func (m *Manager) Cerrar(ctx context.Context, w http.ResponseWriter, a *Actual) 
 }
 
 // CerrarOtras conserva esta fila aunque una verificación concurrente haya
-// sustituido su portador mientras GoTrue cerraba las demás sesiones.
-func (m *Manager) CerrarOtras(ctx context.Context, a *Actual) {
-	_ = m.gotrue.Logout(ctx, a.token, "others")
-	_ = m.store.BorrarSesionesDe(ctx, a.UserID, a.referencia)
+// sustituido su portador mientras se cerraban las demás sesiones.
+func (m *Manager) CerrarOtras(ctx context.Context, a *Actual) error {
+	errProveedor := m.CerrarOtrasProveedor(ctx, a)
+	errStore := m.store.BorrarSesionesDe(ctx, a.UserID, a.referencia)
+	return errors.Join(errProveedor, errStore)
+}
+
+// CerrarOtrasProveedor completa en GoTrue una limpieza local que ya se hizo
+// atómicamente durante un cambio de credenciales.
+func (m *Manager) CerrarOtrasProveedor(ctx context.Context, a *Actual) error {
+	return m.gotrue.Logout(ctx, a.token, "others")
 }
 
 func (m *Manager) invalidar(ctx context.Context, w http.ResponseWriter, id string) {

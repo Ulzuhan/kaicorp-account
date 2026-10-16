@@ -30,6 +30,10 @@ var migraciones embed.FS
 // ErrNoExiste es «no hay fila».
 var ErrNoExiste = errors.New("no existe")
 
+// ErrCredencialAnterior impide publicar una sesión del proveedor emitida antes
+// del último cambio de contraseña conocido por la app.
+var ErrCredencialAnterior = errors.New("credencial anterior al último cambio")
+
 // Store es el acceso a la base.
 type Store struct {
 	pool *pgxpool.Pool
@@ -446,6 +450,7 @@ type Sesion struct {
 	Ultima       time.Time
 	Expira       time.Time
 	Agente       string
+	Emitido      int64 // iat del access token; sólo se usa al insertar.
 }
 
 const sesionCols = `id, user_id::text, email, nombre, aal, access_token, refresh_token, access_expira, creada, ultima, expira, agente, referencia::text`
@@ -462,12 +467,77 @@ func scanSesion(row pgx.Row) (*Sesion, error) {
 	return &x, nil
 }
 
-// CrearSesion guarda una sesión nueva.
-func (s *Store) CrearSesion(ctx context.Context, x *Sesion) error {
-	err := s.pool.QueryRow(ctx, `insert into account.sesiones(id, user_id, email, nombre, aal, access_token, refresh_token, access_expira, expira, agente)
-		values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning referencia::text`,
-		x.ID, x.UserID, x.Email, x.Nombre, x.AAL, x.AccessToken, x.RefreshToken, x.AccessExpira, x.Expira, x.Agente).Scan(&x.Referencia)
+const salBloqueoSesiones int64 = 0x4b414943 // "KAIC"
+
+func bloquearSesionesPersona(ctx context.Context, tx pgx.Tx, userID string) error {
+	_, err := tx.Exec(ctx, `select pg_advisory_xact_lock(hashtextextended($1,$2))`, userID, salBloqueoSesiones)
 	return err
+}
+
+func corteCredencial(ctx context.Context, tx pgx.Tx, userID string) (int64, error) {
+	var corte int64
+	err := tx.QueryRow(ctx, `select coalesce((select no_antes from account.cortes_credencial where user_id=$1),0)`, userID).Scan(&corte)
+	return corte, err
+}
+
+func avanzarCorteCredencial(ctx context.Context, tx pgx.Tx, userID string) error {
+	_, err := tx.Exec(ctx, `insert into account.cortes_credencial(user_id,no_antes)
+		values ($1,extract(epoch from clock_timestamp())::bigint)
+		on conflict (user_id) do update set no_antes=greatest(account.cortes_credencial.no_antes,excluded.no_antes)`, userID)
+	return err
+}
+
+// CrearSesion guarda una sesión nueva bajo el mismo bloqueo por persona que
+// usan los cambios de contraseña. Una ficha anterior al último corte no puede
+// aparecer después de que la limpieza haya terminado.
+func (s *Store) CrearSesion(ctx context.Context, x *Sesion) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if err := bloquearSesionesPersona(ctx, tx, x.UserID); err != nil {
+		return err
+	}
+	corte, err := corteCredencial(ctx, tx, x.UserID)
+	if err != nil {
+		return err
+	}
+	if corte > 0 && (x.Emitido == 0 || x.Emitido <= corte) {
+		return ErrCredencialAnterior
+	}
+	if err := tx.QueryRow(ctx, `insert into account.sesiones(id, user_id, email, nombre, aal, access_token, refresh_token, access_expira, expira, agente)
+		values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning referencia::text`,
+		x.ID, x.UserID, x.Email, x.Nombre, x.AAL, x.AccessToken, x.RefreshToken, x.AccessExpira, x.Expira, x.Agente).Scan(&x.Referencia); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+// CrearSesionUnica guarda la sesión nueva y elimina las demás filas de la
+// persona en una sola transacción. Si la limpieza falla, la sesión nueva no se
+// publica.
+func (s *Store) CrearSesionUnica(ctx context.Context, x *Sesion) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if err := bloquearSesionesPersona(ctx, tx, x.UserID); err != nil {
+		return err
+	}
+	if err := tx.QueryRow(ctx, `insert into account.sesiones(id, user_id, email, nombre, aal, access_token, refresh_token, access_expira, expira, agente)
+		values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning referencia::text`,
+		x.ID, x.UserID, x.Email, x.Nombre, x.AAL, x.AccessToken, x.RefreshToken, x.AccessExpira, x.Expira, x.Agente).Scan(&x.Referencia); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `delete from account.sesiones where user_id=$1 and referencia::text<>$2`, x.UserID, x.Referencia); err != nil {
+		return err
+	}
+	if err := avanzarCorteCredencial(ctx, tx, x.UserID); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 // Sesion lee una por id.
@@ -488,6 +558,86 @@ func (s *Store) ActualizarTokens(ctx context.Context, id string, access, refresh
 	return nil
 }
 
+// ReautenticarSesion rota el portador, instala los tokens de una prueba de
+// identidad reciente y elimina las demás sesiones en una transacción.
+func (s *Store) ReautenticarSesion(ctx context.Context, id, nuevoID string, access, refresh []byte, accessExpira time.Time) (time.Time, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return time.Time{}, err
+	}
+	defer tx.Rollback(ctx)
+	var userID string
+	if err := tx.QueryRow(ctx, `select user_id::text from account.sesiones where id=$1 and expira>now()`, id).Scan(&userID); errors.Is(err, pgx.ErrNoRows) {
+		return time.Time{}, ErrNoExiste
+	} else if err != nil {
+		return time.Time{}, err
+	}
+	if err := bloquearSesionesPersona(ctx, tx, userID); err != nil {
+		return time.Time{}, err
+	}
+	var expira time.Time
+	var referencia string
+	err = tx.QueryRow(ctx, `update account.sesiones set id=$2, access_token=$3, refresh_token=$4, access_expira=$5, ultima=now()
+		where id=$1 and expira>now() returning expira, user_id::text, referencia::text`, id, nuevoID, access, refresh, accessExpira).
+		Scan(&expira, &userID, &referencia)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return time.Time{}, ErrNoExiste
+	}
+	if err != nil {
+		return time.Time{}, err
+	}
+	if _, err := tx.Exec(ctx, `delete from account.sesiones where user_id=$1 and referencia::text<>$2`, userID, referencia); err != nil {
+		return time.Time{}, err
+	}
+	if err := avanzarCorteCredencial(ctx, tx, userID); err != nil {
+		return time.Time{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return time.Time{}, err
+	}
+	return expira, nil
+}
+
+// RotarPortadorSesion invalida copias de la cookie y elimina las demás sesiones
+// de la persona dentro de la misma transacción.
+func (s *Store) RotarPortadorSesion(ctx context.Context, id, nuevoID string) (time.Time, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return time.Time{}, err
+	}
+	defer tx.Rollback(ctx)
+	var userID string
+	if err := tx.QueryRow(ctx, `select user_id::text from account.sesiones where id=$1 and expira>now()`, id).Scan(&userID); errors.Is(err, pgx.ErrNoRows) {
+		return time.Time{}, ErrNoExiste
+	} else if err != nil {
+		return time.Time{}, err
+	}
+	if err := bloquearSesionesPersona(ctx, tx, userID); err != nil {
+		return time.Time{}, err
+	}
+	var expira time.Time
+	var referencia string
+	err = tx.QueryRow(ctx, `update account.sesiones set id=$2, ultima=now()
+		where id=$1 and expira>now() returning expira, user_id::text, referencia::text`, id, nuevoID).
+		Scan(&expira, &userID, &referencia)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return time.Time{}, ErrNoExiste
+	}
+	if err != nil {
+		return time.Time{}, err
+	}
+	if _, err := tx.Exec(ctx, `delete from account.sesiones where user_id=$1 and referencia::text<>$2`, userID, referencia); err != nil {
+		return time.Time{}, err
+	}
+	if err := avanzarCorteCredencial(ctx, tx, userID); err != nil {
+		return time.Time{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return time.Time{}, err
+	}
+	return expira, nil
+}
+
 // PromoverSesion sustituye el portador y sus tokens y cierra las demás sesiones
 // sin factor de la cuenta en la misma transacción.
 // Una petición con el id anterior no puede leer los tokens aal2 ni recrear la
@@ -498,8 +648,16 @@ func (s *Store) PromoverSesion(ctx context.Context, id, nuevoID string, access, 
 		return time.Time{}, err
 	}
 	defer tx.Rollback(ctx)
-	var expira time.Time
 	var userID string
+	if err := tx.QueryRow(ctx, `select user_id::text from account.sesiones where id=$1 and expira>now()`, id).Scan(&userID); errors.Is(err, pgx.ErrNoRows) {
+		return time.Time{}, ErrNoExiste
+	} else if err != nil {
+		return time.Time{}, err
+	}
+	if err := bloquearSesionesPersona(ctx, tx, userID); err != nil {
+		return time.Time{}, err
+	}
+	var expira time.Time
 	err = tx.QueryRow(ctx, `update account.sesiones set id=$2, access_token=$3, refresh_token=$4, access_expira=$5, aal='aal2', ultima=now()
 		where id=$1 and expira>now() returning expira, user_id::text`, id, nuevoID, access, refresh, accessExpira).Scan(&expira, &userID)
 	if errors.Is(err, pgx.ErrNoRows) {

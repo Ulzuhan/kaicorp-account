@@ -278,17 +278,33 @@ func (c *Client) Me(ctx context.Context, token string) (*User, error) {
 	return &u, nil
 }
 
-// UpdateUser cambia contraseña, nombre o correo. Los campos vacíos no se tocan.
-func (c *Client) UpdateUser(ctx context.Context, token string, password, name, email string) (*User, error) {
+// UpdateUser cambia nombre o correo. Los campos vacíos no se tocan.
+func (c *Client) UpdateUser(ctx context.Context, token, name, email string) (*User, error) {
 	body := map[string]any{}
-	if password != "" {
-		body["password"] = password
-	}
 	if name != "" {
 		body["data"] = map[string]any{"name": name}
 	}
 	if email != "" {
 		body["email"] = email
+	}
+	var u User
+	if err := c.call(ctx, http.MethodPut, "/user", token, false, body, &u); err != nil {
+		return nil, err
+	}
+	return &u, nil
+}
+
+// UpdatePassword mantiene la prueba de identidad dentro de la misma escritura.
+// currentPassword se usa en cambios ordinarios; una recuperación ya viene
+// autorizada por la sesión de proveedor obtenida del enlace. nonce queda
+// reservado para el reto de reautenticación del proveedor y nunca se infiere.
+func (c *Client) UpdatePassword(ctx context.Context, token, password, currentPassword, nonce string) (*User, error) {
+	body := map[string]any{"password": password}
+	if currentPassword != "" {
+		body["current_password"] = currentPassword
+	}
+	if nonce != "" {
+		body["nonce"] = nonce
 	}
 	var u User
 	if err := c.call(ctx, http.MethodPut, "/user", token, false, body, &u); err != nil {

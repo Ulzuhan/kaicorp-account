@@ -216,8 +216,10 @@ func TestCSRFProtegeMutacionesAutenticadas(t *testing.T) {
 			t.Fatalf("%s rechazó el formulario legítimo: %d %s", ruta, w.Code, w.Body.String())
 		}
 	}
-	if cambios.Load() != 2 {
-		t.Fatal("los dos cambios legítimos de contraseña no llegaron al proveedor", cambios.Load())
+	// Un CSRF legítimo ya no basta para cambiar credenciales: cuenta exige la
+	// contraseña actual y restablecer exige su capacidad de recuperación.
+	if cambios.Load() != 0 {
+		t.Fatal("un formulario sin prueba fresca llegó al proveedor", cambios.Load())
 	}
 	if ok, err := s.st.EsMiembro(t.Context(), destino, "rol"); err != nil || !ok {
 		t.Fatal("la concesión legítima falló", ok, err)
