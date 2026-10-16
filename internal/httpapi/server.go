@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/netip"
 	"net/url"
+	"path"
 	"strings"
 	"sync"
 	"time"
@@ -366,27 +367,62 @@ func (s *Server) leerFlash(w http.ResponseWriter, r *http.Request) string {
 // las herramientas—, que se devuelven enteras para que quien vino de
 // kaicorplabs.com vuelva a kaicorplabs.com. Todo lo demás es «/».
 func (s *Server) nextSeguro(raw string) string {
+	if contieneCaracterProhibido(raw) {
+		return "/"
+	}
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return "/"
 	}
-	if strings.HasPrefix(raw, "http://") || strings.HasPrefix(raw, "https://") {
-		u, err := url.Parse(raw)
-		if err != nil || u.User != nil {
+
+	u, err := url.Parse(raw)
+	if err != nil || u.User != nil || u.Opaque != "" || urlContieneCaracterProhibido(u) {
+		return "/"
+	}
+	if u.IsAbs() {
+		if u.Host == "" {
 			return "/"
 		}
 		if u.Scheme == s.cfg.PublicURL.Scheme && u.Host == s.cfg.PublicURL.Host {
-			raw = u.RequestURI()
+			// Un retorno al mismo origen se reduce a una ruta local. El fragmento
+			// se descarta igual que hacía RequestURI.
+			u = &url.URL{Path: u.Path, RawPath: u.RawPath, RawQuery: u.RawQuery}
+			if u.Path == "" {
+				u.Path = "/"
+			}
 		} else if u.Scheme == "https" && s.hostDeCasa(u.Hostname()) {
 			return u.String()
 		} else {
 			return "/"
 		}
 	}
-	if !strings.HasPrefix(raw, "/") || strings.HasPrefix(raw, "//") || strings.HasPrefix(raw, "/\\") {
+	if u.Host != "" || u.Scheme != "" {
 		return "/"
 	}
-	return raw
+
+	u.Path = path.Clean(u.Path)
+	u.RawPath = ""
+	if !strings.HasPrefix(u.Path, "/") || strings.HasPrefix(u.Path, "//") {
+		return "/"
+	}
+	return u.String()
+}
+
+func contieneCaracterProhibido(valor string) bool {
+	for _, b := range []byte(valor) {
+		if b == '\\' || b < 0x20 || b == 0x7f {
+			return true
+		}
+	}
+	return false
+}
+
+func urlContieneCaracterProhibido(u *url.URL) bool {
+	if contieneCaracterProhibido(u.Path) || contieneCaracterProhibido(u.Fragment) {
+		return true
+	}
+	query, err := url.QueryUnescape(u.RawQuery)
+	return err != nil || contieneCaracterProhibido(query)
 }
 
 // hostDeCasa: kaicorplabs.com o cualquier *.kaicorplabs.com, tomando el padre

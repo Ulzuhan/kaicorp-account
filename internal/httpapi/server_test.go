@@ -3,12 +3,13 @@ package httpapi
 import (
 	"html/template"
 	"io/fs"
-
-	"github.com/Ulzuhan/kaicorp-account/internal/web"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"testing"
 
 	"github.com/Ulzuhan/kaicorp-account/internal/config"
+	"github.com/Ulzuhan/kaicorp-account/internal/web"
 )
 
 func servidorMinimo() *Server {
@@ -19,18 +20,53 @@ func servidorMinimo() *Server {
 func TestNextSeguro(t *testing.T) {
 	s := servidorMinimo()
 	casos := map[string]string{
-		"":                                   "/",
-		"/solicitar/docdrop":                 "/solicitar/docdrop",
-		"//evil.example":                     "/",
-		"/\\evil.example":                    "/",
-		"https://evil.example/x":             "/",
-		"https://account.example.com/cuenta": "/cuenta",
-		"http://account.example.com/cuenta":  "/",
-		"javascript:alert(1)":                "/",
+		"":                                                 "/",
+		" /solicitar/docdrop ":                             "/solicitar/docdrop",
+		"/cuenta?tab=security#passkeys":                    "/cuenta?tab=security#passkeys",
+		"/a/../cuenta?tab=security#passkeys":               "/cuenta?tab=security#passkeys",
+		"//evil.example":                                   "/",
+		"/\\evil.example":                                  "/",
+		"\t/seguro":                                        "/",
+		"/\t/evil.example":                                 "/",
+		"/\r/evil.example":                                 "/",
+		"/\n/evil.example":                                 "/",
+		"/a/../\\attacker.example":                         "/",
+		"/a/../\\\\attacker.example":                       "/",
+		"/safe\\later":                                     "/",
+		"/%5C/evil.example":                                "/",
+		"/%09/evil.example":                                "/",
+		"/%2F%2Fevil.example":                              "/evil.example",
+		"/cuenta?next=%5Cevil.example":                     "/",
+		"/cuenta#%09evil.example":                          "/",
+		"https://evil.example/x":                           "/",
+		"https://user@account.example.com/cuenta":          "/",
+		"https://account.example.com/cuenta?tab=x#frag":    "/cuenta?tab=x",
+		"https://account.example.com?tab=x#frag":           "/?tab=x",
+		"https://example.com/x?y=1#frag":                   "https://example.com/x?y=1#frag",
+		"https://tool.example.com/x?y=1#frag":              "https://tool.example.com/x?y=1#frag",
+		"https://tool.example.com/a/../\\attacker.example": "/",
+		"http://account.example.com/cuenta":                "/",
+		"javascript:alert(1)":                              "/",
 	}
 	for in, want := range casos {
 		if got := s.nextSeguro(in); got != want {
 			t.Errorf("nextSeguro(%q) = %q, quería %q", in, got, want)
+		}
+	}
+}
+
+func TestSalirGETNoRedirigeTrasNormalizarNext(t *testing.T) {
+	s := servidorMinimo()
+	for _, destino := range []string{
+		"/salir?next=/%09/evil.example",
+		"/salir?next=%2Fa%2F..%2F%5Cattacker.example",
+		"/salir?next=%2Fa%2F..%2F%5C%5Cattacker.example",
+	} {
+		r := httptest.NewRequest(http.MethodGet, destino, nil)
+		w := httptest.NewRecorder()
+		s.salirGET(w, r)
+		if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/" {
+			t.Errorf("%s produjo HTTP %d Location %q", destino, w.Code, w.Header().Get("Location"))
 		}
 	}
 }
