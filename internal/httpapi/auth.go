@@ -344,14 +344,59 @@ func (s *Server) reenviarPOST(w http.ResponseWriter, r *http.Request) {
 func (s *Server) verificar(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	typ, hash := q.Get("type"), q.Get("token_hash")
-	switch typ {
-	case "signup", "invite", "email_change", "magiclink", "email":
-	default:
+	if !tipoEnlaceValido(typ, false) {
 		s.errorPagina(w, r, http.StatusBadRequest, "Invalid link", "This link is not one we sent.")
 		return
 	}
 	if hash == "" {
 		s.errorPagina(w, r, http.StatusBadRequest, "Invalid link", "This link is incomplete.")
+		return
+	}
+	s.confirmarEnlace(w, r, typ, hash, q.Get("next"))
+}
+
+func tipoEnlaceValido(typ string, incluirRecuperacion bool) bool {
+	switch typ {
+	case "signup", "invite", "email_change", "magiclink", "email":
+		return true
+	case "recovery":
+		return incluirRecuperacion
+	default:
+		return false
+	}
+}
+
+// confirmarEnlace sólo presenta los datos opacos que ya venían en la URL.
+// El canje, y por tanto cualquier cambio de autoridad del navegador, queda
+// detrás de un POST explícito protegido por origen y CSRF.
+func (s *Server) confirmarEnlace(w http.ResponseWriter, r *http.Request, typ, hash, next string) {
+	if typ == "recovery" {
+		next = "/restablecer"
+	} else {
+		next = s.nextSeguro(next)
+	}
+	s.render(w, r, "enlace.html", "Confirm this email link", map[string]any{
+		"Tipo":         typ,
+		"Hash":         hash,
+		"Next":         next,
+		"CambioCorreo": typ == "email_change",
+		"Recuperacion": typ == "recovery",
+	}, http.StatusOK)
+}
+
+func (s *Server) verificarPOST(w http.ResponseWriter, r *http.Request) {
+	typ, hash := r.PostFormValue("type"), r.PostFormValue("token_hash")
+	if !tipoEnlaceValido(typ, true) {
+		s.errorPagina(w, r, http.StatusBadRequest, "Invalid link", "This link is not one we sent.")
+		return
+	}
+	if hash == "" {
+		s.errorPagina(w, r, http.StatusBadRequest, "Invalid link", "This link is incomplete.")
+		return
+	}
+	email, ok := correoValido(r.PostFormValue("email"))
+	if !ok {
+		s.errorPagina(w, r, http.StatusBadRequest, "Check the address", "Type the email address this link was sent to.")
 		return
 	}
 	if s.frena(w, r, "verificar", 10, 5) {
@@ -368,6 +413,31 @@ func (s *Server) verificar(w http.ResponseWriter, r *http.Request) {
 		s.render(w, r, "correo.html", "One confirmed, one to go", map[string]any{"Mensaje": "This link is accepted. The change happens when you also open the link we sent to your other address: the old one if this was the new, the new one if this was the old."}, http.StatusOK)
 		return
 	}
+	proveedorEmail, ok := correoValido(gs.User.Email)
+	if !ok || proveedorEmail != email {
+		if gs.AccessToken != "" {
+			if err := s.gt.Logout(r.Context(), gs.AccessToken, "local"); err != nil {
+				log.Printf("cerrar sesión de enlace con correo distinto: %v", err)
+			}
+		}
+		s.errorPagina(w, r, http.StatusBadRequest, "The address does not match", "The address you entered does not match this link. The link may now be used; request a new email and try again.")
+		return
+	}
+	if typ == "recovery" {
+		if gs.User.HasVerifiedFactor() {
+			s.ponerPendienteMFA(w, gs, "/restablecer", false, propositoRecuperacion)
+			http.Redirect(w, r, "/factor", http.StatusSeeOther)
+			return
+		}
+		if err := s.emitirCapacidadPassword(w, gs, "aal1", propositoRecuperacion); err != nil {
+			log.Printf("crear capacidad de recuperación: %v", err)
+			s.errorPagina(w, r, http.StatusInternalServerError, "Reset", "Could not prepare the reset. Ask for a new link and try again.")
+			return
+		}
+		http.Redirect(w, r, "/restablecer", http.StatusSeeOther)
+		return
+	}
+	next := s.nextSeguro(r.PostFormValue("next"))
 	if typ == "email_change" {
 		// Las dos confirmaciones hechas: el correo ya es el nuevo en GoTrue. Las
 		// sesiones de esta app guardan el correo de cuando nacieron; se ponen al día.
@@ -375,13 +445,12 @@ func (s *Server) verificar(w http.ResponseWriter, r *http.Request) {
 			log.Printf("actualizar correo en sesiones de %s: %v", gs.User.ID, err)
 		}
 		s.ponerFlash(w, "Your email is now "+gs.User.Email+". Use it to sign in from now on.")
-		q.Set("next", "/cuenta")
+		next = "/cuenta"
 	}
 	// Una cuenta recién confirmada no tiene factores; si los tuviera (cambio de
 	// correo de una cuenta con TOTP), pasa por el factor como al entrar.
 	if gs.User.HasVerifiedFactor() {
 		proposito := propositoPassword("")
-		next := s.nextSeguro(q.Get("next"))
 		if typ == "invite" {
 			proposito = propositoInvitacion
 			next = "/cuenta"
@@ -407,7 +476,6 @@ func (s *Server) verificar(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
 		return
 	}
-	next := s.nextSeguro(q.Get("next"))
 	if typ == "signup" {
 		s.ponerFlash(w, "Your address is confirmed. Welcome. Ask for the tools you need below; a person reads the first request.")
 		// Quien se registró desde la web pública vuelve aquí, a sus herramientas,
@@ -448,25 +516,7 @@ func (s *Server) recuperarPOST(w http.ResponseWriter, r *http.Request) {
 func (s *Server) restablecerGET(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	if hash := q.Get("token_hash"); hash != "" {
-		if s.frena(w, r, "verificar", 10, 5) {
-			return
-		}
-		gs, err := s.gt.VerifyTokenHash(r.Context(), "recovery", hash)
-		if err != nil {
-			s.errorPagina(w, r, http.StatusBadRequest, "The link does not work", mensajeGoTrue(err))
-			return
-		}
-		if gs.User.HasVerifiedFactor() {
-			s.ponerPendienteMFA(w, gs, "/restablecer", false, propositoRecuperacion)
-			http.Redirect(w, r, "/factor", http.StatusSeeOther)
-			return
-		}
-		if err := s.emitirCapacidadPassword(w, gs, "aal1", propositoRecuperacion); err != nil {
-			log.Printf("crear capacidad de recuperación: %v", err)
-			s.errorPagina(w, r, http.StatusInternalServerError, "Reset", "Could not prepare the reset. Try the link again.")
-			return
-		}
-		http.Redirect(w, r, "/restablecer", http.StatusSeeOther)
+		s.confirmarEnlace(w, r, "recovery", hash, "/restablecer")
 		return
 	}
 	if !s.capacidadPasswordDisponible(r, propositoRecuperacion, "") {

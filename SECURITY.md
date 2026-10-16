@@ -58,6 +58,9 @@ bounty.
 - Forging, fixing or replaying a session; CSRF against any state-changing form.
 - Taking over an account through registration, recovery, e-mail change,
   invitation or the second-factor flows — including skipping the second factor.
+- Consuming an e-mail link or changing the browser's effective account through
+  GET or HEAD. Link navigation must remain inert; token exchange requires an
+  explicit same-origin, CSRF-protected confirmation of the intended address.
 - Reading another person's memberships, requests or e-mail address.
 - Enumerating accounts: any response that confirms an address exists when it
   should not.

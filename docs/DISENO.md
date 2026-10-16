@@ -77,7 +77,8 @@
 |---|---|
 | `GET /` | Tus herramientas, o la portada si no hay sesión |
 | `/entrar`, `/registro`, `/recuperar`, `/restablecer`, `/factor`, `POST /salir` | Entrada, alta, recuperación, segundo factor |
-| `GET /verificar?token_hash&type&next` | Canje de los enlaces de correo (signup, invite, email_change, magiclink) |
+| `GET /verificar?token_hash&type&next`, `GET /restablecer?token_hash` | Presentación inerte de los enlaces de correo; no canjean tokens ni cambian la autoridad del navegador |
+| `POST /verificar` | Confirmación explícita, con origen, CSRF y correo esperado, antes de canjear signup, invite, email_change, magiclink o recovery |
 | `POST /solicitar/{grupo}` | Pedir una herramienta (pendiente o automática según la política) |
 | `GET/POST /oauth/consent` | El consentimiento OAuth, con la política delante |
 | `/cuenta/*` | Nombre, contraseña, factores, herramientas autorizadas, sesiones |

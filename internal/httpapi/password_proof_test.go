@@ -100,17 +100,35 @@ func TestCuentaPasswordExigePruebaDeLaMismaIdentidad(t *testing.T) {
 }
 
 func TestRecuperacionEmiteSoloCapacidadAcotada(t *testing.T) {
-	s := servidorPasswordSinStore(t, func(w http.ResponseWriter, r *http.Request) {
+	var canjes atomic.Int32
+	s := servidorEnlaceSinStore(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/verify" {
 			t.Errorf("llamada inesperada: %s", r.URL)
 		}
+		canjes.Add(1)
 		_ = json.NewEncoder(w).Encode(gotrue.Session{AccessToken: "recovery-access", RefreshToken: "recovery-refresh", ExpiresIn: 3600,
 			User: gotrue.User{ID: "victima", Email: "victima@example.com"}})
 	})
 	w := httptest.NewRecorder()
 	s.restablecerGET(w, httptest.NewRequest(http.MethodGet, "/restablecer?token_hash=hash", nil))
+	if w.Code != http.StatusOK || canjes.Load() != 0 {
+		t.Fatalf("GET de recuperación: status=%d canjes=%d", w.Code, canjes.Load())
+	}
+	for _, c := range w.Result().Cookies() {
+		if c.Name == session.CookieName || c.Name == "__Secure-account_recovery" || c.Name == cookieMFA {
+			t.Fatalf("GET emitió autoridad %s", c.Name)
+		}
+	}
+	form := url.Values{"type": {"recovery"}, "token_hash": {"hash"}, "email": {"victima@example.com"}}
+	rCanje := httptest.NewRequest(http.MethodPost, "/verificar", strings.NewReader(form.Encode()))
+	rCanje.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w = httptest.NewRecorder()
+	s.verificarPOST(w, rCanje)
 	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/restablecer" {
 		t.Fatalf("canje de recuperación: %d %s", w.Code, w.Header().Get("Location"))
+	}
+	if canjes.Load() != 1 {
+		t.Fatalf("canjes de recuperación: %d", canjes.Load())
 	}
 	var recuperacion *http.Cookie
 	for _, c := range w.Result().Cookies() {

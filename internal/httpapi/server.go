@@ -46,7 +46,7 @@ type Server struct {
 // paginas son las plantillas de página; cada una se compila con layout.html.
 // Una página que no esté aquí da «plantilla desconocida» al servirse (pasó con
 // salir.html en 0.3.3), así que la prueba TestPlantillasCompilan las recorre.
-var paginas = []string{"home.html", "entrar.html", "registro.html", "correo.html", "recuperar.html", "restablecer.html",
+var paginas = []string{"home.html", "entrar.html", "registro.html", "correo.html", "enlace.html", "recuperar.html", "restablecer.html",
 	"factor.html", "consent.html", "sin-acceso.html", "cuenta.html", "admin.html", "admin-cuenta.html", "error.html", "salir.html", "reenviar.html"}
 
 // New construye el servidor y compila las plantillas.
@@ -84,6 +84,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /registro", s.registroGET)
 	mux.HandleFunc("POST /registro", s.registroPOST)
 	mux.HandleFunc("GET /verificar", s.verificar)
+	mux.HandleFunc("POST /verificar", s.verificarPOST)
 	mux.HandleFunc("GET /reenviar", s.reenviarGET)
 	mux.HandleFunc("POST /reenviar", s.reenviarPOST)
 	mux.HandleFunc("GET /recuperar", s.recuperarGET)
