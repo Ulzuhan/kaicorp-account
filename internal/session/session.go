@@ -2,14 +2,13 @@
 //
 // La sesión de verdad es la de GoTrue (access token de una hora, refresh token
 // rotativo). Esta app la ENVUELVE: guarda los dos tokens cifrados en
-// account.sesiones y le da al navegador una cookie opaca con el id. Así la
+// account.sesiones y le da al navegador una cookie con el id firmado. Así la
 // persona puede ver y cerrar sus sesiones, un administrador puede echar a
 // alguien, y ningún token de GoTrue viaja en ninguna cookie.
 //
-// CSRF: doble envío firmado. Una cookie aleatoria `account_csrf` (que va con
-// sesión o sin ella: el login y el registro también son POST) y un campo de
-// formulario que es su HMAC con la clave de la app. Un origen ajeno puede
-// mandar la cookie pero no calcular el campo.
+// CSRF: estado aleatorio sellado, también antes del login, y un campo firmado
+// ligado a la sesión cargada. En HTTPS la cookie usa el prefijo __Host- para
+// impedir que un subdominio hermano imponga estado mediante una cookie Domain.
 package session
 
 import (
@@ -23,6 +22,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/Ulzuhan/kaicorp-account/internal/gotrue"
@@ -33,7 +34,7 @@ const (
 	// CookieName es la cookie de sesión.
 	CookieName = "account_session"
 	// CSRFCookie es la cookie del doble envío.
-	CSRFCookie = "account_csrf"
+	CSRFCookie = "__Host-account_csrf"
 	// CSRFField es el nombre del campo oculto de los formularios.
 	CSRFField = "_csrf"
 )
@@ -76,6 +77,8 @@ type Actual struct {
 	Creada time.Time
 	Expira time.Time
 	token  string
+	// referencia permanece estable al rotar la cookie; sólo sirve para cerrar.
+	referencia string
 }
 
 // Token es el access token de GoTrue vigente, para llamar en nombre de la persona.
@@ -154,12 +157,11 @@ func (m *Manager) Crear(ctx context.Context, w http.ResponseWriter, r *http.Requ
 		return nil, err
 	}
 	m.ponerCookie(w, id, x.Expira)
-	return &Actual{ID: id, UserID: x.UserID, Email: x.Email, Nombre: x.Nombre, AAL: aal, Creada: now, Expira: x.Expira, token: gs.AccessToken}, nil
+	return &Actual{ID: id, UserID: x.UserID, Email: x.Email, Nombre: x.Nombre, AAL: aal, Creada: now, Expira: x.Expira, token: gs.AccessToken, referencia: x.Referencia}, nil
 }
 
-// Actualizar guarda una sesión de GoTrue nueva sobre la misma sesión de la app
-// (tras el segundo factor, o tras cambiar la contraseña).
-func (m *Manager) Actualizar(ctx context.Context, a *Actual, gs *gotrue.Session, aal string) error {
+// Actualizar renueva tokens sin elevar el nivel ni cambiar el portador.
+func (m *Manager) Actualizar(ctx context.Context, a *Actual, gs *gotrue.Session) error {
 	access, err := m.cifrar(gs.AccessToken)
 	if err != nil {
 		return err
@@ -168,14 +170,34 @@ func (m *Manager) Actualizar(ctx context.Context, a *Actual, gs *gotrue.Session,
 	if err != nil {
 		return err
 	}
-	if aal == "" {
-		aal = a.AAL
-	}
-	if err := m.store.ActualizarTokens(ctx, a.ID, access, refresh, expiraDe(gs), aal); err != nil {
+	if err := m.store.ActualizarTokens(ctx, a.ID, access, refresh, expiraDe(gs)); err != nil {
 		return err
 	}
 	a.token = gs.AccessToken
-	a.AAL = aal
+	return nil
+}
+
+// Promover instala los tokens obtenidos al verificar un factor bajo un portador
+// nuevo. La cookie sólo se entrega después de invalidar atómicamente el anterior.
+func (m *Manager) Promover(ctx context.Context, w http.ResponseWriter, a *Actual, gs *gotrue.Session) error {
+	id, err := aleatorio(32)
+	if err != nil {
+		return err
+	}
+	access, err := m.cifrar(gs.AccessToken)
+	if err != nil {
+		return err
+	}
+	refresh, err := m.cifrar(gs.RefreshToken)
+	if err != nil {
+		return err
+	}
+	expira, err := m.store.PromoverSesion(ctx, a.ID, id, access, refresh, expiraDe(gs))
+	if err != nil {
+		return err
+	}
+	a.ID, a.AAL, a.Expira, a.token = id, "aal2", expira, gs.AccessToken
+	m.ponerCookie(w, id, expira)
 	return nil
 }
 
@@ -184,34 +206,35 @@ func (m *Manager) Actualizar(ctx context.Context, a *Actual, gs *gotrue.Session,
 // sesión fue revocada o cerrada desde otro sitio), la sesión de la app muere.
 func (m *Manager) Cargar(ctx context.Context, w http.ResponseWriter, r *http.Request) (*Actual, error) {
 	c, err := r.Cookie(CookieName)
-	if err != nil || c.Value == "" || len(c.Value) != 64 {
+	if err != nil {
 		return nil, nil
 	}
-	x, err := m.store.Sesion(ctx, c.Value)
+	id, ok := m.idDeCookie(c.Value)
+	if !ok {
+		return nil, nil
+	}
+	x, err := m.store.Sesion(ctx, id)
 	if err != nil {
 		if errors.Is(err, store.ErrNoExiste) {
-			m.borrarCookie(w)
+			// No borrar una cookie nueva que otra respuesta pudo entregar ya.
 			return nil, nil
 		}
 		return nil, err
 	}
 	if time.Now().After(x.Expira) {
-		_ = m.store.BorrarSesion(ctx, x.ID)
-		m.borrarCookie(w)
+		m.invalidar(ctx, w, x.ID)
 		return nil, nil
 	}
 	access, err := m.descifrar(x.AccessToken)
 	if err != nil {
-		_ = m.store.BorrarSesion(ctx, x.ID)
-		m.borrarCookie(w)
+		m.invalidar(ctx, w, x.ID)
 		return nil, nil
 	}
-	a := &Actual{ID: x.ID, UserID: x.UserID, Email: x.Email, Nombre: x.Nombre, AAL: x.AAL, Creada: x.Creada, Expira: x.Expira, token: access}
+	a := &Actual{ID: x.ID, UserID: x.UserID, Email: x.Email, Nombre: x.Nombre, AAL: x.AAL, Creada: x.Creada, Expira: x.Expira, token: access, referencia: x.Referencia}
 	if time.Until(x.AccessExpira) < 90*time.Second {
 		refresh, err := m.descifrar(x.RefreshToken)
 		if err != nil {
-			_ = m.store.BorrarSesion(ctx, x.ID)
-			m.borrarCookie(w)
+			m.invalidar(ctx, w, x.ID)
 			return nil, nil
 		}
 		gs, err := m.gotrue.Refresh(ctx, refresh)
@@ -219,17 +242,45 @@ func (m *Manager) Cargar(ctx context.Context, w http.ResponseWriter, r *http.Req
 			var ge *gotrue.Error
 			if errors.As(err, &ge) && ge.Status < 500 {
 				// Revocada, caducada o rotada por otro: fuera.
-				_ = m.store.BorrarSesion(ctx, x.ID)
-				m.borrarCookie(w)
+				m.invalidar(ctx, w, x.ID)
 				return nil, nil
 			}
 			return nil, err
 		}
-		if err := m.Actualizar(ctx, a, gs, ""); err != nil {
+		if err := m.Actualizar(ctx, a, gs); err != nil {
+			if errors.Is(err, store.ErrNoExiste) {
+				// Otro request la cerró o promovió mientras se renovaba en GoTrue.
+				// No sobrescribir la cookie que entregó esa promoción.
+				return nil, nil
+			}
 			return nil, err
 		}
 	} else {
 		_ = m.store.TocarSesion(ctx, x.ID)
+	}
+	if !a.EsAAL2() {
+		// La ficha del login y el token cacheado pueden ser anteriores al alta.
+		// Se consulta después del refresh: éste también puede solaparse con ella.
+		u, err := m.gotrue.Me(ctx, a.Token())
+		if err != nil {
+			if errors.Is(err, gotrue.ErrUnauthorized) || errors.Is(err, gotrue.ErrForbidden) {
+				m.invalidar(ctx, w, a.ID)
+				return nil, nil
+			}
+			return nil, err
+		}
+		if u.HasVerifiedFactor() {
+			m.invalidar(ctx, w, a.ID)
+			return nil, nil
+		}
+		// Una promoción puede haber borrado esta fila mientras /user respondía
+		// con una ficha leída antes del alta. No devolver esa autoridad antigua.
+		if _, err := m.store.Sesion(ctx, a.ID); err != nil {
+			if errors.Is(err, store.ErrNoExiste) {
+				return nil, nil
+			}
+			return nil, err
+		}
 	}
 	return a, nil
 }
@@ -238,14 +289,54 @@ func (m *Manager) Cargar(ctx context.Context, w http.ResponseWriter, r *http.Req
 func (m *Manager) Cerrar(ctx context.Context, w http.ResponseWriter, a *Actual) {
 	if a != nil {
 		_ = m.gotrue.Logout(ctx, a.token, "local")
-		_ = m.store.BorrarSesion(ctx, a.ID)
+		_ = m.store.BorrarSesionPorReferencia(ctx, a.referencia)
 	}
 	m.borrarCookie(w)
 }
 
-func (m *Manager) ponerCookie(w http.ResponseWriter, valor string, expira time.Time) {
+// CerrarOtras conserva esta fila aunque una verificación concurrente haya
+// sustituido su portador mientras GoTrue cerraba las demás sesiones.
+func (m *Manager) CerrarOtras(ctx context.Context, a *Actual) {
+	_ = m.gotrue.Logout(ctx, a.token, "others")
+	_ = m.store.BorrarSesionesDe(ctx, a.UserID, a.referencia)
+}
+
+func (m *Manager) invalidar(ctx context.Context, w http.ResponseWriter, id string) {
+	if err := m.store.BorrarSesion(ctx, id); !errors.Is(err, store.ErrNoExiste) {
+		m.borrarCookie(w)
+	}
+}
+
+// El id guardado en la base sólo identifica la fila. La firma, que nunca se
+// guarda allí, es necesaria para autenticar y usa un contexto distinto de CSRF.
+func (m *Manager) firmaSesion(id string) string {
+	h := hmac.New(sha256.New, m.key)
+	h.Write([]byte("session:v1:" + id))
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+func (m *Manager) idDeCookie(valor string) (string, bool) {
+	// No se aceptan cookies antiguas sin firma, ni siquiera con una fila viva.
+	if len(valor) != 132 {
+		return "", false
+	}
+	partes := strings.Split(valor, ".")
+	if len(partes) != 3 || partes[0] != "v1" || len(partes[1]) != 64 || len(partes[2]) != 64 {
+		return "", false
+	}
+	id := partes[1]
+	if _, err := hex.DecodeString(id); err != nil {
+		return "", false
+	}
+	if !hmac.Equal([]byte(partes[2]), []byte(m.firmaSesion(id))) {
+		return "", false
+	}
+	return id, true
+}
+
+func (m *Manager) ponerCookie(w http.ResponseWriter, id string, expira time.Time) {
 	http.SetCookie(w, &http.Cookie{
-		Name: CookieName, Value: valor, Path: "/", Expires: expira,
+		Name: CookieName, Value: "v1." + id + "." + m.firmaSesion(id), Path: "/", Expires: expira,
 		HttpOnly: true, Secure: m.secure, SameSite: http.SameSiteLaxMode,
 	})
 }
@@ -256,30 +347,88 @@ func (m *Manager) borrarCookie(w http.ResponseWriter) {
 
 // ── CSRF ───────────────────────────────────────────────────────────────────
 
-// CSRF devuelve el valor para el campo del formulario, creando la cookie si no
-// existe. Se llama al pintar cualquier formulario.
-func (m *Manager) CSRF(w http.ResponseWriter, r *http.Request) string {
-	var semilla string
-	if c, err := r.Cookie(CSRFCookie); err == nil && len(c.Value) == 32 {
-		semilla = c.Value
-	} else {
-		semilla, _ = aleatorio(16)
-		http.SetCookie(w, &http.Cookie{
-			Name: CSRFCookie, Value: semilla, Path: "/", MaxAge: 12 * 3600,
-			HttpOnly: true, Secure: m.secure, SameSite: http.SameSiteLaxMode,
-		})
+const vidaCSRF = 12 * time.Hour
+
+func (m *Manager) nombreCookieCSRF() string {
+	if m.secure {
+		return CSRFCookie
 	}
-	return m.firmar(semilla)
+	// El prefijo __Host- exige Secure. Sólo el modo de desarrollo usa HTTP.
+	return "account_csrf"
 }
 
-// CSRFValido comprueba el campo del formulario contra la cookie.
-func (m *Manager) CSRFValido(r *http.Request) bool {
-	c, err := r.Cookie(CSRFCookie)
-	if err != nil || len(c.Value) != 32 {
+// estadoCSRF acepta una sola cookie emitida por este gestor y aún vigente.
+// El sellado evita firmar semillas elegidas por quien pide una página pública.
+func (m *Manager) estadoCSRF(r *http.Request) (*http.Cookie, bool) {
+	var encontrada *http.Cookie
+	for _, c := range r.Cookies() {
+		if c.Name == m.nombreCookieCSRF() {
+			if encontrada != nil {
+				return nil, false
+			}
+			encontrada = c
+		}
+	}
+	if encontrada == nil {
+		return nil, false
+	}
+	texto, err := m.Abrir(encontrada.Value)
+	if err != nil {
+		return nil, false
+	}
+	partes := strings.Split(texto, ":")
+	if len(partes) != 2 || len(partes[0]) != 32 {
+		return nil, false
+	}
+	if _, err := hex.DecodeString(partes[0]); err != nil {
+		return nil, false
+	}
+	hasta, err := strconv.ParseInt(partes[1], 10, 64)
+	if err != nil || hasta <= time.Now().Unix() {
+		return nil, false
+	}
+	return encontrada, true
+}
+
+// CSRF devuelve el campo ligado a la autoridad efectiva de esta petición.
+// Una sesión invalidada por Cargar ya no participa, aunque su cookie siga en r.
+func (m *Manager) CSRF(w http.ResponseWriter, r *http.Request, a *Actual) string {
+	c, ok := m.estadoCSRF(r)
+	if !ok {
+		semilla, err := aleatorio(16)
+		if err != nil {
+			return ""
+		}
+		valor, err := m.Sellar(semilla + ":" + strconv.FormatInt(time.Now().Add(vidaCSRF).Unix(), 10))
+		if err != nil {
+			return ""
+		}
+		c = &http.Cookie{Name: m.nombreCookieCSRF(), Value: valor, Path: "/", MaxAge: int(vidaCSRF.Seconds()),
+			HttpOnly: true, Secure: m.secure, SameSite: http.SameSiteLaxMode}
+		http.SetCookie(w, c)
+	}
+	return m.campoCSRF(c.Value, a)
+}
+
+// CSRFValido exige estado único, vigente y un único campo para esta sesión.
+func (m *Manager) CSRFValido(r *http.Request, a *Actual) bool {
+	c, ok := m.estadoCSRF(r)
+	if !ok || r.ParseForm() != nil {
 		return false
 	}
-	campo := r.PostFormValue(CSRFField)
-	return campo != "" && hmac.Equal([]byte(campo), []byte(m.firmar(c.Value)))
+	campos := r.PostForm[CSRFField]
+	esperado := m.campoCSRF(c.Value, a)
+	return len(campos) == 1 && esperado != "" && hmac.Equal([]byte(campos[0]), []byte(esperado))
+}
+
+func (m *Manager) campoCSRF(estado string, a *Actual) string {
+	if a == nil {
+		return m.firmar("v2:anonymous:" + estado)
+	}
+	if a.ID == "" {
+		return ""
+	}
+	return m.firmar("v2:session:" + a.ID + ":" + estado)
 }
 
 func (m *Manager) firmar(semilla string) string {

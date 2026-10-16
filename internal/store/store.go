@@ -133,7 +133,7 @@ func (g Grupo) Host() string {
 	return u.Host
 }
 
-const grupoCols = `nombre, titulo, descripcion, url, coalesce(cliente_id,''), solicitable, orden`
+const grupoCols = `nombre, titulo, descripcion, url, coalesce(cliente_id::text,''), solicitable, orden`
 
 func scanGrupo(row pgx.Row) (*Grupo, error) {
 	var g Grupo
@@ -176,18 +176,62 @@ func (s *Store) GrupoDeCliente(ctx context.Context, clienteID string) (*Grupo, e
 
 // VincularCliente ata un cliente OAuth a su grupo (o lo desata con "").
 func (s *Store) VincularCliente(ctx context.Context, grupo, clienteID string) error {
-	var cid *string
-	if clienteID != "" {
-		cid = &clienteID
-	}
-	tag, err := s.pool.Exec(ctx, `update account.grupos set cliente_id=$2 where nombre=$1`, grupo, cid)
+	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
-	if tag.RowsAffected() == 0 {
-		return ErrNoExiste
+	defer tx.Rollback(ctx)
+	// El bootstrap instala las guardas en auth, donde también escriben las
+	// peticiones de GoTrue que terminan después de un timeout de HTTP.
+	var guardas bool
+	if err := tx.QueryRow(ctx, `select count(*)=2 from pg_trigger
+		where tgrelid='auth.oauth_consents'::regclass and not tgisinternal
+		and tgname in ('account_ordena_grants','account_valida_grants')
+		and tgenabled in ('O','A')`).Scan(&guardas); err != nil {
+		return err
 	}
-	return nil
+	if !guardas {
+		return errors.New("vincular: vuelve a aplicar db/bootstrap.sql antes de cambiar clientes")
+	}
+	// La fila común ordena cambios de vínculo y escrituras del proveedor.
+	// Cambiar su versión también invalida snapshots Repeatable Read antiguos.
+	tag, err := tx.Exec(ctx, `update account.estado_vinculos set version=version+1 where id`)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() != 1 {
+		return errors.New("vincular: falta el estado de vínculos")
+	}
+	var anterior string
+	if err := tx.QueryRow(ctx, `select coalesce(cliente_id::text,'') from account.grupos where nombre=$1 for update`, grupo).Scan(&anterior); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNoExiste
+		}
+		return err
+	}
+	var cid *string
+	if clienteID != "" {
+		if err := tx.QueryRow(ctx, `select $1::uuid::text`, clienteID).Scan(&clienteID); err != nil {
+			return err
+		}
+		cid = &clienteID
+	}
+	if anterior == clienteID {
+		return tx.Commit(ctx)
+	}
+	if anterior != "" {
+		if _, err := tx.Exec(ctx, `insert into account.clientes_anteriores(cliente_id) values ($1) on conflict do nothing`, anterior); err != nil {
+			return err
+		}
+		// Todos los grants del cliente antiguo, incluso los de exmiembros.
+		if _, err := tx.Exec(ctx, `update auth.oauth_consents set revoked_at=now() where client_id=$1 and revoked_at is null`, anterior); err != nil {
+			return err
+		}
+	}
+	if _, err := tx.Exec(ctx, `update account.grupos set cliente_id=$2 where nombre=$1`, grupo, cid); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 // ── Membresías ─────────────────────────────────────────────────────────────
@@ -232,10 +276,28 @@ func (s *Store) Conceder(ctx context.Context, userID, grupo, por string) error {
 	return err
 }
 
-// Revocar quita la membresía. No toca los grants de GoTrue: eso es RevocarGrants.
+// Revocar quita la membresía y sus grants en una sola transacción; las guardas
+// de la base ordenan también las aprobaciones del proveedor que sigan en vuelo.
 func (s *Store) Revocar(ctx context.Context, userID, grupo string) error {
-	_, err := s.pool.Exec(ctx, `delete from account.membresias where user_id=$1 and grupo=$2`, userID, grupo)
-	return err
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	tag, err := tx.Exec(ctx, `delete from account.membresias where user_id=$1 and grupo=$2`, userID, grupo)
+	if err != nil {
+		return err
+	}
+	// El trigger por fila revoca al borrar. Si ya no había membresía, limpia
+	// también grants históricos: repetir «revocar» sigue siendo idempotente.
+	if tag.RowsAffected() == 0 {
+		if _, err := tx.Exec(ctx, `update auth.oauth_consents set revoked_at=now()
+			where user_id=$1 and revoked_at is null
+			and client_id in (select cliente_id from account.grupos where nombre=$2)`, userID, grupo); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
 }
 
 // Miembro es una fila de membresía con el correo de auth.users.
@@ -372,6 +434,7 @@ func (s *Store) ResolverSolicitud(ctx context.Context, id, estado, por string) e
 // Sesion es una sesión de la app: envuelve los tokens de GoTrue, cifrados.
 type Sesion struct {
 	ID           string
+	Referencia   string // Identidad estable de la fila, nunca un portador.
 	UserID       string
 	Email        string
 	Nombre       string
@@ -385,11 +448,11 @@ type Sesion struct {
 	Agente       string
 }
 
-const sesionCols = `id, user_id::text, email, nombre, aal, access_token, refresh_token, access_expira, creada, ultima, expira, agente`
+const sesionCols = `id, user_id::text, email, nombre, aal, access_token, refresh_token, access_expira, creada, ultima, expira, agente, referencia::text`
 
 func scanSesion(row pgx.Row) (*Sesion, error) {
 	var x Sesion
-	err := row.Scan(&x.ID, &x.UserID, &x.Email, &x.Nombre, &x.AAL, &x.AccessToken, &x.RefreshToken, &x.AccessExpira, &x.Creada, &x.Ultima, &x.Expira, &x.Agente)
+	err := row.Scan(&x.ID, &x.UserID, &x.Email, &x.Nombre, &x.AAL, &x.AccessToken, &x.RefreshToken, &x.AccessExpira, &x.Creada, &x.Ultima, &x.Expira, &x.Agente, &x.Referencia)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNoExiste
@@ -401,9 +464,9 @@ func scanSesion(row pgx.Row) (*Sesion, error) {
 
 // CrearSesion guarda una sesión nueva.
 func (s *Store) CrearSesion(ctx context.Context, x *Sesion) error {
-	_, err := s.pool.Exec(ctx, `insert into account.sesiones(id, user_id, email, nombre, aal, access_token, refresh_token, access_expira, expira, agente)
-		values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-		x.ID, x.UserID, x.Email, x.Nombre, x.AAL, x.AccessToken, x.RefreshToken, x.AccessExpira, x.Expira, x.Agente)
+	err := s.pool.QueryRow(ctx, `insert into account.sesiones(id, user_id, email, nombre, aal, access_token, refresh_token, access_expira, expira, agente)
+		values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning referencia::text`,
+		x.ID, x.UserID, x.Email, x.Nombre, x.AAL, x.AccessToken, x.RefreshToken, x.AccessExpira, x.Expira, x.Agente).Scan(&x.Referencia)
 	return err
 }
 
@@ -412,11 +475,46 @@ func (s *Store) Sesion(ctx context.Context, id string) (*Sesion, error) {
 	return scanSesion(s.pool.QueryRow(ctx, `select `+sesionCols+` from account.sesiones where id=$1`, id))
 }
 
-// ActualizarTokens guarda tokens nuevos (tras renovar o tras el segundo factor).
-func (s *Store) ActualizarTokens(ctx context.Context, id string, access, refresh []byte, accessExpira time.Time, aal string) error {
-	_, err := s.pool.Exec(ctx, `update account.sesiones set access_token=$2, refresh_token=$3, access_expira=$4, aal=$5, ultima=now() where id=$1`,
-		id, access, refresh, accessExpira, aal)
-	return err
+// ActualizarTokens renueva tokens sin cambiar el portador ni su nivel.
+func (s *Store) ActualizarTokens(ctx context.Context, id string, access, refresh []byte, accessExpira time.Time) error {
+	tag, err := s.pool.Exec(ctx, `update account.sesiones set access_token=$2, refresh_token=$3, access_expira=$4, ultima=now() where id=$1 and expira>now()`,
+		id, access, refresh, accessExpira)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNoExiste
+	}
+	return nil
+}
+
+// PromoverSesion sustituye el portador y sus tokens y cierra las demás sesiones
+// sin factor de la cuenta en la misma transacción.
+// Una petición con el id anterior no puede leer los tokens aal2 ni recrear la
+// fila. Se conservan la caducidad absoluta y el resto de datos de la sesión.
+func (s *Store) PromoverSesion(ctx context.Context, id, nuevoID string, access, refresh []byte, accessExpira time.Time) (time.Time, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return time.Time{}, err
+	}
+	defer tx.Rollback(ctx)
+	var expira time.Time
+	var userID string
+	err = tx.QueryRow(ctx, `update account.sesiones set id=$2, access_token=$3, refresh_token=$4, access_expira=$5, aal='aal2', ultima=now()
+		where id=$1 and expira>now() returning expira, user_id::text`, id, nuevoID, access, refresh, accessExpira).Scan(&expira, &userID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return time.Time{}, ErrNoExiste
+	}
+	if err != nil {
+		return time.Time{}, err
+	}
+	if _, err := tx.Exec(ctx, `delete from account.sesiones where user_id=$1 and id<>$2 and aal<>'aal2'`, userID, nuevoID); err != nil {
+		return time.Time{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return time.Time{}, err
+	}
+	return expira, nil
 }
 
 // TocarSesion anota actividad.
@@ -427,13 +525,27 @@ func (s *Store) TocarSesion(ctx context.Context, id string) error {
 
 // BorrarSesion elimina una.
 func (s *Store) BorrarSesion(ctx context.Context, id string) error {
-	_, err := s.pool.Exec(ctx, `delete from account.sesiones where id=$1`, id)
+	tag, err := s.pool.Exec(ctx, `delete from account.sesiones where id=$1`, id)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNoExiste
+	}
+	return nil
+}
+
+// BorrarSesionPorReferencia cierra también una sesión cuyo portador haya rotado
+// desde que la petición de cierre la cargó.
+func (s *Store) BorrarSesionPorReferencia(ctx context.Context, referencia string) error {
+	_, err := s.pool.Exec(ctx, `delete from account.sesiones where referencia=$1::uuid`, referencia)
 	return err
 }
 
-// BorrarSesionesDe elimina todas las de una persona (menos la dada, si se pasa).
-func (s *Store) BorrarSesionesDe(ctx context.Context, userID, salvo string) error {
-	_, err := s.pool.Exec(ctx, `delete from account.sesiones where user_id=$1 and id<>$2`, userID, salvo)
+// BorrarSesionesDe elimina todas las de una persona, salvo la referencia estable
+// dada, si se pasa. El id de cookie no identifica la misma fila tras promoverla.
+func (s *Store) BorrarSesionesDe(ctx context.Context, userID, salvoReferencia string) error {
+	_, err := s.pool.Exec(ctx, `delete from account.sesiones where user_id=$1 and referencia::text<>$2`, userID, salvoReferencia)
 	return err
 }
 

@@ -12,6 +12,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"net/netip"
 	"net/url"
 	"os"
 	"strconv"
@@ -45,6 +46,10 @@ type Config struct {
 	// /api/session contesta con credenciales: la web pública, para enseñar
 	// quién ha entrado. Por defecto, el dominio padre del PublicURL.
 	SessionOrigins []string
+	// TrustedProxies son los CIDR de los pares inmediatos que sobrescriben
+	// ClientIPHeader. Sin configuración, sólo se usa la IP del transporte.
+	TrustedProxies []netip.Prefix
+	ClientIPHeader string
 	// AdminGroup es la membresía que abre /admin.
 	AdminGroup string
 	// SMTP* es la cuenta con la que la app manda SUS correos (el aviso de acceso
@@ -136,6 +141,31 @@ func FromEnv() (*Config, error) {
 	}
 	if g := strings.TrimSpace(os.Getenv("ACCOUNT_ADMIN_GROUP")); g != "" {
 		c.AdminGroup = g
+	}
+	proxies := strings.TrimSpace(os.Getenv("ACCOUNT_TRUSTED_PROXY_CIDRS"))
+	header := strings.TrimSpace(os.Getenv("ACCOUNT_CLIENT_IP_HEADER"))
+	if proxies != "" {
+		for _, raw := range strings.Split(proxies, ",") {
+			p, err := netip.ParsePrefix(strings.TrimSpace(raw))
+			if err != nil || p.Addr().Is4In6() {
+				errs = append(errs, errors.New("ACCOUNT_TRUSTED_PROXY_CIDRS: se esperan CIDR IPv4 o IPv6 (sin IPv4 mapeada) separados por comas"))
+			} else {
+				c.TrustedProxies = append(c.TrustedProxies, p.Masked())
+			}
+		}
+	}
+	if header != "" {
+		switch strings.ToLower(header) {
+		case "cf-connecting-ip":
+			c.ClientIPHeader = "CF-Connecting-IP"
+		case "x-real-ip":
+			c.ClientIPHeader = "X-Real-IP"
+		default:
+			errs = append(errs, errors.New("ACCOUNT_CLIENT_IP_HEADER: sólo CF-Connecting-IP o X-Real-IP"))
+		}
+	}
+	if (proxies == "") != (header == "") {
+		errs = append(errs, errors.New("ACCOUNT_TRUSTED_PROXY_CIDRS y ACCOUNT_CLIENT_IP_HEADER: se configuran juntas"))
 	}
 	c.UnconfirmedDays = 14
 	if v := strings.TrimSpace(os.Getenv("ACCOUNT_UNCONFIRMED_DAYS")); v != "" {

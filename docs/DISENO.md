@@ -35,8 +35,13 @@
 5. **Ninguna sesión sin factor.** Si la cuenta tiene un factor verificado, los
    tokens aal1 no se convierten en sesión: van sellados en `account_mfa` cinco
    minutos hasta que el código los cambia por aal2.
-6. **CSRF por doble envío firmado** (`account_csrf` + HMAC), porque el login y
-   el registro son POST sin sesión.
+6. **CSRF con estado aleatorio sellado y un HMAC ligado a la sesión cargada**;
+   antes del login se usa un contexto anónimo distinto. La cookie HTTPS
+   `__Host-account_csrf` es Secure, host-only y Path=/; sólo el modo HTTP de
+   desarrollo usa `account_csrf`. Se rechazan cookies y campos duplicados.
+   Cada POST exige el origen exacto de `ACCOUNT_PUBLIC_URL`; sin Origin sólo
+   se acepta Referer del mismo origen, y sin ambos se rechaza. Los formularios
+   caducan al cambiar o terminar la sesión, incluido el ascenso a aal2.
 7. **No se enumeran correos**: registro, recuperación y entrada dan la misma
    respuesta exista o no la cuenta. GoTrue ya lo hace por su lado (devuelve una
    ficha falsa en el registro de un correo existente); esta app no lo deshace.

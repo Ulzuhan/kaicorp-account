@@ -37,9 +37,20 @@ docker build -t kaicorp-account .
 docker run --rm --env-file .env -p 127.0.0.1:3467:3467 kaicorp-account
 ```
 
-Before the first start, run `db/bootstrap.sql` once against the Supabase
+Before the first start, run `db/bootstrap.sql` against the Supabase
 Postgres as a superuser: it creates the `account` role and schema, the scoped
-grants on the `auth` schema, and the claims hook. GoTrue needs:
+grants on the `auth` schema, and the claims hook.
+
+When upgrading an existing installation, reapply `db/bootstrap.sql` as a
+superuser before starting this version, then run `account migrar`. The consent
+guards coordinate provider writes with client binding changes, including writes
+that finish after an HTTP timeout. Binding changes refuse to run without both
+guards. Migration rejects invalid or duplicate UUID client bindings; resolve
+those explicitly before retrying. Unlinking or replacing a client revokes all
+of its existing grants; linking the same client preserves them. Previously lost
+bindings cannot be reconstructed, so revoke any known orphaned grants separately.
+
+GoTrue needs:
 
 ```
 GOTRUE_OAUTH_SERVER_ENABLED=true
@@ -52,6 +63,11 @@ GOTRUE_MAILER_TEMPLATE_RELOADING_ENABLED=true
 
 Then load your groups (one row per tool or role; see `db/grupos.example.sql`)
 and link each OAuth client to its group from `/admin` or with `account vincular`.
+
+The binding regression tests use `psql` and a disposable PostgreSQL instance:
+set `ACCOUNT_BINDING_TEST_DATABASE_URL` to its superuser PostgreSQL URL and run
+`go test -race ./internal/store -run TestVincular`. They create and remove their
+own databases and apply the real bootstrap and migrations.
 
 Subcommands: `account migrar` (apply migrations and exit), `account admin
 <email>` (make an existing account an administrator), `account ver <email>`
@@ -69,6 +85,18 @@ OAuth client to its group), `account sonda` (health probe).
 See [`.env.example`](.env.example). Every `ACCOUNT_*` variable is validated at
 start; the app refuses to run half-configured.
 
+Attempt limits use the transport peer IP by default and ignore forwarding
+headers. Behind a tunnel or reverse proxy, set both
+`ACCOUNT_TRUSTED_PROXY_CIDRS` (comma-separated IPv4/IPv6 CIDRs for the immediate
+proxy peers) and `ACCOUNT_CLIENT_IP_HEADER` (`CF-Connecting-IP` or `X-Real-IP`).
+The proxy must overwrite that one header, removing client-supplied values.
+Only peers in those ranges may supply the selected header; other headers are
+ignored. Missing, repeated, or invalid selected values from trusted peers
+produce HTTP 400 on throttled actions. Keep the origin listener accessible only
+to the intended proxies and use their actual transport addresses, including
+container network addresses where applicable. Without this opt-in, visitors
+behind one proxy share its attempt allowance.
+
 ## Development
 
 ```bash
@@ -77,3 +105,15 @@ go vet ./...
 ```
 
 The design and its decisions: [`docs/DISENO.md`](docs/DISENO.md).
+
+Consent approval and membership revocation are synchronized by the database.
+Reapply `db/bootstrap.sql` before deploying this version or running
+`account migrar`. Migration 0004 drains earlier provider transactions before
+enabling atomic membership and grant revocation. Revocation fails without the
+provider guards, preserving the membership.
+Run the consent race integration tests only against a disposable PostgreSQL
+instance with `psql` installed and a role allowed to create databases:
+
+```bash
+ACCOUNT_CONSENT_TEST_DATABASE_URL='postgres://test_admin@localhost/test?sslmode=disable' go test -race ./internal/httpapi -run TestConsentimiento
+```

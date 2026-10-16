@@ -26,8 +26,10 @@ bounty.
 - **Revoking a membership revokes the grant**, so the provider stops approving
   by itself and the tool's refresh tokens die. An access token already issued is
   bounded by its own expiry, not by the revocation.
-- **The session key encrypts tokens at rest and signs the CSRF tokens.**
+- **The session key encrypts tokens at rest and signs session cookies and CSRF tokens.**
   Rotating it closes every session at once.
+  Database session IDs alone cannot authenticate. Unsigned cookies from older
+  versions are rejected; users must sign in again when signed cookies are introduced.
 - **The service key is used for one thing**: blocking and deleting accounts. It
   is not the key the app runs on.
 - **The second factor is optional and double**: a TOTP authenticator, and since

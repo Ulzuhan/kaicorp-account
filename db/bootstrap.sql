@@ -23,6 +23,8 @@
 
 \set ON_ERROR_STOP on
 
+begin;
+
 -- psql no sustituye variables dentro de bloques $$, así que el rol se crea o
 -- se actualiza con \gexec, que ejecuta la orden que devuelve el select.
 select format('create role account login password %L', :'account_password')
@@ -32,6 +34,15 @@ select format('alter role account with login password %L', :'account_password')
 
 create schema if not exists account authorization account;
 grant usage on schema account to account;
+
+-- Existe desde el bootstrap: las escrituras anteriores a la migración también
+-- toman su bloqueo y la migración puede esperar a que todas hayan terminado.
+create table if not exists account.estado_consentimiento (
+  id boolean primary key default true check (id),
+  version bigint not null default 0
+);
+alter table account.estado_consentimiento owner to account;
+insert into account.estado_consentimiento(id) values (true) on conflict do nothing;
 
 -- Lecturas sobre auth: quién es quién y qué cliente pide qué.
 grant usage on schema auth to account;
@@ -86,4 +97,112 @@ $$;
 grant execute on function public.custom_access_token_hook(jsonb) to supabase_auth_admin;
 revoke execute on function public.custom_access_token_hook(jsonb) from authenticated, anon, public;
 
+-- Ordena INSERT y UPDATE del proveedor antes de que bloqueen filas de grants.
+-- SECURITY DEFINER permite leer el estado privado de account sin conceder a
+-- GoTrue acceso al esquema. Antes de migrar no hay vínculos nuevos que guardar.
+create or replace function public.account_ordena_grants()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if pg_catalog.to_regclass('account.estado_vinculos') is not null then
+    perform version from account.estado_vinculos where id for share;
+    if not found then
+      raise exception 'missing account binding state';
+    end if;
+  end if;
+  return null;
+end;
+$$;
+revoke execute on function public.account_ordena_grants() from public, anon, authenticated;
+
+-- Un grant tardío de un cliente retirado sólo vuelve a estar vivo si el
+-- vínculo ACTUAL y la membresía lo permiten; cubre INSERT y reactivación.
+create or replace function public.account_valida_grants()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if new.revoked_at is null
+     and pg_catalog.to_regclass('account.clientes_anteriores') is not null then
+    if exists (select 1 from account.clientes_anteriores where cliente_id=new.client_id)
+       and not exists (
+         select 1 from account.grupos g
+         join account.membresias m on m.grupo=g.nombre
+         where g.cliente_id=new.client_id and m.user_id=new.user_id
+       ) then
+      raise exception 'client binding no longer authorizes this consent' using errcode='42501';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+revoke execute on function public.account_valida_grants() from public, anon, authenticated;
+
+drop trigger if exists account_ordena_grants on auth.oauth_consents;
+create trigger account_ordena_grants before insert or update on auth.oauth_consents
+  for each statement execute function public.account_ordena_grants();
+drop trigger if exists account_valida_grants on auth.oauth_consents;
+create trigger account_valida_grants before insert or update on auth.oauth_consents
+  for each row execute function public.account_valida_grants();
+
+-- Las guardas corren también para trabajos de GoTrue que terminan después de
+-- un timeout HTTP. Se instalan antes de arrancar la app con la migración 0004.
+-- SECURITY DEFINER sólo permite estas lecturas del esquema privado; no da al
+-- proveedor permisos nuevos sobre account ni escrituras nuevas sobre auth.
+create or replace function public.account_sincroniza_consentimiento()
+returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  if pg_catalog.to_regclass('account.estado_vinculos') is not null then
+    perform version from account.estado_vinculos where id for share;
+    if not found then raise exception 'missing account binding state'; end if;
+  end if;
+  perform version from account.estado_consentimiento where id for share;
+  if not found then raise exception 'missing account consent state'; end if;
+  return null;
+end;
+$$;
+
+create or replace function public.account_valida_consentimiento()
+returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  if tg_table_name='oauth_authorizations' then
+    if new.status <> 'approved' then return new; end if;
+  else
+    if new.revoked_at is not null then return new; end if;
+  end if;
+  -- Los clientes ajenos a esta app conservan su política. Para uno vinculado,
+  -- ni el primer INSERT, ni UPDATE/UPSERT, ni GET autoapprove pueden revivir
+  -- autoridad después de que termine la revocación.
+  if exists (select 1 from account.grupos where cliente_id::uuid=new.client_id)
+     and not exists (
+       select 1 from account.grupos g join account.membresias m on m.grupo=g.nombre
+       where g.cliente_id::uuid=new.client_id and m.user_id=new.user_id
+     ) then
+    raise exception 'membership no longer authorizes this consent' using errcode='42501';
+  end if;
+  return new;
+end;
+$$;
+revoke execute on function public.account_sincroniza_consentimiento() from public, anon, authenticated;
+revoke execute on function public.account_valida_consentimiento() from public, anon, authenticated;
+
+drop trigger if exists account_sincroniza_consentimiento on auth.oauth_authorizations;
+create trigger account_sincroniza_consentimiento before insert or update on auth.oauth_authorizations
+  for each statement execute function public.account_sincroniza_consentimiento();
+drop trigger if exists account_valida_consentimiento on auth.oauth_authorizations;
+create trigger account_valida_consentimiento before insert or update on auth.oauth_authorizations
+  for each row execute function public.account_valida_consentimiento();
+drop trigger if exists account_sincroniza_consentimiento on auth.oauth_consents;
+create trigger account_sincroniza_consentimiento before insert or update on auth.oauth_consents
+  for each statement execute function public.account_sincroniza_consentimiento();
+drop trigger if exists account_valida_consentimiento on auth.oauth_consents;
+create trigger account_valida_consentimiento before insert or update on auth.oauth_consents
+  for each row execute function public.account_valida_consentimiento();
+
+commit;
 select 'bootstrap de account aplicado' as resultado;

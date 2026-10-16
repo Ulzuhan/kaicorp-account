@@ -357,13 +357,7 @@ func cuenta(ctx context.Context, st *store.Store, correo string) (*store.Usuario
 // revocarUna quita una membresía y, si el grupo abre un cliente, revoca el
 // grant: sin eso la herramienta seguiría renovando tokens hasta caducar.
 func revocarUna(ctx context.Context, st *store.Store, userID, grupo string) error {
-	if err := st.Revocar(ctx, userID, grupo); err != nil {
-		return err
-	}
-	if g, err := st.Grupo(ctx, grupo); err == nil && g.ClienteID != "" {
-		return st.RevocarGrants(ctx, userID, g.ClienteID)
-	}
-	return nil
+	return st.Revocar(ctx, userID, grupo)
 }
 
 // ver enseña una cuenta en columnas con tabulador y primera palabra fija.

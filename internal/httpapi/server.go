@@ -11,8 +11,8 @@ import (
 	"errors"
 	"html/template"
 	"log"
-	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"strings"
 	"sync"
@@ -219,18 +219,63 @@ func (s *Server) conSesion(next http.Handler) http.Handler {
 func (s *Server) conCSRF(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
+			if !s.origenFormularioValido(r) {
+				s.errorPagina(w, r, http.StatusForbidden, "The form expired", "Go back, reload the page and try again.")
+				return
+			}
 			r.Body = http.MaxBytesReader(w, r.Body, 64<<10)
 			if err := r.ParseForm(); err != nil {
 				s.errorPagina(w, r, http.StatusBadRequest, "Bad request", "The form could not be read.")
 				return
 			}
-			if !s.ses.CSRFValido(r) {
+			if !s.ses.CSRFValido(r, sesionDe(r)) {
 				s.errorPagina(w, r, http.StatusForbidden, "The form expired", "Go back, reload the page and try again.")
 				return
 			}
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// Los formularios sólo se envían desde el origen configurado, nunca desde un
+// hermano autorizado para /api/session. No se confía en Host ni en el proxy.
+// Sin Origin se exige Referer del mismo origen; si faltan ambos se rechaza.
+func (s *Server) origenFormularioValido(r *http.Request) bool {
+	if origenes := r.Header.Values("Origin"); len(origenes) != 0 {
+		if len(origenes) != 1 {
+			return false
+		}
+		u, err := url.Parse(origenes[0])
+		return err == nil && u.Path == "" && u.RawQuery == "" && !u.ForceQuery && u.Fragment == "" &&
+			!strings.Contains(origenes[0], "#") && s.mismoOrigenFormulario(u)
+	}
+	referencias := r.Header.Values("Referer")
+	if len(referencias) != 1 {
+		return false
+	}
+	u, err := url.Parse(referencias[0])
+	return err == nil && u.Fragment == "" && !strings.Contains(referencias[0], "#") && s.mismoOrigenFormulario(u)
+}
+
+func (s *Server) mismoOrigenFormulario(u *url.URL) bool {
+	propio := s.cfg.PublicURL
+	host := func(v *url.URL) string {
+		if ip, err := netip.ParseAddr(v.Hostname()); err == nil {
+			return ip.String()
+		}
+		return strings.ToLower(v.Hostname())
+	}
+	puerto := func(v *url.URL) string {
+		if p := v.Port(); p != "" {
+			return p
+		}
+		if v.Scheme == "https" {
+			return "443"
+		}
+		return "80"
+	}
+	return u.User == nil && u.Opaque == "" && u.Scheme == propio.Scheme &&
+		host(u) == host(propio) && puerto(u) == puerto(propio)
 }
 
 // ── Render ─────────────────────────────────────────────────────────────────
@@ -242,7 +287,7 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, pagina, titulo s
 	a := sesionDe(r)
 	datos["Title"] = titulo
 	datos["AssetVersion"] = web.AssetVersion()
-	datos["CSRF"] = s.ses.CSRF(w, r)
+	datos["CSRF"] = s.ses.CSRF(w, r, a)
 	datos["User"] = a
 	if a != nil {
 		if _, ok := datos["IsAdmin"]; !ok {
@@ -379,19 +424,33 @@ func (s *Server) requiereAdmin(w http.ResponseWriter, r *http.Request) *session.
 	return a
 }
 
-// ipDe saca la IP real detrás del túnel.
-func ipDe(r *http.Request) string {
-	if v := r.Header.Get("CF-Connecting-IP"); v != "" {
-		return v
-	}
-	if v := r.Header.Get("X-Real-IP"); v != "" {
-		return v
-	}
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
+// ipDe sólo acepta la cabecera elegida de un proxy explícito que la sobrescribe.
+// Toda identidad se normaliza antes de formar la clave del limitador.
+func (s *Server) ipDe(r *http.Request) (string, bool) {
+	remote, err := netip.ParseAddrPort(r.RemoteAddr)
 	if err != nil {
-		return r.RemoteAddr
+		return "", false
 	}
-	return host
+	peer := remote.Addr().WithZone("").Unmap()
+	trusted := false
+	for _, p := range s.cfg.TrustedProxies {
+		if p.Contains(peer) {
+			trusted = true
+			break
+		}
+	}
+	if !trusted {
+		return peer.String(), true
+	}
+	values := r.Header.Values(s.cfg.ClientIPHeader)
+	if len(values) != 1 {
+		return "", false
+	}
+	ip, err := netip.ParseAddr(strings.TrimSpace(values[0]))
+	if err != nil || ip.Zone() != "" {
+		return "", false
+	}
+	return ip.Unmap().String(), true
 }
 
 // mensajeGoTrue traduce un error del proveedor a algo que se le puede decir a
@@ -471,7 +530,12 @@ func (l *limitador) permite(clave string, max, porMinuto float64) bool {
 }
 
 func (s *Server) frena(w http.ResponseWriter, r *http.Request, accion string, max, porMinuto float64) bool {
-	if s.limitador.permite(accion+"|"+ipDe(r), max, porMinuto) {
+	ip, ok := s.ipDe(r)
+	if !ok {
+		s.errorPagina(w, r, http.StatusBadRequest, "Bad request", "The client address could not be determined.")
+		return true
+	}
+	if s.limitador.permite(accion+"|"+ip, max, porMinuto) {
 		return false
 	}
 	s.errorPagina(w, r, http.StatusTooManyRequests, "Too many attempts", "Wait a minute and try again.")

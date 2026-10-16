@@ -164,6 +164,9 @@ func (s *Server) consentGET(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if auth.AutoApproved() {
+		if !s.consentSiguePermitido(w, r, a.UserID, clienteID) {
+			return
+		}
 		http.Redirect(w, r, auth.RedirectURL, http.StatusSeeOther)
 		return
 	}
@@ -201,9 +204,11 @@ func (s *Server) consentPOST(w http.ResponseWriter, r *http.Request) {
 	if action != "approve" && action != "deny" {
 		action = "deny"
 	}
+	var clienteID string
 	if action == "approve" {
 		// La política otra vez, por si cambió entre pintar y pulsar.
-		clienteID, err := s.st.ClienteDeAutorizacion(r.Context(), aid)
+		var err error
+		clienteID, err = s.st.ClienteDeAutorizacion(r.Context(), aid)
 		if err != nil {
 			s.errorPagina(w, r, http.StatusGone, "This sign-in has expired", "Go back to the tool and try again.")
 			return
@@ -219,7 +224,25 @@ func (s *Server) consentPOST(w http.ResponseWriter, r *http.Request) {
 		s.errorPagina(w, r, http.StatusBadGateway, "Sign-in", mensajeGoTrue(err))
 		return
 	}
+	if action == "approve" && !s.consentSiguePermitido(w, r, a.UserID, clienteID) {
+		return
+	}
 	http.Redirect(w, r, dest, http.StatusSeeOther)
+}
+
+// No entrega un código que se emitió antes de revocar pero cuya respuesta
+// llegó después. Las guardas de la base impiden las emisiones posteriores.
+func (s *Server) consentSiguePermitido(w http.ResponseWriter, r *http.Request, userID, clienteID string) bool {
+	g, err := s.st.GrupoDeCliente(r.Context(), clienteID)
+	if err == nil {
+		var miembro bool
+		miembro, err = s.st.EsMiembro(r.Context(), userID, g.Nombre)
+		if err == nil && miembro {
+			return true
+		}
+	}
+	s.errorPagina(w, r, http.StatusForbidden, "Not allowed", "Your account does not have access to this tool.")
+	return false
 }
 
 // ── Seguridad de la cuenta ─────────────────────────────────────────────────
@@ -389,11 +412,12 @@ func (s *Server) factorVerificar(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
 		return
 	}
-	// La sesión pasa a aal2 con los tokens nuevos.
-	if err := s.ses.Actualizar(r.Context(), a, gs, "aal2"); err != nil {
-		log.Printf("actualizar sesión aal2: %v", err)
-	}
 	s.enrolando.Delete(a.ID)
+	if err := s.ses.Promover(r.Context(), w, a, gs); err != nil {
+		log.Printf("promover sesión aal2: %v", err)
+		s.errorPagina(w, r, http.StatusServiceUnavailable, "Sign in again", "Your factor was verified, but the session could not be renewed. Sign in again.")
+		return
+	}
 	s.ponerFlash(w, "Second factor active. From now on, signing in asks for a code.")
 	http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
 }
@@ -450,10 +474,12 @@ func (s *Server) passkeyVerificar(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
 		return
 	}
-	if err := s.ses.Actualizar(r.Context(), a, gs, "aal2"); err != nil {
-		log.Printf("actualizar sesión aal2 tras passkey: %v", err)
-	}
 	s.enrolando.Delete(a.ID)
+	if err := s.ses.Promover(r.Context(), w, a, gs); err != nil {
+		log.Printf("promover sesión aal2 tras passkey: %v", err)
+		s.errorPagina(w, r, http.StatusServiceUnavailable, "Sign in again", "Your passkey was verified, but the session could not be renewed. Sign in again.")
+		return
+	}
 	s.ponerFlash(w, "Passkey added. From now on, signing in asks for it.")
 	http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
 }
@@ -490,8 +516,7 @@ func (s *Server) sesionesCerrar(w http.ResponseWriter, r *http.Request) {
 	if a == nil {
 		return
 	}
-	_ = s.gt.Logout(r.Context(), a.Token(), "others")
-	_ = s.st.BorrarSesionesDe(r.Context(), a.UserID, a.ID)
+	s.ses.CerrarOtras(r.Context(), a)
 	s.ponerFlash(w, "Every other session is closed.")
 	http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
 }
@@ -640,13 +665,6 @@ func (s *Server) adminRevocar(w http.ResponseWriter, r *http.Request) {
 		log.Printf("revocar %s/%s: %v", uid, grupo, err)
 		s.ponerFlash(w, "Could not revoke.")
 	} else {
-		// Sin el grant, GoTrue deja de aprobar solo y los refresh tokens de esa
-		// herramienta mueren: es lo que hace que revocar revoque de verdad.
-		if g, err := s.st.Grupo(r.Context(), grupo); err == nil && g.ClienteID != "" {
-			if err := s.st.RevocarGrants(r.Context(), uid, g.ClienteID); err != nil {
-				log.Printf("revocar grants %s/%s: %v", uid, g.ClienteID, err)
-			}
-		}
 		s.ponerFlash(w, "Revoked "+grupo+". The tool's sessions end within its cookie lifetime.")
 	}
 	http.Redirect(w, r, "/admin/cuenta/"+url.PathEscape(uid), http.StatusSeeOther)
