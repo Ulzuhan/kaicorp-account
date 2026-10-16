@@ -4,3 +4,4 @@ create table if not exists account.cortes_credencial (
   user_id   uuid primary key,
   no_antes  bigint not null
 );
+grant select, insert, update on account.cortes_credencial to account;

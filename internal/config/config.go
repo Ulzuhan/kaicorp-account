@@ -36,6 +36,9 @@ type Config struct {
 	ServiceKey string
 	// DatabaseURL es la conexión al Postgres de la instancia con el rol `account`.
 	DatabaseURL string
+	// MigrationDatabaseURL usa el rol dueño `account_migrator`. Sólo se lee para
+	// la orden `account migrar`; el servidor nunca debe conservar esta credencial.
+	MigrationDatabaseURL string
 	// SessionKey son 32 bytes: cifran los tokens en reposo y firman el CSRF.
 	SessionKey []byte
 	// SessionTTL es la vida máxima de una sesión de esta app, 1 a 24 h.
@@ -101,6 +104,7 @@ func FromEnv() (*Config, error) {
 	if c.DatabaseURL == "" {
 		errs = append(errs, errors.New("ACCOUNT_DATABASE_URL: falta"))
 	}
+	c.MigrationDatabaseURL = strings.TrimSpace(os.Getenv("ACCOUNT_MIGRATION_DATABASE_URL"))
 
 	if raw := strings.TrimSpace(os.Getenv("ACCOUNT_SESSION_KEY")); raw == "" {
 		errs = append(errs, errors.New("ACCOUNT_SESSION_KEY: falta (64 caracteres hex: openssl rand -hex 32)"))

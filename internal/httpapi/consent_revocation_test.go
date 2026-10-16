@@ -27,7 +27,7 @@ const consentCliente = "11111111-aaaa-4000-8000-000000000041"
 const consentAutorizacion = "22222222-bbbb-4000-8000-000000000041"
 
 func TestConsentimientoMigracionEsperaProveedor(t *testing.T) {
-	st, db := baseConsentimientoConMigracion(t, false)
+	st, migrator, db := baseConsentimientoConMigracion(t, false)
 	p := proveedorConsentimiento(t, db)
 	tx, err := p.Begin(t.Context())
 	if err != nil {
@@ -41,7 +41,7 @@ func TestConsentimientoMigracionEsperaProveedor(t *testing.T) {
 		t.Fatal(err)
 	}
 	fin := make(chan error, 1)
-	go func() { fin <- st.Migrate(t.Context()) }()
+	go func() { fin <- migrator.Migrate(t.Context()) }()
 	// La migración debe drenar las transacciones admitidas por el bootstrap.
 	limite := time.Now().Add(5 * time.Second)
 	bloqueada := false
@@ -129,10 +129,11 @@ func TestConsentimientoDenegarSinMembresia(t *testing.T) {
 // Sólo una instancia desechable con permiso para crear bases: cada prueba
 // crea su propia base y aplica el bootstrap real, RLS y las migraciones.
 func baseConsentimiento(t *testing.T) (*store.Store, *pgxpool.Pool) {
-	return baseConsentimientoConMigracion(t, true)
+	st, _, db := baseConsentimientoConMigracion(t, true)
+	return st, db
 }
 
-func baseConsentimientoConMigracion(t *testing.T, completa bool) (*store.Store, *pgxpool.Pool) {
+func baseConsentimientoConMigracion(t *testing.T, completa bool) (*store.Store, *store.Store, *pgxpool.Pool) {
 	t.Helper()
 	dsn := os.Getenv("ACCOUNT_CONSENT_TEST_DATABASE_URL")
 	if dsn == "" {
@@ -187,22 +188,33 @@ func baseConsentimientoConMigracion(t *testing.T, completa bool) (*store.Store, 
 		t.Fatal("se necesita una URL postgres")
 	}
 	psqlURL.Path = "/" + nombre
-	cmd := exec.CommandContext(ctx, "psql", "-X", "-q", "-d", psqlURL.String(), "-v", "account_password=consent-test-only", "-f", "../../db/bootstrap.sql")
+	cmd := exec.CommandContext(ctx, "psql", "-X", "-q", "-d", psqlURL.String(),
+		"-v", "account_password=consent-test-only",
+		"-v", "account_migration_password=consent-migrate-test-only",
+		"-f", "../../db/bootstrap.sql")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("bootstrap: %v: %s", err, out)
 	}
-	psqlURL.User = url.UserPassword("account", "consent-test-only")
-	st, err := store.Open(ctx, psqlURL.String())
+	migrationURL := *psqlURL
+	migrationURL.User = url.UserPassword("account_migrator", "consent-migrate-test-only")
+	migrator, err := store.Open(ctx, migrationURL.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(migrator.Close)
+	appURL := *psqlURL
+	appURL.User = url.UserPassword("account", "consent-test-only")
+	st, err := store.Open(ctx, appURL.String())
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(st.Close)
 	if completa {
-		if err := st.Migrate(ctx); err != nil {
+		if err := migrator.Migrate(ctx); err != nil {
 			t.Fatal(err)
 		}
 	} else {
-		app, err := pgx.Connect(ctx, psqlURL.String())
+		app, err := pgx.Connect(ctx, migrationURL.String())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -241,7 +253,7 @@ func baseConsentimientoConMigracion(t *testing.T, completa bool) (*store.Store, 
 		consentAutorizacion, consentCliente, consentPersona); err != nil {
 		t.Fatal(err)
 	}
-	return st, db
+	return st, migrator, db
 }
 
 func proveedorConsentimiento(t *testing.T, db *pgxpool.Pool) *pgx.Conn {

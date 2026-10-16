@@ -65,16 +65,10 @@ func (s *Store) Close() { s.pool.Close() }
 // Ping comprueba la base; lo usa la sonda de salud.
 func (s *Store) Ping(ctx context.Context) error { return s.pool.Ping(ctx) }
 
-// Migrate aplica las migraciones embebidas que falten, en orden y cada una en
-// su transacción, anotándolas en account.schema_migrations.
-func (s *Store) Migrate(ctx context.Context) error {
-	if _, err := s.pool.Exec(ctx, `create table if not exists account.schema_migrations (
-		version text primary key, applied_at timestamptz not null default now())`); err != nil {
-		return fmt.Errorf("schema_migrations: %w", err)
-	}
+func nombresMigraciones() ([]string, error) {
 	entries, err := fs.ReadDir(migraciones, "migrations")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	names := make([]string, 0, len(entries))
 	for _, e := range entries {
@@ -83,6 +77,64 @@ func (s *Store) Migrate(ctx context.Context) error {
 		}
 	}
 	sort.Strings(names)
+	return names, nil
+}
+
+// CheckMigrations sólo lee el registro de migraciones. El proceso de larga
+// vida usa este método con el rol DML y nunca recibe autoridad de esquema.
+func (s *Store) CheckMigrations(ctx context.Context) error {
+	want, err := nombresMigraciones()
+	if err != nil {
+		return err
+	}
+	rows, err := s.pool.Query(ctx, `select version from account.schema_migrations`)
+	if err != nil {
+		return fmt.Errorf("migraciones no disponibles; ejecuta `account migrar` con ACCOUNT_MIGRATION_DATABASE_URL: %w", err)
+	}
+	defer rows.Close()
+	applied := make(map[string]bool, len(want))
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return err
+		}
+		applied[name] = true
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	var missing []string
+	for _, name := range want {
+		if !applied[name] {
+			missing = append(missing, name)
+		}
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("faltan migraciones %s; ejecuta `account migrar` con ACCOUNT_MIGRATION_DATABASE_URL", strings.Join(missing, ", "))
+	}
+	return nil
+}
+
+// Migrate aplica las migraciones embebidas que falten, en orden y cada una en
+// su transacción, anotándolas en account.schema_migrations.
+func (s *Store) Migrate(ctx context.Context) error {
+	var current, session, owner string
+	if err := s.pool.QueryRow(ctx, `select current_user, session_user, r.rolname
+		from pg_namespace n join pg_roles r on r.oid=n.nspowner
+		where n.nspname='account'`).Scan(&current, &session, &owner); err != nil {
+		return fmt.Errorf("comprobar dueño de migraciones: %w", err)
+	}
+	if current != "account_migrator" || session != current || owner != "account_migrator" {
+		return fmt.Errorf("migraciones requieren una sesión directa de account_migrator (actual %s, sesión %s, dueño %s)", current, session, owner)
+	}
+	if _, err := s.pool.Exec(ctx, `create table if not exists account.schema_migrations (
+		version text primary key, applied_at timestamptz not null default now())`); err != nil {
+		return fmt.Errorf("schema_migrations: %w", err)
+	}
+	names, err := nombresMigraciones()
+	if err != nil {
+		return err
+	}
 	for _, name := range names {
 		var ya bool
 		if err := s.pool.QueryRow(ctx, `select exists(select 1 from account.schema_migrations where version=$1)`, name).Scan(&ya); err != nil {

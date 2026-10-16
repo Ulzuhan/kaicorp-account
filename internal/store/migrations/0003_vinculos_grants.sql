@@ -14,3 +14,8 @@ create table account.estado_vinculos (
   version bigint not null default 0
 );
 insert into account.estado_vinculos(id) values (true);
+
+grant select, insert on account.clientes_anteriores to account;
+grant select on account.clientes_anteriores to account_hook;
+grant select, update on account.estado_vinculos to account;
+grant select, update(version) on account.estado_vinculos to account_hook_lock;

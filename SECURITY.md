@@ -37,6 +37,12 @@ bounty.
   app credential and closes the account's other sessions.
 - **The service key is used for one thing**: blocking and deleting accounts. It
   is not the key the app runs on.
+- **Database authority is split by capability.** The long-running `account` login
+  has explicit DML only, the one-off `account_migrator` login owns schema
+  objects, and the no-login `account_hook` role owns the five provider-facing
+  `SECURITY DEFINER` functions with three exact business-table reads. A second
+  no-login role can lock only two coordination rows. Runtime credentials cannot
+  replace relations or functions consumed by a privileged hook.
 - **The second factor is optional and double**: a TOTP authenticator, and since
   0.7.0 passkeys, stored by GoTrue as `webauthn` factors with the app's public
   host as the relying party.

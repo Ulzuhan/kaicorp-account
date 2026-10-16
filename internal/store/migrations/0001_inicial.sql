@@ -4,8 +4,8 @@
 -- SOLICITUDES (la lista de trabajo de quien aprueba) y las SESIONES de esta
 -- app, que envuelven a las de GoTrue.
 --
--- El esquema lo crea db/bootstrap.sql como superusuario, con el rol `account`
--- de dueño; estas migraciones corren con ese rol.
+-- El esquema lo crea db/bootstrap.sql para `account_migrator`; sólo esa
+-- identidad de despliegue ejecuta migraciones. `account` recibe DML explícito.
 
 create table if not exists account.grupos (
   nombre      text primary key check (nombre ~ '^[a-z0-9-]+$'),
@@ -64,6 +64,15 @@ create table if not exists account.sesiones (
 );
 create index if not exists sesiones_user on account.sesiones (user_id);
 create index if not exists sesiones_expira on account.sesiones (expira);
+
+-- El runtime y los hooks reciben capacidades explícitas; la propiedad se
+-- conserva siempre en account_migrator.
+grant select, update on account.grupos to account;
+grant select on account.grupos to account_hook;
+grant select, insert, update, delete on account.membresias to account;
+grant select on account.membresias to account_hook;
+grant select, insert, update, delete on account.solicitudes to account;
+grant select, insert, update, delete on account.sesiones to account;
 
 -- Los grupos (herramientas y roles) no van aquí: son de cada instalación y se
 -- cargan con SQL (db/grupos.example.sql) o se vinculan desde /admin.

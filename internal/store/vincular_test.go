@@ -75,22 +75,31 @@ func storeVinculos(t *testing.T) (*Store, *pgxpool.Pool) {
 		t.Fatal("ACCOUNT_BINDING_TEST_DATABASE_URL debe ser una URL postgres")
 	}
 	psqlDSN.Path = "/" + nombre
-	cmd := exec.CommandContext(ctx, "psql", "-X", "-q", "-d", psqlDSN.String(), "-v", "account_password=binding-test-only", "-f", "../../db/bootstrap.sql")
+	cmd := exec.CommandContext(ctx, "psql", "-X", "-q", "-d", psqlDSN.String(),
+		"-v", "account_password=binding-test-only",
+		"-v", "account_migration_password=binding-migrate-test-only",
+		"-f", "../../db/bootstrap.sql")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("bootstrap: %v: %s", err, out)
 	}
-	appCfg := cfg.Copy()
-	appCfg.AfterConnect = func(ctx context.Context, c *pgx.Conn) error {
-		_, err := c.Exec(ctx, "set role account")
-		return err
-	}
-	pool, err := pgxpool.NewWithConfig(ctx, appCfg)
+	migrationDSN := *psqlDSN
+	migrationDSN.User = url.UserPassword("account_migrator", "binding-migrate-test-only")
+	migrator, err := Open(ctx, migrationDSN.String())
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(pool.Close)
-	s := &Store{pool: pool}
-	if err := s.Migrate(ctx); err != nil {
+	t.Cleanup(migrator.Close)
+	if err := migrator.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+	appDSN := *psqlDSN
+	appDSN.User = url.UserPassword("account", "binding-test-only")
+	s, err := Open(ctx, appDSN.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(s.Close)
+	if err := s.CheckMigrations(ctx); err != nil {
 		t.Fatal(err)
 	}
 	_, err = db.Exec(ctx, `insert into account.grupos(nombre,titulo,cliente_id) values ('herramienta','Tool',$1),('otra','Other',null)`, clienteViejo)

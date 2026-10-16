@@ -33,7 +33,7 @@ func servidorConSesiones(t *testing.T, proveedor http.HandlerFunc) *Server {
 		t.Fatal(err)
 	}
 	t.Cleanup(st.Close)
-	if err := st.Migrate(t.Context()); err != nil {
+	if err := st.CheckMigrations(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 	falso := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

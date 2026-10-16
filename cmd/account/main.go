@@ -50,6 +50,26 @@ func main() {
 	if err != nil {
 		log.Fatalf("configuración:\n%v", err)
 	}
+	if len(os.Args) > 1 && os.Args[1] == "migrar" {
+		if cfg.MigrationDatabaseURL == "" {
+			log.Fatal("ACCOUNT_MIGRATION_DATABASE_URL: falta para `account migrar`")
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		migrator, err := store.Open(ctx, cfg.MigrationDatabaseURL)
+		cancel()
+		if err != nil {
+			log.Fatalf("base de migraciones: %v", err)
+		}
+		defer migrator.Close()
+		if err := migrator.Migrate(context.Background()); err != nil {
+			log.Fatalf("migraciones: %v", err)
+		}
+		log.Print("migraciones al día")
+		return
+	}
+	if cfg.MigrationDatabaseURL != "" {
+		log.Fatal("ACCOUNT_MIGRATION_DATABASE_URL sólo se admite con `account migrar`; retírala del entorno del servidor")
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	st, err := store.Open(ctx, cfg.DatabaseURL)
 	cancel()
@@ -58,7 +78,7 @@ func main() {
 	}
 	defer st.Close()
 
-	if err := st.Migrate(context.Background()); err != nil {
+	if err := st.CheckMigrations(context.Background()); err != nil {
 		log.Fatalf("migraciones: %v", err)
 	}
 
@@ -152,10 +172,6 @@ func orden(ctx context.Context, cfg *config.Config, st *store.Store, gt *gotrue.
 	uso := func(s string) error { return fmt.Errorf("uso: account %s", s) }
 
 	switch args[0] {
-	case "migrar":
-		log.Print("migraciones al día")
-		return nil
-
 	case "admin":
 		if len(args) != 2 {
 			return uso("admin <correo>")

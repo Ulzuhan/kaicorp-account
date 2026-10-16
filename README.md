@@ -38,11 +38,20 @@ docker run --rm --env-file .env -p 127.0.0.1:3467:3467 kaicorp-account
 ```
 
 Before the first start, run `db/bootstrap.sql` against the Supabase
-Postgres as a superuser: it creates the `account` role and schema, the scoped
-grants on the `auth` schema, and the claims hook.
+Postgres as a superuser, supplying both `account_password` and
+`account_migration_password`. It creates a DML-only `account` login, a separate
+`account_migrator` schema owner, and a no-login `account_hook` owner for the five
+privileged provider functions. The hook owner can read only the three business
+relations those functions consume. A second no-login helper role can lock only
+the `version` columns of the two coordination rows needed for old snapshots.
 
-When upgrading an existing installation, reapply `db/bootstrap.sql` as a
-superuser before starting this version, then run `account migrar`. The consent
+When upgrading an existing installation, stop the app, reapply
+`db/bootstrap.sql` as a superuser, and run `account migrar` once with
+`ACCOUNT_MIGRATION_DATABASE_URL` set to the `account_migrator` connection.
+Remove that variable before starting the server; startup rejects an environment
+that still contains it. Normal startup only checks the migration ledger with
+the runtime connection and cannot change schema.
+The consent
 guards coordinate provider writes with client binding changes, including writes
 that finish after an HTTP timeout. Binding changes refuse to run without both
 guards. Migration rejects invalid or duplicate UUID client bindings; resolve
@@ -69,7 +78,8 @@ set `ACCOUNT_BINDING_TEST_DATABASE_URL` to its superuser PostgreSQL URL and run
 `go test -race ./internal/store -run TestVincular`. They create and remove their
 own databases and apply the real bootstrap and migrations.
 
-Subcommands: `account migrar` (apply migrations and exit), `account admin
+Subcommands: `account migrar` (apply migrations with the one-off
+`ACCOUNT_MIGRATION_DATABASE_URL` and exit), `account admin
 <email>` (make an existing account an administrator), `account ver <email>`
 (state, memberships, requests, sessions and grants, tab-separated), `account
 invitar <email> [group…]` (invite with the groups already granted), `account
@@ -107,8 +117,8 @@ go vet ./...
 The design and its decisions: [`docs/DISENO.md`](docs/DISENO.md).
 
 Consent approval and membership revocation are synchronized by the database.
-Reapply `db/bootstrap.sql` before deploying this version or running
-`account migrar`. Migration 0004 drains earlier provider transactions before
+Reapply `db/bootstrap.sql` with both role passwords before deploying this
+version or running `account migrar`. Migration 0004 drains earlier provider transactions before
 enabling atomic membership and grant revocation. Revocation fails without the
 provider guards, preserving the membership.
 Run the consent race integration tests only against a disposable PostgreSQL

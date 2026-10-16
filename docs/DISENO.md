@@ -48,6 +48,14 @@
 8. **Permisos acotados sobre `auth`** en vez de la clave de servicio para todo.
    La clave de servicio sólo bloquea y borra cuentas; lo demás son `select` y
    dos escrituras concretas, enumeradas en `db/bootstrap.sql` con su motivo.
+   En `account` también hay identidades separadas: el servidor usa el
+   login `account` con DML explícito; `account_migrator` posee el esquema y sólo
+   aparece en el paso de despliegue; `account_hook`, sin login ni superusuario,
+   posee las cinco funciones `SECURITY DEFINER` y sólo lee sus tres relaciones
+   de negocio. Un cuarto rol sin login encierra el `FOR SHARE` necesario para
+   los snapshots antiguos y sólo puede actualizar las columnas `version` de
+   dos filas de coordinación. Por eso una sesión runtime comprometida no puede
+   sustituir una tabla o función que luego ejecute GoTrue con más autoridad.
 9. **Aprobación humana la primera vez, automática después**, el modelo de la
    casa desde agosto: se decide sobre la persona, una vez.
 10. **La primera cuenta administradora se da por CLI** (`account admin
