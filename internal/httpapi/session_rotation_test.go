@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -18,19 +17,11 @@ import (
 	"github.com/Ulzuhan/kaicorp-account/internal/store"
 )
 
-// Estas pruebas necesitan una base PostgreSQL desechable con el esquema account
-// vacío; ACCOUNT_TEST_DATABASE_URL nunca debe apuntar a la base de despliegue.
+// Cada prueba usa el fixture desechable ya migrado y su rol DML. No depende de
+// una base compartida preinicializada ni de ACCOUNT_TEST_DATABASE_URL.
 func servidorConSesiones(t *testing.T, proveedor http.HandlerFunc) *Server {
 	t.Helper()
-	dsn := os.Getenv("ACCOUNT_TEST_DATABASE_URL")
-	if dsn == "" {
-		t.Skip("ACCOUNT_TEST_DATABASE_URL no configurada")
-	}
-	st, err := store.Open(t.Context(), dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(st.Close)
+	st, _ := baseConsentimiento(t)
 	if err := st.CheckMigrations(t.Context()); err != nil {
 		t.Fatal(err)
 	}

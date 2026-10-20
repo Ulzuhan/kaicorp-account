@@ -1,0 +1,1435 @@
+{
+  "reviewed_total": 178,
+  "previously_allowed": 80,
+  "additional_separated": 74,
+  "selected": 154,
+  "deferred": 24,
+  "historical_harness_included": false,
+  "classification_is_not_a_platform_policy_override": true,
+  "tests": [
+    {
+      "file": "internal/config/config_test.go",
+      "line": 26,
+      "name": "TestConfiguracionExpiracionEnlacesCoincideConGoTrue",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/config/config_test.go",
+      "line": 62,
+      "name": "TestConfiguracionExpiracionEnlacesRechazaDiferenciaConGoTrue",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/config/config_test.go",
+      "line": 81,
+      "name": "TestConfiguracionCookiesInsegurasSoloEnLoopbackHTTPExplicito",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/config/config_test.go",
+      "line": 119,
+      "name": "TestConfiguracionProxy",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/config/config_test.go",
+      "line": 164,
+      "name": "TestConfiguracionGoTrueExigeTransporteSeguro",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/config/config_test.go",
+      "line": 207,
+      "name": "TestConfiguracionGoTrueRechazaPermisoInseguroAmbiguo",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/correo/correo_test.go",
+      "line": 9,
+      "name": "TestPlantillasCambioCorreoSeparanLosBuzones",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/gotrue/client_test.go",
+      "line": 26,
+      "name": "TestLoginMandaApikeyYSinBearer",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/gotrue/client_test.go",
+      "line": 41,
+      "name": "TestErroresConservanCodigoYErrorCode",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/gotrue/client_test.go",
+      "line": 58,
+      "name": "TestAdminUsaLaClaveDeServicioComoBearer",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/gotrue/client_test.go",
+      "line": 73,
+      "name": "TestAdminUpdatePasswordUsaServicioYLigaUsuario",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/gotrue/client_test.go",
+      "line": 97,
+      "name": "TestNoSigueRedireccionesConCredenciales",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/gotrue/client_test.go",
+      "line": 143,
+      "name": "TestHTTPSValidaElCertificado",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/gotrue/client_test.go",
+      "line": 161,
+      "name": "TestResendConservaLaRedireccionDeSetup",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/gotrue/client_test.go",
+      "line": 173,
+      "name": "TestAdminInviteConservaLaRedireccionDeProposito",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/gotrue/client_test.go",
+      "line": 186,
+      "name": "TestAutorizacionAutoAprobada",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/gotrue/client_test.go",
+      "line": 198,
+      "name": "TestHasVerifiedFactor",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/gotrue/client_test.go",
+      "line": 209,
+      "name": "TestUpdatePasswordLigaLaPrueba",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/gotrue/client_test.go",
+      "line": 234,
+      "name": "TestQRDataURL",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/admin_authority_test.go",
+      "line": 23,
+      "name": "TestRevocarAdministracionInvalidaSesionesYComandos",
+      "decision": "DEFER",
+      "group": "revoked-admin-membership",
+      "reason": "Exercises granting/commands after administrator membership revocation, ordering or regrant; semantic overlap remains unresolved."
+    },
+    {
+      "file": "internal/httpapi/admin_authority_test.go",
+      "line": 96,
+      "name": "TestInvitacionLimitaGruposAntesDelProveedor",
+      "decision": "ALLOW",
+      "group": "invitation-input-bound",
+      "reason": "Oversized invitation group list is rejected before the local mock provider; no revoked membership."
+    },
+    {
+      "file": "internal/httpapi/admin_session_revocation_test.go",
+      "line": 43,
+      "name": "TestAdministracionNoAnunciaExitoSiLaRevocacionFalla",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/admin_session_revocation_test.go",
+      "line": 109,
+      "name": "TestRevocacionInvalidaCargaAAL2YEmisionAnterior",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/admin_session_revocation_test.go",
+      "line": 145,
+      "name": "TestBloqueoDeEmergenciaUsaRevocacionDurable",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/admin_session_revocation_test.go",
+      "line": 182,
+      "name": "TestCierreDeSeguridadMFADevuelveFalloDeLimpieza",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/client_ip_test.go",
+      "line": 34,
+      "name": "TestProxyConservaClientesYAcciones",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/client_ip_test.go",
+      "line": 68,
+      "name": "TestFrenaComparteIPCanonica",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/client_ip_test.go",
+      "line": 103,
+      "name": "TestFrenaRechazaIdentidadInvalida",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/client_ip_test.go",
+      "line": 138,
+      "name": "TestLoginNoReiniciaLimiteConCabeceras",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/consent_revocation_test.go",
+      "line": 29,
+      "name": "TestConsentimientoMigracionEsperaProveedor",
+      "decision": "DEFER",
+      "group": "oauth-grant-revocation-overlap",
+      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations."
+    },
+    {
+      "file": "internal/httpapi/consent_revocation_test.go",
+      "line": 79,
+      "name": "TestConsentimientoRevocarSinMembresia",
+      "decision": "DEFER",
+      "group": "oauth-grant-revocation-overlap",
+      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations."
+    },
+    {
+      "file": "internal/httpapi/consent_revocation_test.go",
+      "line": 100,
+      "name": "TestConsentimientoDenegarSinMembresia",
+      "decision": "DEFER",
+      "group": "oauth-grant-revocation-overlap",
+      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations."
+    },
+    {
+      "file": "internal/httpapi/consent_revocation_test.go",
+      "line": 338,
+      "name": "TestConsentimientoTardio",
+      "decision": "DEFER",
+      "group": "oauth-grant-revocation-overlap",
+      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations."
+    },
+    {
+      "file": "internal/httpapi/consent_revocation_test.go",
+      "line": 379,
+      "name": "TestConsentimientoAnteriorARevocacion",
+      "decision": "DEFER",
+      "group": "oauth-grant-revocation-overlap",
+      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations."
+    },
+    {
+      "file": "internal/httpapi/consent_revocation_test.go",
+      "line": 405,
+      "name": "TestConsentimientoEsperaRevocacion",
+      "decision": "DEFER",
+      "group": "oauth-grant-revocation-overlap",
+      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations."
+    },
+    {
+      "file": "internal/httpapi/consent_revocation_test.go",
+      "line": 439,
+      "name": "TestConsentimientoSnapshotAntiguo",
+      "decision": "DEFER",
+      "group": "oauth-grant-revocation-overlap",
+      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations."
+    },
+    {
+      "file": "internal/httpapi/consent_revocation_test.go",
+      "line": 466,
+      "name": "TestConsentimientoRollbackYBorrado",
+      "decision": "DEFER",
+      "group": "oauth-grant-revocation-overlap",
+      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations."
+    },
+    {
+      "file": "internal/httpapi/consent_revocation_test.go",
+      "line": 498,
+      "name": "TestConsentimientoLegitimo",
+      "decision": "DEFER",
+      "group": "oauth-grant-revocation-overlap",
+      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations."
+    },
+    {
+      "file": "internal/httpapi/consent_revocation_test.go",
+      "line": 535,
+      "name": "TestConsentimientoRespuesta",
+      "decision": "DEFER",
+      "group": "oauth-grant-revocation-overlap",
+      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations."
+    },
+    {
+      "file": "internal/httpapi/cookie_security_test.go",
+      "line": 39,
+      "name": "TestCookiesDeAutoridadHostOnlyPorModo",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/cookie_security_test.go",
+      "line": 93,
+      "name": "TestCookiesDeAutoridadDuplicadasSeRechazan",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/cookie_security_test.go",
+      "line": 128,
+      "name": "TestCookiesDeAutoridadExpiranNombresLegados",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/csrf_test.go",
+      "line": 19,
+      "name": "TestCSRFOrigenFormulario",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/csrf_test.go",
+      "line": 69,
+      "name": "TestCSRFGuardiaYDesarrolloHTTP",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/csrf_test.go",
+      "line": 121,
+      "name": "TestCSRFOrigenIPv6Canonico",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/csrf_test.go",
+      "line": 140,
+      "name": "TestCSRFProtegeMutacionesAutenticadas",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/csrf_test.go",
+      "line": 250,
+      "name": "TestCSRFSesionCaducadaPermiteLogin",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/email_change_privacy_test.go",
+      "line": 67,
+      "name": "TestCambioCorreoNoDistingueDireccionOcupada",
+      "decision": "ALLOW",
+      "group": "synthetic-mail-registration",
+      "reason": "Synthetic mailbox/purpose/TTL/one-use and registration state with local provider mocks; no membership/grant revocation sequence."
+    },
+    {
+      "file": "internal/httpapi/email_change_privacy_test.go",
+      "line": 237,
+      "name": "TestCambioCorreoConfirmacionConcurrenteEsUnSoloUso",
+      "decision": "ALLOW",
+      "group": "synthetic-mail-registration",
+      "reason": "Synthetic mailbox/purpose/TTL/one-use and registration state with local provider mocks; no membership/grant revocation sequence."
+    },
+    {
+      "file": "internal/httpapi/email_change_privacy_test.go",
+      "line": 277,
+      "name": "TestCambioCorreoCaducadoNoLlegaAlProveedor",
+      "decision": "ALLOW",
+      "group": "synthetic-mail-registration",
+      "reason": "Synthetic mailbox/purpose/TTL/one-use and registration state with local provider mocks; no membership/grant revocation sequence."
+    },
+    {
+      "file": "internal/httpapi/email_link_test.go",
+      "line": 79,
+      "name": "TestRedireccionInvitacionNormalizaDestinatario",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/email_link_test.go",
+      "line": 121,
+      "name": "TestNavegarEnlaceCorreoNoCanjeaToken",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/email_link_test.go",
+      "line": 170,
+      "name": "TestAliasAmbiguosSeRechazanSinCanjear",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/email_link_test.go",
+      "line": 187,
+      "name": "TestPlantillasCorreoPonenCapacidadSoloEnFragmento",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/email_link_test.go",
+      "line": 229,
+      "name": "TestBordeHTTPDescartaCapacidadesDeLaQuery",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/email_link_test.go",
+      "line": 260,
+      "name": "TestRecuperarEmiteIntencionLigadaAlCorreo",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/email_link_test.go",
+      "line": 376,
+      "name": "TestConfirmarRecuperacionExigePostCSRFYCorreo",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/email_link_test.go",
+      "line": 418,
+      "name": "TestConfirmarEnlaceValidaAntesDeCanjear",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/email_link_test.go",
+      "line": 456,
+      "name": "TestPropositoConfirmacionNoSePuedeSustituir",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/email_link_test.go",
+      "line": 486,
+      "name": "TestConfirmarEnlaceRechazaCorreoDistintoAntesDeCanjear",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/email_link_test.go",
+      "line": 531,
+      "name": "TestConfirmarEnlaceCaducadoNoSeCanjea",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/email_link_test.go",
+      "line": 552,
+      "name": "TestConfirmarEnlaceConFactorPreservaProposito",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/email_link_test.go",
+      "line": 582,
+      "name": "TestCambioCorreoParcialNoEmiteAutoridad",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/email_link_test.go",
+      "line": 616,
+      "name": "TestCambioCorreoSeguroAceptaAmbosOrdenesYNoRepiteLaPrimeraMitad",
+      "decision": "ALLOW",
+      "group": "synthetic-mail-registration",
+      "reason": "Synthetic mailbox/purpose/TTL/one-use and registration state with local provider mocks; no membership/grant revocation sequence."
+    },
+    {
+      "file": "internal/httpapi/email_link_test.go",
+      "line": 710,
+      "name": "TestRespuestaParcialNoSeAceptaParaOtroProposito",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/email_link_test.go",
+      "line": 732,
+      "name": "TestResolverEnlaceCorreoLigaPropositoBuzonYUsuario",
+      "decision": "ALLOW",
+      "group": "synthetic-mail-registration",
+      "reason": "Synthetic mailbox/purpose/TTL/one-use and registration state with local provider mocks; no membership/grant revocation sequence."
+    },
+    {
+      "file": "internal/httpapi/email_link_test.go",
+      "line": 858,
+      "name": "TestResolverEnlaceCorreoSerializaMitadesDelMismoCambio",
+      "decision": "ALLOW",
+      "group": "synthetic-mail-registration",
+      "reason": "Synthetic mailbox/purpose/TTL/one-use and registration state with local provider mocks; no membership/grant revocation sequence."
+    },
+    {
+      "file": "internal/httpapi/email_link_test.go",
+      "line": 910,
+      "name": "TestAltaPublicaNoReclasificaInvitacionPendiente",
+      "decision": "ALLOW",
+      "group": "synthetic-mail-registration",
+      "reason": "Synthetic mailbox/purpose/TTL/one-use and registration state with local provider mocks; no membership/grant revocation sequence."
+    },
+    {
+      "file": "internal/httpapi/email_link_test.go",
+      "line": 946,
+      "name": "TestConfirmarEnlacesAgrupaAliasPorAutoridad",
+      "decision": "ALLOW",
+      "group": "synthetic-mail-registration",
+      "reason": "Synthetic mailbox/purpose/TTL/one-use and registration state with local provider mocks; no membership/grant revocation sequence."
+    },
+    {
+      "file": "internal/httpapi/membership_test.go",
+      "line": 17,
+      "name": "TestSolicitudConSesionCargadaAntesDeRevocarTodo",
+      "decision": "DEFER",
+      "group": "historical-membership-boundary",
+      "reason": "Exercises automatic membership granting across revocation or a request loaded before revoke-all; same boundary as the stopped historical validation."
+    },
+    {
+      "file": "internal/httpapi/mfa_security_test.go",
+      "line": 44,
+      "name": "TestMutacionesMFARechazanSesionYCSRFSolos",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/mfa_security_test.go",
+      "line": 82,
+      "name": "TestResultadoAmbiguoDeMutacionMFAFallaCerrado",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/mfa_security_test.go",
+      "line": 117,
+      "name": "TestResultadoAmbiguoAlBorrarMFAFallaCerrado",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/mfa_security_test.go",
+      "line": 154,
+      "name": "TestCancelacionPendienteEsExactaYNoExigeOtraPrueba",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/mfa_security_test.go",
+      "line": 179,
+      "name": "TestAltaMFAUsaEstadoServidorYRotaSesiones",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/mfa_security_test.go",
+      "line": 252,
+      "name": "TestBorradoMFAExigeFactorDistintoYObjetivoExacto",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/mfa_security_test.go",
+      "line": 331,
+      "name": "TestUltimoFactorExigeRecuperacionLigadaALaSesion",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/mfa_security_test.go",
+      "line": 423,
+      "name": "TestCapacidadInvitacionNoAutorizaMFADesdeUnaSesion",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/mfa_sessions_test.go",
+      "line": 70,
+      "name": "TestMFAAltaCierraSesionesSinFactor",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/mfa_sessions_test.go",
+      "line": 153,
+      "name": "TestMFACargaCompruebaFactoresActuales",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/mfa_sessions_test.go",
+      "line": 193,
+      "name": "TestMFARefreshDuranteActivacion",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/mfa_sessions_test.go",
+      "line": 234,
+      "name": "TestMFACargaDurantePromocion",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/password_proof_test.go",
+      "line": 39,
+      "name": "TestSesionesOrdinariasNoCambianPasswordSinPruebaFresca",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/password_proof_test.go",
+      "line": 66,
+      "name": "TestCuentaPasswordExigePruebaDeLaMismaIdentidad",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/password_proof_test.go",
+      "line": 109,
+      "name": "TestCuentaPasswordComparteLimiteEntreReplicasEIPs",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/password_proof_test.go",
+      "line": 178,
+      "name": "TestLoginLimiteNoEnumeraCuenta",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/password_proof_test.go",
+      "line": 237,
+      "name": "TestRecuperacionEmiteSoloCapacidadAcotada",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/password_proof_test.go",
+      "line": 294,
+      "name": "TestIntencionRecuperacionAnteriorNoSeRejuveneceAlCanjear",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/password_proof_test.go",
+      "line": 333,
+      "name": "TestCapacidadRecuperacionNoSeRepiteTrasResultadoAmbiguo",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/password_proof_test.go",
+      "line": 390,
+      "name": "TestPropositoMFANoSeInfiereDeNext",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/password_proof_test.go",
+      "line": 407,
+      "name": "TestMFARecuperacionEmiteCapacidadSinSesionGeneral",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/password_proof_test.go",
+      "line": 442,
+      "name": "TestMFAAltaEmiteCapacidadAcotadaSinSesionGeneral",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/password_proof_test.go",
+      "line": 493,
+      "name": "TestAltaRechazaCapacidadesDeRegistroEInvitacionSimultaneas",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/password_proof_test.go",
+      "line": 517,
+      "name": "TestCambioPasswordInvalidaMFAPendiente",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/password_proof_test.go",
+      "line": 548,
+      "name": "TestCambioPasswordDuranteMFAImpideSesionNueva",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/password_proof_test.go",
+      "line": 598,
+      "name": "TestCambioPasswordLegitimoRotaSesionYConservaPrueba",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/password_proof_test.go",
+      "line": 671,
+      "name": "TestFalloAlCerrarProveedorNoConservaSesionesLocales",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/password_proof_test.go",
+      "line": 709,
+      "name": "TestRecuperacionValidaCambiaUnaVezYCierraSesiones",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/password_proof_test.go",
+      "line": 784,
+      "name": "TestInvitacionCreaSesionSoloDespuesDelPasswordFinal",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/password_proof_test.go",
+      "line": 877,
+      "name": "TestInvitacionNoPublicaSesionSiNoCierraProveedor",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/registration_security_test.go",
+      "line": 23,
+      "name": "TestRegistroNoPersistePasswordElegidaYNormalizaRespuestaDelProveedor",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/registration_security_test.go",
+      "line": 116,
+      "name": "TestFormularioRegistroNoPidePasswordAntesDelCorreo",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/registration_security_test.go",
+      "line": 132,
+      "name": "TestFalloDeRotacionBloqueaLaCuentaConfirmada",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/registration_security_test.go",
+      "line": 164,
+      "name": "TestReentradaNoProbadaBloqueaLaCuentaConfirmada",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/registration_security_test.go",
+      "line": 200,
+      "name": "TestEnlaceSignupAntiguoSeRechazaAntesDeConfirmar",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/registration_security_test.go",
+      "line": 227,
+      "name": "TestConfirmacionSignupUsaPasswordSelladaYLaSesionNaceTrasElegirLaFinal",
+      "decision": "ALLOW",
+      "group": "synthetic-mail-registration",
+      "reason": "Synthetic mailbox/purpose/TTL/one-use and registration state with local provider mocks; no membership/grant revocation sequence."
+    },
+    {
+      "file": "internal/httpapi/server_test.go",
+      "line": 76,
+      "name": "TestRegistroHTTPCodificaYEntrecomillaLaRuta",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/server_test.go",
+      "line": 136,
+      "name": "TestRutaLogHTTPCanonizaCodificacionesEquivalentes",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/server_test.go",
+      "line": 153,
+      "name": "TestRegistroDePanicoUsaLaMismaRutaSegura",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/server_test.go",
+      "line": 174,
+      "name": "TestNextSeguro",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/server_test.go",
+      "line": 212,
+      "name": "TestSalirGETNoRedirigeTrasNormalizarNext",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/server_test.go",
+      "line": 228,
+      "name": "TestCorreoValido",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/server_test.go",
+      "line": 239,
+      "name": "TestLimitadorFrenaYRecarga",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/server_test.go",
+      "line": 256,
+      "name": "TestPlantillasCompilan",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/sesion_api_test.go",
+      "line": 18,
+      "name": "TestProyeccionSesionAPINoExponeCorreoConMetadatosVacios",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/sesion_api_test.go",
+      "line": 50,
+      "name": "TestAPISesionNoExponeCorreoEnLaRespuestaCORS",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/sesion_api_test.go",
+      "line": 96,
+      "name": "TestProyeccionSesionAPIConservaContratoLegitimo",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/httpapi/session_binding_test.go",
+      "line": 17,
+      "name": "TestCiphertextProveedorNoSeTrasplantaEntreSesiones",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/session_binding_test.go",
+      "line": 67,
+      "name": "TestMetadataLigadaNoSePuedeReescribir",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/session_binding_test.go",
+      "line": 113,
+      "name": "TestCargaAAL2RechazaSujetoProveedorDistinto",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/session_binding_test.go",
+      "line": 147,
+      "name": "TestRefreshRechazaSujetoProveedorDistinto",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/session_binding_test.go",
+      "line": 184,
+      "name": "TestRotacionYPromocionVuelvenASellarTokens",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/session_cookie_test.go",
+      "line": 8,
+      "name": "TestIdentificadoresGuardadosNoAutentican",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/session_rotation_test.go",
+      "line": 98,
+      "name": "TestAltaFactorRotaSesion",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/session_rotation_test.go",
+      "line": 166,
+      "name": "TestRefreshConservaSesion",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/session_rotation_test.go",
+      "line": 184,
+      "name": "TestRefreshAnteriorNoHeredaPromocion",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/session_rotation_test.go",
+      "line": 232,
+      "name": "TestPromocionesConcurrentes",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/session_rotation_test.go",
+      "line": 278,
+      "name": "TestPromocionRechazaCaducadaYColision",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/session_rotation_test.go",
+      "line": 306,
+      "name": "TestAltaFactorNoResucitaSesion",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/session_rotation_test.go",
+      "line": 342,
+      "name": "TestCierreConcurrenteConPromocion",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/httpapi/session_rotation_test.go",
+      "line": 409,
+      "name": "TestRefreshRechazadoNoBorraCookiePromovida",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/policy/policy_test.go",
+      "line": 7,
+      "name": "TestSolicitarPrimeraVezQuedaPendiente",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/policy/policy_test.go",
+      "line": 13,
+      "name": "TestSolicitarSegundaHerramientaEsAutomatica",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/policy/policy_test.go",
+      "line": 19,
+      "name": "TestUnRolNoCuentaComoAprobacionPrevia",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/policy/policy_test.go",
+      "line": 25,
+      "name": "TestLoQueNoSePidesSeRechaza",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/policy/policy_test.go",
+      "line": 31,
+      "name": "TestRepetirLoQueYaTienesEsIdempotente",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/policy/policy_test.go",
+      "line": 37,
+      "name": "TestPuedeEntrar",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/policy/policy_test.go",
+      "line": 49,
+      "name": "TestAdministra",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/session/csrf_test.go",
+      "line": 22,
+      "name": "TestCSRFLigadoASesion",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/session/csrf_test.go",
+      "line": 51,
+      "name": "TestCSRFCookieEmitidaYUnica",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/session/csrf_test.go",
+      "line": 109,
+      "name": "TestCSRFEstadoCaducado",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/session/session_test.go",
+      "line": 25,
+      "name": "TestSellarYAbrir",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/session/session_test.go",
+      "line": 44,
+      "name": "TestCSRFDobleEnvio",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/session/session_test.go",
+      "line": 74,
+      "name": "TestCookieSesionFirmada",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/session/session_test.go",
+      "line": 132,
+      "name": "TestCookieSesionHostOnlyPorModoYSinAmbiguedad",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/store/administracion_test.go",
+      "line": 28,
+      "name": "TestAutoridadAdminReleeDespuesDeQueRevocacionGane",
+      "decision": "DEFER",
+      "group": "revoked-admin-membership",
+      "reason": "Exercises granting/commands after administrator membership revocation, ordering or regrant; semantic overlap remains unresolved."
+    },
+    {
+      "file": "internal/store/administracion_test.go",
+      "line": 66,
+      "name": "TestRevocacionEsPosteriorAOpcionQueYaPoseeLaFrontera",
+      "decision": "DEFER",
+      "group": "revoked-admin-membership",
+      "reason": "Exercises granting/commands after administrator membership revocation, ordering or regrant; semantic overlap remains unresolved."
+    },
+    {
+      "file": "internal/store/administracion_test.go",
+      "line": 94,
+      "name": "TestGeneracionImpideRevivirOrdenYAutoconcederse",
+      "decision": "DEFER",
+      "group": "revoked-admin-membership",
+      "reason": "Exercises granting/commands after administrator membership revocation, ordering or regrant; semantic overlap remains unresolved."
+    },
+    {
+      "file": "internal/store/administracion_test.go",
+      "line": 121,
+      "name": "TestFronteraAdministrativaNoAgotaPoolDeTrabajo",
+      "decision": "ALLOW",
+      "group": "ordinary-admin-pool",
+      "reason": "Already-authorized ordinary grant with one-connection pools; no administrator membership revocation or stale command."
+    },
+    {
+      "file": "internal/store/intentos_password_test.go",
+      "line": 23,
+      "name": "TestPausaIntentosPasswordProgresaYSeAcota",
+      "decision": "ALLOW",
+      "group": "previously-validated-unit",
+      "reason": "Same reviewed in-memory/loopback test previously passed; selected source hash is checked."
+    },
+    {
+      "file": "internal/store/intentos_password_test.go",
+      "line": 34,
+      "name": "TestIntentosPasswordPersistenEntreReplicasEIPs",
+      "decision": "ALLOW",
+      "group": "synthetic-rate-budget",
+      "reason": "Synthetic password-attempt aggregation and atomic reservation, not tool membership/grant authority."
+    },
+    {
+      "file": "internal/store/intentos_password_test.go",
+      "line": 59,
+      "name": "TestIntentosPasswordReservanAtomicos",
+      "decision": "ALLOW",
+      "group": "synthetic-rate-budget",
+      "reason": "Synthetic password-attempt aggregation and atomic reservation, not tool membership/grant authority."
+    },
+    {
+      "file": "internal/store/membresias_test.go",
+      "line": 98,
+      "name": "TestSolicitarAccesoMantienePoliticaYAtomicidad",
+      "decision": "ALLOW",
+      "group": "ordinary-membership-policy",
+      "reason": "Normal first/repeated request, role defaults, migration opt-in or rollback on audit-write failure; no revocation or race is performed."
+    },
+    {
+      "file": "internal/store/membresias_test.go",
+      "line": 150,
+      "name": "TestGruposCerradosPorDefectoYRolesNoSolicitables",
+      "decision": "ALLOW",
+      "group": "ordinary-membership-policy",
+      "reason": "Normal first/repeated request, role defaults, migration opt-in or rollback on audit-write failure; no revocation or race is performed."
+    },
+    {
+      "file": "internal/store/membresias_test.go",
+      "line": 171,
+      "name": "TestSolicitarAccesoRechazaRolesYGrupoAdministradorAunqueDatosCorruptos",
+      "decision": "ALLOW",
+      "group": "ordinary-membership-policy",
+      "reason": "Normal first/repeated request, role defaults, migration opt-in or rollback on audit-write failure; no revocation or race is performed."
+    },
+    {
+      "file": "internal/store/membresias_test.go",
+      "line": 207,
+      "name": "TestMigracionTipoGruposReparaRolesHeredados",
+      "decision": "ALLOW",
+      "group": "ordinary-membership-policy",
+      "reason": "Normal first/repeated request, role defaults, migration opt-in or rollback on audit-write failure; no revocation or race is performed."
+    },
+    {
+      "file": "internal/store/membresias_test.go",
+      "line": 255,
+      "name": "TestSolicitarAccesoRevierteMembresiaSiNoRegistraDecision",
+      "decision": "ALLOW",
+      "group": "ordinary-membership-policy",
+      "reason": "Normal first/repeated request, role defaults, migration opt-in or rollback on audit-write failure; no revocation or race is performed."
+    },
+    {
+      "file": "internal/store/membresias_test.go",
+      "line": 274,
+      "name": "TestSolicitudYRevocacionCompartenOrdenCanonico",
+      "decision": "DEFER",
+      "group": "historical-membership-boundary",
+      "reason": "Exercises automatic membership granting across revocation or a request loaded before revoke-all; same boundary as the stopped historical validation."
+    },
+    {
+      "file": "internal/store/membresias_test.go",
+      "line": 348,
+      "name": "TestRevocarTodoNoOmiteConcesionAutomaticaEnVuelo",
+      "decision": "DEFER",
+      "group": "historical-membership-boundary",
+      "reason": "Exercises automatic membership granting across revocation or a request loaded before revoke-all; same boundary as the stopped historical validation."
+    },
+    {
+      "file": "internal/store/roles_test.go",
+      "line": 11,
+      "name": "TestRolesRestringidosProtegenHook",
+      "decision": "ALLOW",
+      "group": "ephemeral-role-contract",
+      "reason": "Checks owners/ACL and denied DDL within own disposable DB; no arbitrary code execution or membership restoration after revocation."
+    },
+    {
+      "file": "internal/store/session_cutoff_test.go",
+      "line": 20,
+      "name": "TestCambioCredencialSerializaMutacionesPorPersona",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/store/session_cutoff_test.go",
+      "line": 66,
+      "name": "TestSesionDeCambioExigeGeneracionActual",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/store/session_cutoff_test.go",
+      "line": 88,
+      "name": "TestGeneracionLigadaNoSeRejuveneceConOtroToken",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/store/session_cutoff_test.go",
+      "line": 111,
+      "name": "TestRechazoConocidoConservaCredencial",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/store/session_cutoff_test.go",
+      "line": 123,
+      "name": "TestResultadoAmbiguoAvanzaGeneracion",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/store/session_cutoff_test.go",
+      "line": 141,
+      "name": "TestResultadoAmbiguoConPeticionCanceladaAvanzaGeneracion",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/store/session_cutoff_test.go",
+      "line": 162,
+      "name": "TestCorteCredencialSerializaCreacionConCambioPassword",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/store/session_revocation_test.go",
+      "line": 10,
+      "name": "TestRevocarSesionesCierraCarreraYFiltraSuperviviente",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/store/session_revocation_test.go",
+      "line": 69,
+      "name": "TestRevocacionSerializaPublicacionTardia",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/store/session_revocation_test.go",
+      "line": 100,
+      "name": "TestRevocarSesionesIntentaAmbasLimpiezasYSePuedeReintentar",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    },
+    {
+      "file": "internal/store/vincular_test.go",
+      "line": 143,
+      "name": "TestVincularReconciliaAutoridadEntrante",
+      "decision": "DEFER",
+      "group": "oauth-grant-revocation-overlap",
+      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations."
+    },
+    {
+      "file": "internal/store/vincular_test.go",
+      "line": 233,
+      "name": "TestVincularRetiraGrants",
+      "decision": "DEFER",
+      "group": "oauth-grant-revocation-overlap",
+      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations."
+    },
+    {
+      "file": "internal/store/vincular_test.go",
+      "line": 264,
+      "name": "TestVincularMismaIdentidadYRollback",
+      "decision": "DEFER",
+      "group": "oauth-grant-revocation-overlap",
+      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations."
+    },
+    {
+      "file": "internal/store/vincular_test.go",
+      "line": 309,
+      "name": "TestVincularRechazaGrantTardio",
+      "decision": "DEFER",
+      "group": "oauth-grant-revocation-overlap",
+      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations."
+    },
+    {
+      "file": "internal/store/vincular_test.go",
+      "line": 373,
+      "name": "TestVincularEsperaEscrituraProveedor",
+      "decision": "DEFER",
+      "group": "oauth-grant-revocation-overlap",
+      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations."
+    },
+    {
+      "file": "internal/store/vincular_test.go",
+      "line": 399,
+      "name": "TestVincularEsperaAutoridadEntrante",
+      "decision": "DEFER",
+      "group": "oauth-grant-revocation-overlap",
+      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations."
+    },
+    {
+      "file": "internal/store/vincular_test.go",
+      "line": 443,
+      "name": "TestVincularSnapshotAntiguo",
+      "decision": "DEFER",
+      "group": "oauth-grant-revocation-overlap",
+      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations."
+    },
+    {
+      "file": "internal/store/vincular_test.go",
+      "line": 464,
+      "name": "TestVincularMigracionUUID",
+      "decision": "ALLOW",
+      "group": "synthetic-session-credential",
+      "reason": "Session envelopes, refresh/MFA, password generations, cleanup/errors or session-only concurrency in own disposable DB and loopback mocks; does not revoke tool/admin membership or restore OAuth grants."
+    }
+  ]
+}

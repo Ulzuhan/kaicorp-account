@@ -10,8 +10,22 @@ permissions:
 
 jobs:
   go:
-    name: Allowed unit tests (80 of 178; partial)
+    name: Allowed tests with race detector (154 of 178; partial)
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 127.0.0.1:5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      ACCOUNT_PARTIAL_TEST_DATABASE_URL: postgres://postgres@127.0.0.1:5432/postgres?sslmode=disable
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -23,7 +37,9 @@ jobs:
       - run: test -z "$(gofmt -l cmd internal)"
       - run: go vet ./...
       # Lista cerrada revisada; no ejecutar ./... ni las pruebas aplazadas.
-      # Sin PostgreSQL; este pase no equivale a la suite completa.
+      # Las bases de cada fixture son sintéticas y efímeras; -p 1 evita colisión
+      # de roles globales. No equivale a la suite completa.
+      - run: psql --version
       - name: Run only the explicitly allowed selection
         run: python3 tools/ci/partial-tests.py
       - run: CGO_ENABLED=0 go build -trimpath -o account ./cmd/account
@@ -32,19 +48,19 @@ jobs:
         run: |
           {
             echo '## PARTIAL validation — do not merge or deploy'
-            echo 'Only the 80 selected tests may run. 98 tests remain deferred.'
-            echo 'Full-suite and race validation have not been completed.'
+            echo 'Only the 154 selected tests may run. 24 tests remain deferred.'
+            echo 'The race detector applies only to this selection; the full suite is incomplete.'
             echo 'See docs/AUDIT-VALIDATION-STATUS.md and tools/ci/deferred-tests.tsv.'
           } >> "$GITHUB_STEP_SUMMARY"
 
   full-validation-pending:
-    name: BLOCKED — full validation pending (98 deferred)
+    name: BLOCKED — full validation pending (24 deferred)
     runs-on: ubuntu-latest
     permissions: {}
     steps:
       - name: Keep incomplete validation visible and blocking
         run: |
-          echo '::error::Full validation is incomplete: 98 tests are deferred. Keep this PR draft; do not merge or deploy.'
+          echo '::error::Full validation is incomplete: 24 tests are deferred. Keep this PR draft; do not merge or deploy.'
           echo '## BLOCKED: full validation is incomplete' >> "$GITHUB_STEP_SUMMARY"
           echo 'The partial checks do not certify the full suite or close the audit.' >> "$GITHUB_STEP_SUMMARY"
           exit 1

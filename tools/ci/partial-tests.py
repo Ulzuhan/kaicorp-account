@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -18,7 +19,7 @@ def main():
     args = parser.parse_args()
     manifest = json.loads((ROOT / 'tools/ci/partial-tests.json').read_text())
     selected, deferred = manifest['selected'], manifest['deferred']
-    if len(selected) != 80 or len(deferred) != 98:
+    if len(selected) != 154 or len(deferred) != 24:
         raise ValueError('Selection changed: review the explicit validation scope first')
     inventory = set()
     for source in (ROOT / 'internal').rglob('*_test.go'):
@@ -29,7 +30,7 @@ def main():
                          re.findall(r'^func (Test\w+)\(t \*testing\.T\)', text, re.MULTILINE))
     allowed = {(x['file'], x['name']) for x in selected}
     excluded = {(x['file'], x['name']) for x in deferred}
-    if len(allowed) != 80 or len(excluded) != 98 or allowed & excluded or inventory != allowed | excluded:
+    if len(allowed) != 154 or len(excluded) != 24 or allowed & excluded or inventory != allowed | excluded:
         raise ValueError('Test inventory changed; no unreviewed test may be silently added or omitted')
     for item in selected:
         if hashlib.sha256((ROOT / item['file']).read_bytes()).hexdigest() != item['sha256']:
@@ -37,17 +38,27 @@ def main():
         if item['package'] != './' + str(Path(item['file']).parent):
             raise ValueError('Unexpected package mapping')
     names = {x['name'] for x in selected}
-    if len(names) != 80:
+    if len(names) != 154:
         raise ValueError('Test names must be unique for this reviewed selection')
-    command = ['go', 'test', '-json', '-count=1', '-timeout=120s', '-p=1',
+    command = ['go', 'test', '-race', '-json', '-count=1', '-timeout=180s', '-p=1',
                '-run', '^(' + '|'.join(sorted(names)) + ')$',
                *sorted({x['package'] for x in selected})]
-    print('PARTIAL ONLY: 80 allowed tests; 98 deferred; no full-suite or race claim.', flush=True)
+    print('PARTIAL ONLY: 154 allowed tests with race detector; 24 deferred; no full-suite claim.', flush=True)
     if args.check_only:
-        print(json.dumps({'selected': 80, 'deferred': 98, 'command': command}))
+        print(json.dumps({'selected': 154, 'deferred': 24, 'command': command}))
         return 0
     env = {k: v for k, v in os.environ.items() if not k.startswith(('ACCOUNT_', 'GOTRUE_'))}
-    env.update(CGO_ENABLED='0')
+    # Sólo el servicio PostgreSQL efímero de este job; nunca una URL del usuario.
+    dsn = os.environ.get('ACCOUNT_PARTIAL_TEST_DATABASE_URL', '')
+    parsed = urlparse(dsn)
+    if (os.environ.get('GITHUB_ACTIONS') != 'true' or parsed.scheme != 'postgres'
+            or parsed.hostname != '127.0.0.1' or parsed.port != 5432
+            or parsed.username != 'postgres' or parsed.password is not None
+            or parsed.path != '/postgres' or parsed.query != 'sslmode=disable'
+            or parsed.fragment):
+        raise ValueError('Only the explicitly configured ephemeral GitHub job database is allowed')
+    env.update(CGO_ENABLED='1', ACCOUNT_BINDING_TEST_DATABASE_URL=dsn,
+               ACCOUNT_CONSENT_TEST_DATABASE_URL=dsn)
     seen, passed = set(), set()
     bad = False
     process = subprocess.Popen(command, cwd=ROOT, env=env, stdout=subprocess.PIPE,
@@ -76,7 +87,7 @@ def main():
     if code or bad or seen != names or passed != names:
         print('Selected tests failed, skipped or did not execute exactly; full validation remains blocked.', file=sys.stderr)
         return 1
-    print('80 allowed tests passed. 98 deferred; NOT ready to merge or deploy.')
+    print('154 allowed tests passed with race detector. 24 deferred; NOT ready to merge or deploy.')
     return 0
 
 
