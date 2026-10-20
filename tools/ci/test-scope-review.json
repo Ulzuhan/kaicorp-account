@@ -2,8 +2,8 @@
   "reviewed_total": 178,
   "previously_allowed": 80,
   "additional_separated": 81,
-  "selected": 161,
-  "deferred": 17,
+  "selected": 178,
+  "deferred": 0,
   "historical_harness_included": false,
   "classification_is_not_a_platform_policy_override": true,
   "tests": [
@@ -163,9 +163,9 @@
       "file": "internal/httpapi/admin_authority_test.go",
       "line": 23,
       "name": "TestRevocarAdministracionInvalidaSesionesYComandos",
-      "decision": "DEFER",
+      "decision": "ALLOW",
       "group": "revoked-admin-membership",
-      "reason": "Exercises granting/commands after administrator membership revocation, ordering or regrant; semantic overlap remains unresolved."
+      "reason": "Exercises granting/commands after administrator membership revocation, ordering or regrant; semantic overlap remains unresolved. Restored for full synthetic regression after the historical focused test was permitted and passed locally on 2026-10-20."
     },
     {
       "file": "internal/httpapi/admin_authority_test.go",
@@ -243,9 +243,9 @@
       "file": "internal/httpapi/consent_revocation_test.go",
       "line": 29,
       "name": "TestConsentimientoMigracionEsperaProveedor",
-      "decision": "DEFER",
+      "decision": "ALLOW",
       "group": "oauth-grant-revocation-overlap",
-      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations."
+      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations. Restored for full synthetic regression after the historical focused test was permitted and passed locally on 2026-10-20."
     },
     {
       "file": "internal/httpapi/consent_revocation_test.go",
@@ -267,33 +267,33 @@
       "file": "internal/httpapi/consent_revocation_test.go",
       "line": 338,
       "name": "TestConsentimientoTardio",
-      "decision": "DEFER",
+      "decision": "ALLOW",
       "group": "oauth-grant-revocation-overlap",
-      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations."
+      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations. Restored for full synthetic regression after the historical focused test was permitted and passed locally on 2026-10-20."
     },
     {
       "file": "internal/httpapi/consent_revocation_test.go",
       "line": 379,
       "name": "TestConsentimientoAnteriorARevocacion",
-      "decision": "DEFER",
+      "decision": "ALLOW",
       "group": "oauth-grant-revocation-overlap",
-      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations."
+      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations. Restored for full synthetic regression after the historical focused test was permitted and passed locally on 2026-10-20."
     },
     {
       "file": "internal/httpapi/consent_revocation_test.go",
       "line": 405,
       "name": "TestConsentimientoEsperaRevocacion",
-      "decision": "DEFER",
+      "decision": "ALLOW",
       "group": "oauth-grant-revocation-overlap",
-      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations."
+      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations. Restored for full synthetic regression after the historical focused test was permitted and passed locally on 2026-10-20."
     },
     {
       "file": "internal/httpapi/consent_revocation_test.go",
       "line": 439,
       "name": "TestConsentimientoSnapshotAntiguo",
-      "decision": "DEFER",
+      "decision": "ALLOW",
       "group": "oauth-grant-revocation-overlap",
-      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations."
+      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations. Restored for full synthetic regression after the historical focused test was permitted and passed locally on 2026-10-20."
     },
     {
       "file": "internal/httpapi/consent_revocation_test.go",
@@ -315,9 +315,9 @@
       "file": "internal/httpapi/consent_revocation_test.go",
       "line": 535,
       "name": "TestConsentimientoRespuesta",
-      "decision": "DEFER",
+      "decision": "ALLOW",
       "group": "oauth-grant-revocation-overlap",
-      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations."
+      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations. Restored for full synthetic regression after the historical focused test was permitted and passed locally on 2026-10-20."
     },
     {
       "file": "internal/httpapi/cookie_security_test.go",
@@ -563,9 +563,9 @@
       "file": "internal/httpapi/membership_test.go",
       "line": 17,
       "name": "TestSolicitudConSesionCargadaAntesDeRevocarTodo",
-      "decision": "DEFER",
+      "decision": "ALLOW",
       "group": "historical-membership-boundary",
-      "reason": "Exercises automatic membership granting across revocation or a request loaded before revoke-all; same boundary as the stopped historical validation."
+      "reason": "Exercises automatic membership granting across revocation or a request loaded before revoke-all; same boundary as the stopped historical validation. Restored for full synthetic regression after the historical focused test was permitted and passed locally on 2026-10-20."
     },
     {
       "file": "internal/httpapi/mfa_security_test.go",
@@ -1171,25 +1171,25 @@
       "file": "internal/store/administracion_test.go",
       "line": 28,
       "name": "TestAutoridadAdminReleeDespuesDeQueRevocacionGane",
-      "decision": "DEFER",
+      "decision": "ALLOW",
       "group": "revoked-admin-membership",
-      "reason": "Exercises granting/commands after administrator membership revocation, ordering or regrant; semantic overlap remains unresolved."
+      "reason": "Exercises granting/commands after administrator membership revocation, ordering or regrant; semantic overlap remains unresolved. Restored for full synthetic regression after the historical focused test was permitted and passed locally on 2026-10-20."
     },
     {
       "file": "internal/store/administracion_test.go",
       "line": 66,
       "name": "TestRevocacionEsPosteriorAOpcionQueYaPoseeLaFrontera",
-      "decision": "DEFER",
+      "decision": "ALLOW",
       "group": "revoked-admin-membership",
-      "reason": "Exercises granting/commands after administrator membership revocation, ordering or regrant; semantic overlap remains unresolved."
+      "reason": "Exercises granting/commands after administrator membership revocation, ordering or regrant; semantic overlap remains unresolved. Restored for full synthetic regression after the historical focused test was permitted and passed locally on 2026-10-20."
     },
     {
       "file": "internal/store/administracion_test.go",
       "line": 94,
       "name": "TestGeneracionImpideRevivirOrdenYAutoconcederse",
-      "decision": "DEFER",
+      "decision": "ALLOW",
       "group": "revoked-admin-membership",
-      "reason": "Exercises granting/commands after administrator membership revocation, ordering or regrant; semantic overlap remains unresolved."
+      "reason": "Exercises granting/commands after administrator membership revocation, ordering or regrant; semantic overlap remains unresolved. Restored for full synthetic regression after the historical focused test was permitted and passed locally on 2026-10-20."
     },
     {
       "file": "internal/store/administracion_test.go",
@@ -1267,17 +1267,17 @@
       "file": "internal/store/membresias_test.go",
       "line": 274,
       "name": "TestSolicitudYRevocacionCompartenOrdenCanonico",
-      "decision": "DEFER",
+      "decision": "ALLOW",
       "group": "historical-membership-boundary",
-      "reason": "Exercises automatic membership granting across revocation or a request loaded before revoke-all; same boundary as the stopped historical validation."
+      "reason": "Exercises automatic membership granting across revocation or a request loaded before revoke-all; same boundary as the stopped historical validation. Restored for full synthetic regression after the historical focused test was permitted and passed locally on 2026-10-20."
     },
     {
       "file": "internal/store/membresias_test.go",
       "line": 348,
       "name": "TestRevocarTodoNoOmiteConcesionAutomaticaEnVuelo",
-      "decision": "DEFER",
+      "decision": "ALLOW",
       "group": "historical-membership-boundary",
-      "reason": "Exercises automatic membership granting across revocation or a request loaded before revoke-all; same boundary as the stopped historical validation."
+      "reason": "Exercises automatic membership granting across revocation or a request loaded before revoke-all; same boundary as the stopped historical validation. Restored for full synthetic regression after the historical focused test was permitted and passed locally on 2026-10-20."
     },
     {
       "file": "internal/store/roles_test.go",
@@ -1395,33 +1395,33 @@
       "file": "internal/store/vincular_test.go",
       "line": 309,
       "name": "TestVincularRechazaGrantTardio",
-      "decision": "DEFER",
+      "decision": "ALLOW",
       "group": "oauth-grant-revocation-overlap",
-      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations."
+      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations. Restored for full synthetic regression after the historical focused test was permitted and passed locally on 2026-10-20."
     },
     {
       "file": "internal/store/vincular_test.go",
       "line": 373,
       "name": "TestVincularEsperaEscrituraProveedor",
-      "decision": "DEFER",
+      "decision": "ALLOW",
       "group": "oauth-grant-revocation-overlap",
-      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations."
+      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations. Restored for full synthetic regression after the historical focused test was permitted and passed locally on 2026-10-20."
     },
     {
       "file": "internal/store/vincular_test.go",
       "line": 399,
       "name": "TestVincularEsperaAutoridadEntrante",
-      "decision": "DEFER",
+      "decision": "ALLOW",
       "group": "oauth-grant-revocation-overlap",
-      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations."
+      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations. Restored for full synthetic regression after the historical focused test was permitted and passed locally on 2026-10-20."
     },
     {
       "file": "internal/store/vincular_test.go",
       "line": 443,
       "name": "TestVincularSnapshotAntiguo",
-      "decision": "DEFER",
+      "decision": "ALLOW",
       "group": "oauth-grant-revocation-overlap",
-      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations."
+      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations. Restored for full synthetic regression after the historical focused test was permitted and passed locally on 2026-10-20."
     },
     {
       "file": "internal/store/vincular_test.go",

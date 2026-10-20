@@ -1,4 +1,4 @@
-name: Partial validation — NOT ready to merge
+name: Full validation
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   go:
-    name: Allowed tests with race detector (161 of 178; partial)
+    name: Full Go suite with race detector (178 tests)
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -25,7 +25,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
-      ACCOUNT_PARTIAL_TEST_DATABASE_URL: postgres://postgres@127.0.0.1:5432/postgres?sslmode=disable
+      ACCOUNT_FULL_TEST_DATABASE_URL: postgres://postgres@127.0.0.1:5432/postgres?sslmode=disable
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -36,31 +36,16 @@ jobs:
           cache: false
       - run: test -z "$(gofmt -l cmd internal)"
       - run: go vet ./...
-      # Lista cerrada revisada; no ejecutar ./... ni las pruebas aplazadas.
-      # Las bases de cada fixture son sintéticas y efímeras; -p 1 evita colisión
-      # de roles globales. No equivale a la suite completa.
+      # Cada fixture usa una base sintética del servicio efímero; -p 1 evita
+      # colisiones entre roles globales al ejecutar toda la suite.
       - run: psql --version
-      - name: Run only the explicitly allowed selection
-        run: python3 tools/ci/partial-tests.py
+      - name: Run the full reviewed suite
+        run: python3 tools/ci/full-tests.py
       - run: CGO_ENABLED=0 go build -trimpath -o account ./cmd/account
-      - name: Explain the validation gap
-        if: always()
+      - name: Summarize validation
         run: |
           {
-            echo '## PARTIAL validation — do not merge or deploy'
-            echo 'Only the 161 selected tests may run. 17 tests remain deferred.'
-            echo 'The race detector applies only to this selection; the full suite is incomplete.'
-            echo 'See docs/AUDIT-VALIDATION-STATUS.md and tools/ci/deferred-tests.tsv.'
+            echo '## Full Go validation'
+            echo 'All 178 reviewed tests ran with the race detector against disposable PostgreSQL fixtures.'
+            echo 'See docs/AUDIT-VALIDATION-STATUS.md for scope and remaining review steps.'
           } >> "$GITHUB_STEP_SUMMARY"
-
-  full-validation-pending:
-    name: BLOCKED — full validation pending (17 deferred)
-    runs-on: ubuntu-latest
-    permissions: {}
-    steps:
-      - name: Keep incomplete validation visible and blocking
-        run: |
-          echo '::error::Full validation is incomplete: 17 tests are deferred. Keep this PR draft; do not merge or deploy.'
-          echo '## BLOCKED: full validation is incomplete' >> "$GITHUB_STEP_SUMMARY"
-          echo 'The partial checks do not certify the full suite or close the audit.' >> "$GITHUB_STEP_SUMMARY"
-          exit 1
