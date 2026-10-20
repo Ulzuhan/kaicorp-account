@@ -2,7 +2,8 @@
 // app de cuenta: la parte pública (registro, entrada, verificación, factores,
 // consentimiento OAuth) con la clave anónima y el token de la persona, y la de
 // administración con la clave de servicio, que sólo se usa para lo que ningún
-// otro camino permite: borrar y bloquear cuentas.
+// otro camino permite: borrar, bloquear y sustituir la credencial desconocida
+// de una identidad que acaba de demostrar el buzón.
 //
 // No es un SDK: son las llamadas que esta aplicación hace, escritas a mano
 // contra los endpoints de GoTrue 2.189 y probadas contra una instancia real.
@@ -27,7 +28,7 @@ import (
 
 // Client habla con una instancia de GoTrue.
 type Client struct {
-	base       string // http://<pasarela>/auth/v1, sin barra final
+	base       string // https://<pasarela>/auth/v1, sin barra final
 	anonKey    string
 	serviceKey string
 	http       *http.Client
@@ -40,7 +41,12 @@ func New(base, anonKey, serviceKey string) *Client {
 		base:       strings.TrimRight(base, "/"),
 		anonKey:    anonKey,
 		serviceKey: serviceKey,
-		http:       &http.Client{Timeout: 15 * time.Second},
+		http: &http.Client{
+			Timeout: 15 * time.Second,
+			CheckRedirect: func(*http.Request, []*http.Request) error {
+				return errors.New("gotrue: redirección HTTP no permitida")
+			},
+		},
 	}
 }
 
@@ -242,7 +248,8 @@ func (c *Client) Refresh(ctx context.Context, refreshToken string) (*Session, er
 
 // VerifyTokenHash canjea el token_hash de un enlace de correo (signup,
 // recovery, email_change, invite, magiclink) por una sesión. Es el camino de
-// servidor: el enlace trae {{ .TokenHash }} y nunca tokens en el fragmento.
+// servidor: el correo trae {{ .TokenHash }} en un fragmento; el navegador lo
+// copia al cuerpo del POST de confirmación antes de que llegue a este cliente.
 func (c *Client) VerifyTokenHash(ctx context.Context, typ, tokenHash string) (*Session, error) {
 	var s Session
 	err := c.call(ctx, http.MethodPost, "/verify", "", false,
@@ -265,8 +272,12 @@ func (c *Client) Recover(ctx context.Context, email, redirectTo string) error {
 }
 
 // Resend vuelve a mandar el correo de confirmación (type signup) o de cambio.
-func (c *Client) Resend(ctx context.Context, typ, email string) error {
-	return c.call(ctx, http.MethodPost, "/resend", "", false, map[string]string{"type": typ, "email": email}, nil)
+func (c *Client) Resend(ctx context.Context, typ, email, redirectTo string) error {
+	path := "/resend"
+	if redirectTo != "" {
+		path += "?redirect_to=" + url.QueryEscape(redirectTo)
+	}
+	return c.call(ctx, http.MethodPost, path, "", false, map[string]string{"type": typ, "email": email}, nil)
 }
 
 // Me devuelve la ficha de la persona del token, con sus factores.
@@ -549,6 +560,18 @@ func (c *Client) AdminBanUser(ctx context.Context, userID, duration string) erro
 		map[string]string{"ban_duration": duration}, nil)
 }
 
+// AdminUpdatePassword sustituye la contraseña sin depender de la política de
+// reautenticación de /user. Se reserva para preparar un reenvío de alta o una
+// invitación; GoTrue cierra todas las sesiones del proveedor.
+func (c *Client) AdminUpdatePassword(ctx context.Context, userID, password string) (*User, error) {
+	var u User
+	if err := c.call(ctx, http.MethodPut, "/admin/users/"+url.PathEscape(userID), "", true,
+		map[string]string{"password": password}, &u); err != nil {
+		return nil, err
+	}
+	return &u, nil
+}
+
 // GeneratedLink es lo que devuelve generate_link: sirve para probar el camino
 // de verificación sin buzón, y para invitar.
 type GeneratedLink struct {
@@ -574,9 +597,13 @@ func (c *Client) AdminGenerateLink(ctx context.Context, typ, email, password str
 // `invite`): el enlace la lleva a /verificar?type=invite y de ahí a elegir
 // contraseña. Devuelve la cuenta creada, con su id: es el `sub` con el que
 // sus datos de otro proveedor se pueden remapear antes de que entre.
-func (c *Client) AdminInvite(ctx context.Context, email string) (*User, error) {
+func (c *Client) AdminInvite(ctx context.Context, email, redirectTo string) (*User, error) {
+	path := "/invite"
+	if redirectTo != "" {
+		path += "?redirect_to=" + url.QueryEscape(redirectTo)
+	}
 	var u User
-	if err := c.call(ctx, http.MethodPost, "/invite", "", true, map[string]any{"email": email}, &u); err != nil {
+	if err := c.call(ctx, http.MethodPost, path, "", true, map[string]any{"email": email}, &u); err != nil {
 		return nil, err
 	}
 	return &u, nil

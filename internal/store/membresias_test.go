@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Ulzuhan/kaicorp-account/internal/policy"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -107,16 +108,16 @@ create trigger prohibe_reinsertar_test before insert on account.membresias
 		t.Fatal(err)
 	}
 
-	if g, d, err := s.SolicitarAcceso(t.Context(), personaUno, "herramienta"); err != nil || g.Nombre != "herramienta" || d != policy.Automatica {
+	if g, d, err := s.SolicitarAcceso(t.Context(), personaUno, "herramienta", "account-admin"); err != nil || g.Nombre != "herramienta" || d != policy.Automatica {
 		t.Fatalf("repetir acceso existente: grupo=%v decisión=%v error=%v", g, d, err)
 	}
-	if _, d, err := s.SolicitarAcceso(t.Context(), personaUno, "otra"); err != nil || d != policy.Automatica {
+	if _, d, err := s.SolicitarAcceso(t.Context(), personaUno, "otra", "account-admin"); err != nil || d != policy.Automatica {
 		t.Fatalf("segunda herramienta: decisión=%v error=%v", d, err)
 	}
 	if ok, err := s.EsMiembro(t.Context(), personaUno, "otra"); err != nil || !ok {
 		t.Fatalf("la segunda herramienta no quedó concedida: %v %v", ok, err)
 	}
-	if _, d, err := s.SolicitarAcceso(t.Context(), personaDos, "herramienta"); err != nil || d != policy.Pendiente {
+	if _, d, err := s.SolicitarAcceso(t.Context(), personaDos, "herramienta", "account-admin"); err != nil || d != policy.Pendiente {
 		t.Fatalf("primera herramienta: decisión=%v error=%v", d, err)
 	}
 	if ok, err := s.EsMiembro(t.Context(), personaDos, "herramienta"); err != nil || ok {
@@ -125,13 +126,13 @@ create trigger prohibe_reinsertar_test before insert on account.membresias
 	if err := s.Conceder(t.Context(), personaSoloRol, "rol", "test"); err != nil {
 		t.Fatal(err)
 	}
-	if _, d, err := s.SolicitarAcceso(t.Context(), personaSoloRol, "otra"); err != nil || d != policy.Pendiente {
+	if _, d, err := s.SolicitarAcceso(t.Context(), personaSoloRol, "otra", "account-admin"); err != nil || d != policy.Pendiente {
 		t.Fatalf("un rol contó como aprobación: decisión=%v error=%v", d, err)
 	}
-	if _, d, err := s.SolicitarAcceso(t.Context(), personaUno, "rol"); err != nil || d != policy.Rechazada {
+	if _, d, err := s.SolicitarAcceso(t.Context(), personaUno, "rol", "account-admin"); err != nil || d != policy.Rechazada {
 		t.Fatalf("un rol no solicitable se pudo pedir: decisión=%v error=%v", d, err)
 	}
-	if _, _, err := s.SolicitarAcceso(t.Context(), personaUno, "inexistente"); !errors.Is(err, ErrNoExiste) {
+	if _, _, err := s.SolicitarAcceso(t.Context(), personaUno, "inexistente", "account-admin"); !errors.Is(err, ErrNoExiste) {
 		t.Fatalf("grupo inexistente: %v", err)
 	}
 
@@ -146,6 +147,111 @@ create trigger prohibe_reinsertar_test before insert on account.membresias
 	}
 }
 
+func TestGruposCerradosPorDefectoYRolesNoSolicitables(t *testing.T) {
+	_, db := storeVinculos(t)
+	if _, err := db.Exec(t.Context(), `insert into account.grupos(nombre,titulo) values ('rol-default','Default role')`); err != nil {
+		t.Fatal(err)
+	}
+	var tipo TipoGrupo
+	var solicitable bool
+	if err := db.QueryRow(t.Context(), `select tipo, solicitable from account.grupos where nombre='rol-default'`).Scan(&tipo, &solicitable); err != nil {
+		t.Fatal(err)
+	}
+	if tipo != TipoGrupoRol || solicitable {
+		t.Fatalf("defaults inseguros: tipo=%q solicitable=%v", tipo, solicitable)
+	}
+	_, err := db.Exec(t.Context(), `insert into account.grupos(nombre,titulo,tipo,solicitable)
+		values ('rol-solicitable','Unsafe role','rol',true)`)
+	var pe *pgconn.PgError
+	if !errors.As(err, &pe) || pe.Code != "23514" {
+		t.Fatalf("la base aceptó un rol solicitable: %v", err)
+	}
+}
+
+func TestSolicitarAccesoRechazaRolesYGrupoAdministradorAunqueDatosCorruptos(t *testing.T) {
+	s, db := storeVinculos(t)
+	if err := s.ValidarGrupoAdministrador(t.Context(), "account-admin"); err == nil {
+		t.Fatal("el arranque aceptó un grupo administrador ausente")
+	}
+	if _, err := db.Exec(t.Context(), `alter table account.grupos drop constraint grupos_rol_no_solicitable;
+		insert into account.grupos(nombre,titulo,tipo,solicitable) values
+		('rol-corrupto','Corrupt role','rol',true),
+		('account-admin','Administration','herramienta',true)`); err != nil {
+		t.Fatal(err)
+	}
+	for _, grupo := range []string{"rol-corrupto", "account-admin"} {
+		if _, d, err := s.SolicitarAcceso(t.Context(), personaUno, grupo, "account-admin"); err != nil || d != policy.Rechazada {
+			t.Fatalf("%s no fue rechazado: decisión=%v error=%v", grupo, d, err)
+		}
+		if ok, err := s.EsMiembro(t.Context(), personaUno, grupo); err != nil || ok {
+			t.Fatalf("%s se autoconcedió: miembro=%v error=%v", grupo, ok, err)
+		}
+	}
+	if err := s.ValidarGrupoAdministrador(t.Context(), "account-admin"); err == nil {
+		t.Fatal("el arranque aceptó el grupo administrador como herramienta solicitable")
+	}
+	if _, err := db.Exec(t.Context(), `update account.grupos set tipo='rol', solicitable=false where nombre='account-admin'`); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ValidarGrupoAdministrador(t.Context(), "account-admin"); err != nil {
+		t.Fatalf("grupo administrador seguro: %v", err)
+	}
+	if _, err := db.Exec(t.Context(), `update account.grupos set solicitable=true where nombre='account-admin'`); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ValidarGrupoAdministrador(t.Context(), "account-admin"); err == nil {
+		t.Fatal("el arranque aceptó un rol administrador solicitable")
+	}
+}
+
+func TestMigracionTipoGruposReparaRolesHeredados(t *testing.T) {
+	_, db := storeVinculos(t)
+	if _, err := db.Exec(t.Context(), `alter table account.grupos
+		drop constraint grupos_rol_no_solicitable,
+		drop constraint grupos_tipo_valido,
+		drop column tipo,
+		alter column solicitable set default true;
+		insert into account.grupos(nombre,titulo,url,solicitable) values
+		('rol-heredado','Legacy role','',true),
+		('tool-heredada','Legacy tool','https://tool.example',true)`); err != nil {
+		t.Fatal(err)
+	}
+	sql, err := migraciones.ReadFile("migrations/0007_tipo_grupos.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(t.Context(), string(sql)); err != nil {
+		t.Fatal(err)
+	}
+	var tipoRol, tipoTool TipoGrupo
+	var pideRol, pideTool bool
+	if err := db.QueryRow(t.Context(), `select tipo, solicitable from account.grupos where nombre='rol-heredado'`).Scan(&tipoRol, &pideRol); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.QueryRow(t.Context(), `select tipo, solicitable from account.grupos where nombre='tool-heredada'`).Scan(&tipoTool, &pideTool); err != nil {
+		t.Fatal(err)
+	}
+	if tipoRol != TipoGrupoRol || pideRol || tipoTool != TipoGrupoRol || pideTool {
+		t.Fatalf("migración insegura: rol=%q/%v fila con URL=%q/%v", tipoRol, pideRol, tipoTool, pideTool)
+	}
+	if _, err := db.Exec(t.Context(), `update account.grupos set tipo='herramienta', solicitable=true where nombre='tool-heredada'`); err != nil {
+		t.Fatalf("opt-in explícito de herramienta: %v", err)
+	}
+	if err := db.QueryRow(t.Context(), `select tipo, solicitable from account.grupos where nombre='tool-heredada'`).Scan(&tipoTool, &pideTool); err != nil {
+		t.Fatal(err)
+	}
+	if tipoTool != TipoGrupoHerramienta || !pideTool {
+		t.Fatalf("el opt-in de herramienta no se conservó: %q/%v", tipoTool, pideTool)
+	}
+	if _, err := db.Exec(t.Context(), `insert into account.grupos(nombre,titulo) values ('rol-nuevo','New role')`); err != nil {
+		t.Fatal(err)
+	}
+	var nuevoSolicitable bool
+	if err := db.QueryRow(t.Context(), `select solicitable from account.grupos where nombre='rol-nuevo'`).Scan(&nuevoSolicitable); err != nil || nuevoSolicitable {
+		t.Fatalf("el nuevo default no quedó cerrado: %v %v", nuevoSolicitable, err)
+	}
+}
+
 func TestSolicitarAccesoRevierteMembresiaSiNoRegistraDecision(t *testing.T) {
 	s, db := storeVinculos(t)
 	if _, err := db.Exec(t.Context(), `create function account.falla_solicitud_test() returns trigger language plpgsql as $$
@@ -157,7 +263,7 @@ create trigger falla_solicitud_test before insert on account.solicitudes
   for each row execute function account.falla_solicitud_test()`); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := s.SolicitarAcceso(t.Context(), personaUno, "otra"); err == nil {
+	if _, _, err := s.SolicitarAcceso(t.Context(), personaUno, "otra", "account-admin"); err == nil {
 		t.Fatal("la solicitud debía fallar")
 	}
 	if ok, err := s.EsMiembro(t.Context(), personaUno, "otra"); err != nil || ok {
@@ -185,7 +291,7 @@ func TestSolicitudYRevocacionCompartenOrdenCanonico(t *testing.T) {
 		}
 		fin := make(chan resultado, 1)
 		go func() {
-			_, d, err := s.SolicitarAcceso(t.Context(), personaUno, "herramienta")
+			_, d, err := s.SolicitarAcceso(t.Context(), personaUno, "herramienta", "account-admin")
 			fin <- resultado{d, err}
 		}()
 		select {
@@ -214,7 +320,7 @@ func TestSolicitudYRevocacionCompartenOrdenCanonico(t *testing.T) {
 		}
 		solicitud := make(chan resultado, 1)
 		go func() {
-			_, d, err := s.SolicitarAcceso(t.Context(), personaUno, "herramienta")
+			_, d, err := s.SolicitarAcceso(t.Context(), personaUno, "herramienta", "account-admin")
 			solicitud <- resultado{d, err}
 		}()
 		esperarBloqueoMembresia(t, db, "insert into account.solicitudes")
@@ -255,7 +361,7 @@ func TestRevocarTodoNoOmiteConcesionAutomaticaEnVuelo(t *testing.T) {
 	}
 	solicitud := make(chan resultado, 1)
 	go func() {
-		_, d, err := s.SolicitarAcceso(t.Context(), personaUno, "otra")
+		_, d, err := s.SolicitarAcceso(t.Context(), personaUno, "otra", "account-admin")
 		solicitud <- resultado{d, err}
 	}()
 	esperarBloqueoMembresia(t, db, "insert into account.membresias")

@@ -37,11 +37,21 @@ type Server struct {
 	correo    remitenteCorreo // nil si no hay SMTP propio
 	paginas   map[string]*template.Template
 	limitador *limitador
+	// intentosPasswordLocal sólo existe para servidores unitarios sin Store.
+	// Producción persiste siempre este estado en PostgreSQL.
+	intentosPasswordMu    sync.Mutex
+	intentosPasswordLocal map[string]*intentoPasswordLocal
 	// enrolando guarda, por sesión y unos minutos, el factor TOTP a medias de
 	// dar de alta: el QR es demasiado grande para una cookie.
 	enrolando           sync.Map
 	capacidadesPassword sync.Map
+	autoridadesMFA      sync.Map
+	bloqueosMFA         sync.Map
 	cambiosCorreo       sync.Map
+	// resolverEnlaceCorreo relee el estado de un solo uso del proveedor antes
+	// de canjearlo. Es función para que las pruebas unitarias puedan modelar el
+	// contrato sin levantar PostgreSQL; producción siempre instala la del Store.
+	resolverEnlaceCorreo func(context.Context, string, string) (*store.EnlaceCorreoPendiente, error)
 }
 
 type remitenteCorreo interface {
@@ -52,12 +62,18 @@ type remitenteCorreo interface {
 // paginas son las plantillas de página; cada una se compila con layout.html.
 // Una página que no esté aquí da «plantilla desconocida» al servirse (pasó con
 // salir.html en 0.3.3), así que la prueba TestPlantillasCompilan las recorre.
-var paginas = []string{"home.html", "entrar.html", "registro.html", "correo.html", "enlace.html", "confirmar-correo.html", "recuperar.html", "restablecer.html",
+var paginas = []string{"home.html", "entrar.html", "registro.html", "registro-password.html", "correo.html", "enlace.html", "confirmar-correo.html", "recuperar.html", "restablecer.html",
 	"factor.html", "consent.html", "sin-acceso.html", "cuenta.html", "admin.html", "admin-cuenta.html", "error.html", "salir.html", "reenviar.html"}
 
 // New construye el servidor y compila las plantillas.
 func New(cfg *config.Config, st *store.Store, gt *gotrue.Client, ses *session.Manager, rem *correo.Remitente) (*Server, error) {
-	s := &Server{cfg: cfg, st: st, gt: gt, ses: ses, correo: rem, paginas: map[string]*template.Template{}, limitador: nuevoLimitador()}
+	s := &Server{cfg: cfg, st: st, gt: gt, ses: ses, correo: rem, paginas: map[string]*template.Template{}, limitador: nuevoLimitador(),
+		intentosPasswordLocal: map[string]*intentoPasswordLocal{}}
+	if st != nil {
+		s.resolverEnlaceCorreo = func(ctx context.Context, tipo, hash string) (*store.EnlaceCorreoPendiente, error) {
+			return st.ResolverEnlaceCorreo(ctx, tipo, hash, cfg.EmailLinkTTL)
+		}
+	}
 	for _, p := range paginas {
 		t, err := template.New("layout.html").ParseFS(web.EmbeddedFS, "templates/layout.html", "templates/"+p)
 		if err != nil {
@@ -89,6 +105,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /entrar", s.entrarPOST)
 	mux.HandleFunc("GET /registro", s.registroGET)
 	mux.HandleFunc("POST /registro", s.registroPOST)
+	mux.HandleFunc("GET /registro/password", s.registroPasswordGET)
+	mux.HandleFunc("POST /registro/password", s.registroPasswordPOST)
 	mux.HandleFunc("GET /verificar", s.verificar)
 	mux.HandleFunc("POST /verificar", s.verificarPOST)
 	mux.HandleFunc("GET /reenviar", s.reenviarGET)
@@ -113,6 +131,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /cuenta/correo/confirmar", s.cuentaCorreoConfirmarGET)
 	mux.HandleFunc("POST /cuenta/correo/confirmar", s.cuentaCorreoConfirmarPOST)
 	mux.HandleFunc("POST /cuenta/password", s.cuentaPassword)
+	mux.HandleFunc("POST /cuenta/mfa/autorizar", s.mfaAutorizar)
+	mux.HandleFunc("POST /cuenta/mfa/confirmar", s.mfaConfirmar)
 	mux.HandleFunc("POST /cuenta/factor/alta", s.factorAlta)
 	mux.HandleFunc("POST /cuenta/factor/verificar", s.factorVerificar)
 	mux.HandleFunc("POST /cuenta/factor/borrar", s.factorBorrar)
@@ -133,11 +153,19 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /admin/bloquear", s.adminBloquear)
 
 	mux.HandleFunc("/", s.noEncontrado)
-	return s.registrando(s.cabeceras(s.conSesion(s.conCSRF(s.recuperando(mux)))))
+	return s.registrando(s.cabeceras(s.sinCapacidadesEnURL(s.conSesion(s.conCSRF(s.recuperando(mux))))))
 }
 
 // registrando escribe una línea por petición: método, ruta (sin query, que
 // lleva capacidades y autorizaciones), código y milisegundos. Nada de quién.
+// La ruta se vuelve a codificar desde Path y se entrecomilla: URL.Path ya está
+// decodificada y no puede cruzar tal cual a un registro orientado a líneas.
+// No se reutiliza RawPath, para que codificaciones equivalentes tengan una sola
+// representación en el registro.
+func rutaLogHTTP(r *http.Request) string {
+	return (&url.URL{Path: r.URL.Path}).EscapedPath()
+}
+
 func (s *Server) registrando(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/static/") || r.URL.Path == "/api/health" {
@@ -147,7 +175,7 @@ func (s *Server) registrando(next http.Handler) http.Handler {
 		inicio := time.Now()
 		rw := &conCodigo{ResponseWriter: w, codigo: http.StatusOK}
 		next.ServeHTTP(rw, r)
-		log.Printf("%s %s %d %dms", r.Method, r.URL.Path, rw.codigo, time.Since(inicio).Milliseconds())
+		log.Printf("%s %q %d %dms", r.Method, rutaLogHTTP(r), rw.codigo, time.Since(inicio).Milliseconds())
 	})
 }
 
@@ -161,9 +189,9 @@ func (c *conCodigo) WriteHeader(code int) {
 	c.ResponseWriter.WriteHeader(code)
 }
 
-// contentSecurityPolicy: un solo script (el nuestro, passkey.js: WebAuthn sólo
-// existe en el navegador), nada inline, nada de fuera. Las imágenes en data:
-// son los QR de los factores, que GoTrue devuelve así.
+// contentSecurityPolicy: sólo scripts nuestros (passkey.js para WebAuthn y
+// email-link.js para sacar capacidades del fragmento), nada inline ni externo.
+// Las imágenes en data: son los QR de los factores, que GoTrue devuelve así.
 //
 // `form-action` lleva, además de 'self', el dominio de la casa y sus
 // subdominios. No porque haya formularios que envíen fuera: porque Chrome
@@ -190,7 +218,11 @@ func (s *Server) cabeceras(next http.Handler) http.Handler {
 		h.Set("Content-Security-Policy", csp)
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("X-Frame-Options", "DENY")
-		h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		if esInterstitialCapacidad(r.URL.Path) || mencionaCapacidadURL(r.URL.RawQuery) {
+			h.Set("Referrer-Policy", "no-referrer")
+		} else {
+			h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		}
 		h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
 		if !strings.HasPrefix(r.URL.Path, "/static/") && !strings.HasPrefix(r.URL.Path, "/plantillas/") {
 			h.Set("Cache-Control", "no-store")
@@ -199,11 +231,54 @@ func (s *Server) cabeceras(next http.Handler) http.Handler {
 	})
 }
 
+func esInterstitialCapacidad(ruta string) bool {
+	return ruta == "/verificar" || ruta == "/restablecer" || ruta == "/cuenta/correo/confirmar"
+}
+
+func mencionaParametro(raw, nombre string) bool {
+	for _, parte := range strings.FieldsFunc(raw, func(r rune) bool { return r == '&' || r == ';' }) {
+		clave, _, _ := strings.Cut(parte, "=")
+		decodificada, err := url.QueryUnescape(clave)
+		if err == nil && decodificada == nombre {
+			return true
+		}
+	}
+	return false
+}
+
+func mencionaCapacidadURL(rawQuery string) bool {
+	return mencionaParametro(rawQuery, "token_hash") || mencionaParametro(rawQuery, "token")
+}
+
+// sinCapacidadesEnURL es la última defensa dentro del borde HTTP de la app.
+// Las plantillas nuevas usan fragmentos, que el navegador nunca envía. Un
+// enlace antiguo o manipulado se redirige sin el secreto y debe volver a
+// emitirse: copiarlo a Location repetiría la exposición en metadatos HTTP.
+func (s *Server) sinCapacidadesEnURL(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !mencionaCapacidadURL(r.URL.RawQuery) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		limpia := *r.URL
+		valores, err := url.ParseQuery(limpia.RawQuery)
+		if err != nil {
+			limpia.RawQuery = ""
+		} else {
+			valores.Del("token_hash")
+			valores.Del("token")
+			limpia.RawQuery = valores.Encode()
+		}
+		limpia.Fragment = ""
+		http.Redirect(w, r, limpia.RequestURI(), http.StatusSeeOther)
+	})
+}
+
 func (s *Server) recuperando(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if rec := recover(); rec != nil {
-				log.Printf("pánico en %s %s: %v", r.Method, r.URL.Path, rec)
+				log.Printf("pánico en %s %q: %v", r.Method, rutaLogHTTP(r), rec)
 				s.errorPagina(w, r, http.StatusInternalServerError, "Something went wrong", "The page could not be served. It has been logged.")
 			}
 		}()
@@ -246,6 +321,21 @@ func (s *Server) conCSRF(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// campoPostUnico evita que un portador duplicado dependa del orden elegido por
+// net/http. Sólo el cuerpo puede aportar capacidades: nunca la query.
+func campoPostUnico(r *http.Request, nombre string) (string, bool) {
+	if r.PostForm == nil {
+		if err := r.ParseForm(); err != nil {
+			return "", false
+		}
+	}
+	valores := r.PostForm[nombre]
+	if len(valores) != 1 || valores[0] == "" {
+		return "", false
+	}
+	return valores[0], true
 }
 
 // Los formularios sólo se envían desde el origen configurado, nunca desde un
@@ -470,6 +560,46 @@ func (s *Server) requiereAdmin(w http.ResponseWriter, r *http.Request) *session.
 	return a
 }
 
+// requiereAutoridadAdmin abre la frontera linealizable de una mutación. A
+// diferencia de requiereAdmin, la membresía se relee después de bloquear al
+// actor y a todos los destinos, y esos bloqueos sobreviven hasta Cerrar.
+func (s *Server) requiereAutoridadAdmin(w http.ResponseWriter, r *http.Request, objetivos ...string) (*session.Actual, *store.AutoridadAdmin) {
+	a := s.requiereSesion(w, r)
+	if a == nil {
+		return nil, nil
+	}
+	autoridad, err := s.st.AutorizarAdmin(r.Context(), a.UserID, s.cfg.AdminGroup, objetivos...)
+	if errors.Is(err, store.ErrAdministradorRevocado) {
+		s.errorPagina(w, r, http.StatusForbidden, "Not allowed", "This page is for administrators.")
+		return nil, nil
+	}
+	if err != nil {
+		log.Printf("autoridad administrativa de %s: %v", a.UserID, err)
+		s.errorPagina(w, r, http.StatusInternalServerError, "Could not authorize the change", "Try again.")
+		return nil, nil
+	}
+	// El middleware pudo cargar la sesión justo antes de una revocación. Se
+	// vuelve a leer bajo el bloqueo del actor y, además, se exige que la fila
+	// haya nacido después de su última generación administrativa. Así una
+	// limpieza fallida seguida de una reconcesión tampoco revive la petición.
+	if a.ID != "" {
+		fila, err := s.st.Sesion(r.Context(), a.ID)
+		if errors.Is(err, store.ErrNoExiste) || err == nil && (fila.UserID != a.UserID ||
+			autoridad.Generacion() > 0 && !fila.Creada.After(autoridad.Actualizada())) {
+			autoridad.Cerrar()
+			s.errorPagina(w, r, http.StatusForbidden, "Not allowed", "This administrative session is no longer valid.")
+			return nil, nil
+		}
+		if err != nil {
+			autoridad.Cerrar()
+			log.Printf("revalidar sesión administrativa de %s: %v", a.UserID, err)
+			s.errorPagina(w, r, http.StatusInternalServerError, "Could not authorize the change", "Try again.")
+			return nil, nil
+		}
+	}
+	return a, autoridad
+}
+
 // ipDe sólo acepta la cabecera elegida de un proxy explícito que la sobrescribe.
 // Toda identidad se normaliza antes de formar la clave del limitador.
 func (s *Server) ipDe(r *http.Request) (string, bool) {
@@ -584,6 +714,7 @@ func (s *Server) frena(w http.ResponseWriter, r *http.Request, accion string, ma
 	if s.limitador.permite(accion+"|"+ip, max, porMinuto) {
 		return false
 	}
+	w.Header().Set("Retry-After", "60")
 	s.errorPagina(w, r, http.StatusTooManyRequests, "Too many attempts", "Wait a minute and try again.")
 	return true
 }

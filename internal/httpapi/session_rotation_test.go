@@ -2,8 +2,6 @@ package httpapi
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -38,7 +36,7 @@ func servidorConSesiones(t *testing.T, proveedor http.HandlerFunc) *Server {
 	}
 	falso := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/user" {
-			_ = json.NewEncoder(w).Encode(gotrue.User{})
+			_ = json.NewEncoder(w).Encode(gotrue.User{ID: consentPersona})
 			return
 		}
 		proveedor(w, r)
@@ -59,12 +57,8 @@ func servidorConSesiones(t *testing.T, proveedor http.HandlerFunc) *Server {
 
 func sesionDePrueba(t *testing.T, s *Server, recordar bool, aal string, segundos int) (*session.Actual, *http.Cookie) {
 	t.Helper()
-	b := make([]byte, 16)
-	if _, err := rand.Read(b); err != nil {
-		t.Fatal(err)
-	}
-	gs := &gotrue.Session{AccessToken: "anterior", RefreshToken: "refresh-anterior", ExpiresIn: segundos,
-		User: gotrue.User{ID: hex.EncodeToString(b), Email: "test@example.com", UserMetadata: map[string]any{"name": "Test"}}}
+	gs := &gotrue.Session{AccessToken: "access-" + consentPersona, RefreshToken: "refresh-anterior", ExpiresIn: segundos,
+		User: gotrue.User{ID: consentPersona, Email: "test@example.com", UserMetadata: map[string]any{"name": "Test"}}}
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodGet, "/", nil)
 	r.Header.Set("User-Agent", "navegador de prueba")
@@ -95,11 +89,19 @@ func peticionFactor(s *Server, ruta string, a *session.Actual) *http.Request {
 	form := url.Values{"factor_id": {"factor"}, "challenge_id": {"reto"}, "code": {"123456"}, "credential": {`{"id":"credencial"}`}}
 	r := httptest.NewRequest(http.MethodPost, ruta, strings.NewReader(form.Encode()))
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	r.AddCookie(prepararAltaMFADePrueba(s, a, ruta))
 	return r.WithContext(context.WithValue(r.Context(), claveSesion, a))
 }
 
-func respuestaVerificada(w http.ResponseWriter) {
-	_ = json.NewEncoder(w).Encode(&gotrue.Session{AccessToken: "verificado-aal2", RefreshToken: "refresh-verificado", ExpiresIn: 3600})
+func respuestaVerificada(w http.ResponseWriter, userIDs ...string) {
+	var userID string
+	if len(userIDs) > 0 {
+		userID = userIDs[0]
+	} else {
+		userID = consentPersona
+	}
+	_ = json.NewEncoder(w).Encode(&gotrue.Session{AccessToken: "verificado-aal2", RefreshToken: "refresh-verificado", ExpiresIn: 3600,
+		User: gotrue.User{ID: userID, Email: "test@example.com"}})
 }
 
 func TestAltaFactorRotaSesion(t *testing.T) {

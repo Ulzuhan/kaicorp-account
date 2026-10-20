@@ -19,7 +19,8 @@
 --      necesita y la API no ofrece a un administrador: saber qué cliente pide
 --      una autorización ANTES de aprobarla (GoTrue aprueba solo si hay grant
 --      previo), revocar el grant de otra persona al quitarle una membresía, y
---      cerrar sus sesiones. Sólo lectura salvo esas dos escrituras.
+--      invalidar códigos OAuth, revocar grants y cerrar sesiones. Sólo lectura
+--      salvo esas tres escrituras acotadas.
 --   3. El hook de claims: mete en el access token los grupos de la persona,
 --      leídos de account.membresias. Es lo que lee LinkUp. Su dueño dedicado
 --      sólo puede leer las tres relaciones de negocio necesarias. Los dos
@@ -100,7 +101,10 @@ do $$ begin
     grant select, insert, update, delete on account.solicitudes to account;
   end if;
   if pg_catalog.to_regclass('account.sesiones') is not null then
-    grant select, insert, update, delete on account.sesiones to account;
+    grant select, insert, delete on account.sesiones to account;
+  end if;
+  if pg_catalog.to_regclass('account.intentos_password') is not null then
+    grant select, insert, update, delete on account.intentos_password to account;
   end if;
   if pg_catalog.to_regclass('account.clientes_anteriores') is not null then
     grant select, insert on account.clientes_anteriores to account;
@@ -118,13 +122,32 @@ do $$ begin
   end if;
 end $$;
 
--- Lecturas sobre auth: quién es quién y qué cliente pide qué.
+do $$ begin
+  if pg_catalog.to_regprocedure('account.actualizar_tokens_sesion(text,bytea,bytea,timestamptz)') is not null then
+    execute 'grant execute on function account.actualizar_tokens_sesion(text,bytea,bytea,timestamptz) to account';
+  end if;
+  if pg_catalog.to_regprocedure('account.rotar_sesion(text,text,bytea,bytea,timestamptz,text)') is not null then
+    execute 'grant execute on function account.rotar_sesion(text,text,bytea,bytea,timestamptz,text) to account';
+  end if;
+  if pg_catalog.to_regprocedure('account.tocar_sesion(text)') is not null then
+    execute 'grant execute on function account.tocar_sesion(text) to account';
+  end if;
+  if pg_catalog.to_regprocedure('account.actualizar_correo_sesiones(uuid,text)') is not null then
+    execute 'grant execute on function account.actualizar_correo_sesiones(uuid,text) to account';
+  end if;
+end $$;
+
+-- Lecturas sobre auth: quién es quién, qué cliente pide qué y qué identidad,
+-- propósito y buzón están ligados a un hash de correo antes de canjearlo.
 grant usage on schema auth to account;
 grant select on auth.users to account;
+grant select on auth.one_time_tokens to account;
 grant select on auth.oauth_clients to account;
 grant select on auth.oauth_authorizations to account;
 grant select on auth.oauth_consents to account;
--- Las dos escrituras: revocar un grant y cerrar sesiones del proveedor.
+-- Las tres escrituras: invalidar un código aprobado, revocar un grant y
+-- cerrar sesiones del proveedor.
+grant update (status) on auth.oauth_authorizations to account;
 grant update (revoked_at) on auth.oauth_consents to account;
 grant delete on auth.sessions to account;
 grant select on auth.sessions to account;
@@ -132,13 +155,18 @@ grant select on auth.sessions to account;
 -- Las tablas de auth llevan seguridad por filas en la imagen de Supabase: un
 -- GRANT deja consultar pero no deja ver ninguna fila. Cada permiso de arriba
 -- necesita su política, acotada al rol `account` y a lo que hace la app.
--- (Sin BYPASSRLS, que sería abrir todo: mejor cinco políticas con nombre.)
+-- (Sin BYPASSRLS, que sería abrir todo: políticas explícitas con nombre.)
 drop policy if exists account_lee_users on auth.users;
 create policy account_lee_users on auth.users for select to account using (true);
+drop policy if exists account_lee_tokens_correo on auth.one_time_tokens;
+create policy account_lee_tokens_correo on auth.one_time_tokens for select to account using (true);
 drop policy if exists account_lee_clientes on auth.oauth_clients;
 create policy account_lee_clientes on auth.oauth_clients for select to account using (true);
 drop policy if exists account_lee_autorizaciones on auth.oauth_authorizations;
 create policy account_lee_autorizaciones on auth.oauth_authorizations for select to account using (true);
+drop policy if exists account_invalida_autorizaciones on auth.oauth_authorizations;
+create policy account_invalida_autorizaciones on auth.oauth_authorizations for update to account
+  using (status='approved' and expires_at>now()) with check (status='denied');
 drop policy if exists account_lee_grants on auth.oauth_consents;
 create policy account_lee_grants on auth.oauth_consents for select to account using (true);
 drop policy if exists account_revoca_grants on auth.oauth_consents;
@@ -267,19 +295,56 @@ begin
   -- Los clientes ajenos a esta app conservan su política. Para uno vinculado,
   -- ni el primer INSERT, ni UPDATE/UPSERT, ni GET autoapprove pueden revivir
   -- autoridad después de que termine la revocación.
-  if exists (select 1 from account.grupos where cliente_id::uuid=new.client_id)
-     and not exists (
-       select 1 from account.grupos g join account.membresias m on m.grupo=g.nombre
-       where g.cliente_id::uuid=new.client_id and m.user_id=new.user_id
-     ) then
+  if (
+    exists (select 1 from account.grupos where cliente_id::uuid=new.client_id)
+    and not exists (
+      select 1 from account.grupos g join account.membresias m on m.grupo=g.nombre
+      where g.cliente_id::uuid=new.client_id and m.user_id=new.user_id
+    )
+  ) or (
+    exists (select 1 from account.clientes_anteriores where cliente_id=new.client_id)
+    and not exists (
+      select 1 from account.grupos g join account.membresias m on m.grupo=g.nombre
+      where g.cliente_id::uuid=new.client_id and m.user_id=new.user_id
+    )
+  ) then
     raise exception 'membership no longer authorizes this consent' using errcode='42501';
   end if;
   return new;
 end;
 $$;
 alter function public.account_valida_consentimiento() owner to account_hook;
+
+-- Una revocación de consent no elimina por sí sola el refresh token: GoTrue
+-- lo liga a auth.sessions.oauth_client_id. Esta guarda aplica la misma frontera
+-- al crear o refrescar una sesión y ordena el intercambio de un código que ya
+-- estaba en vuelo con el cambio de vínculo.
+create or replace function public.account_valida_sesiones_oauth()
+returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  if new.oauth_client_id is null then return new; end if;
+  if (
+    exists (select 1 from account.grupos where cliente_id::uuid=new.oauth_client_id)
+    and not exists (
+      select 1 from account.grupos g join account.membresias m on m.grupo=g.nombre
+      where g.cliente_id::uuid=new.oauth_client_id and m.user_id=new.user_id
+    )
+  ) or (
+    exists (select 1 from account.clientes_anteriores where cliente_id=new.oauth_client_id)
+    and not exists (
+      select 1 from account.grupos g join account.membresias m on m.grupo=g.nombre
+      where g.cliente_id::uuid=new.oauth_client_id and m.user_id=new.user_id
+    )
+  ) then
+    raise exception 'membership no longer authorizes this OAuth session' using errcode='42501';
+  end if;
+  return new;
+end;
+$$;
+alter function public.account_valida_sesiones_oauth() owner to account_hook;
 revoke execute on function public.account_sincroniza_consentimiento() from public, anon, authenticated;
 revoke execute on function public.account_valida_consentimiento() from public, anon, authenticated;
+revoke execute on function public.account_valida_sesiones_oauth() from public, anon, authenticated;
 
 drop trigger if exists account_sincroniza_consentimiento on auth.oauth_authorizations;
 create trigger account_sincroniza_consentimiento before insert or update on auth.oauth_authorizations
@@ -293,6 +358,12 @@ create trigger account_sincroniza_consentimiento before insert or update on auth
 drop trigger if exists account_valida_consentimiento on auth.oauth_consents;
 create trigger account_valida_consentimiento before insert or update on auth.oauth_consents
   for each row execute function public.account_valida_consentimiento();
+drop trigger if exists account_sincroniza_sesiones_oauth on auth.sessions;
+create trigger account_sincroniza_sesiones_oauth before insert or update on auth.sessions
+  for each statement execute function public.account_sincroniza_consentimiento();
+drop trigger if exists account_valida_sesiones_oauth on auth.sessions;
+create trigger account_valida_sesiones_oauth before insert or update on auth.sessions
+  for each row execute function public.account_valida_sesiones_oauth();
 
 revoke create on schema public from account_hook, account_hook_lock;
 

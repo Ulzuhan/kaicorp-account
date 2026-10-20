@@ -25,15 +25,21 @@ type Config struct {
 	// PublicURL es la dirección que ve el navegador: https://account.example.com.
 	// Se usa para construir enlaces absolutos y para decidir si la cookie va Secure.
 	PublicURL *url.URL
-	// GoTrueURL es la base INTERNA de la API de GoTrue, con su prefijo /auth/v1:
-	// http://<pasarela>/auth/v1. Dentro de un contenedor 127.0.0.1 es el
-	// contenedor, así que aquí va el nombre de la pasarela en su red.
+	// GoTrueURL es la base HTTPS de la API de GoTrue, con su prefijo /auth/v1.
+	// Lleva contraseñas y claves administrativas: una red interna no sustituye
+	// la autenticación y el cifrado del transporte.
 	GoTrueURL string
+	// GoTrueInsecureHTTP sólo permite HTTP hacia una IP literal de loopback. Es
+	// una excepción explícita para desarrollo local, nunca para redes Docker.
+	GoTrueInsecureHTTP bool
 	// AnonKey es la clave pública (JWT con role anon) que GoTrue exige en `apikey`.
 	AnonKey string
 	// ServiceKey es la clave de administración (role service_role). Sólo la usan
 	// las operaciones de administración: borrar cuentas y bloquearlas.
 	ServiceKey string
+	// EmailLinkTTL debe ser el mismo valor que GOTRUE_MAILER_OTP_EXP. La app lo
+	// usa para rechazar un hash caducado antes de que /verify pueda consumirlo.
+	EmailLinkTTL time.Duration
 	// DatabaseURL es la conexión al Postgres de la instancia con el rol `account`.
 	DatabaseURL string
 	// MigrationDatabaseURL usa el rol dueño `account_migrator`. Sólo se lee para
@@ -63,7 +69,8 @@ type Config struct {
 	// se borra pasados estos días (14 por defecto; 0 desactiva la purga). Las
 	// invitadas no se tocan: la invitación la decidió una persona y se reenvía.
 	UnconfirmedDays int
-	// InsecureCookies quita `Secure` de las cookies: sólo para pruebas por http.
+	// InsecureCookies selecciona nombres sin __Host- sólo para desarrollo HTTP
+	// explícito sobre una IP literal de loopback.
 	InsecureCookies bool
 	// Addr es host:puerto de escucha.
 	Addr string
@@ -84,12 +91,35 @@ func FromEnv() (*Config, error) {
 		u.RawQuery, u.Fragment = "", ""
 		c.PublicURL = u
 	}
+	switch raw := strings.TrimSpace(os.Getenv("ACCOUNT_INSECURE_COOKIES")); raw {
+	case "":
+	case "1":
+		c.InsecureCookies = true
+	default:
+		errs = append(errs, fmt.Errorf("ACCOUNT_INSECURE_COOKIES: sólo se admite 1 para desarrollo local, no %q", raw))
+	}
+	if c.PublicURL != nil {
+		switch {
+		case c.PublicURL.Scheme == "https" && c.InsecureCookies:
+			errs = append(errs, errors.New("ACCOUNT_INSECURE_COOKIES: no se admite con ACCOUNT_PUBLIC_URL https"))
+		case c.PublicURL.Scheme == "http" && !c.InsecureCookies:
+			errs = append(errs, errors.New("ACCOUNT_PUBLIC_URL: http exige ACCOUNT_INSECURE_COOKIES=1 para desarrollo local"))
+		case c.PublicURL.Scheme == "http" && !esLoopbackLiteral(c.PublicURL.Hostname()):
+			errs = append(errs, errors.New("ACCOUNT_PUBLIC_URL: el http de desarrollo sólo admite una IP literal de loopback"))
+		}
+	}
 
-	c.GoTrueURL = strings.TrimRight(strings.TrimSpace(os.Getenv("ACCOUNT_GOTRUE_URL")), "/")
-	if c.GoTrueURL == "" {
-		errs = append(errs, errors.New("ACCOUNT_GOTRUE_URL: falta (http://<pasarela>/auth/v1)"))
-	} else if !strings.HasPrefix(c.GoTrueURL, "http://") && !strings.HasPrefix(c.GoTrueURL, "https://") {
-		errs = append(errs, fmt.Errorf("ACCOUNT_GOTRUE_URL: tiene que ser http(s): %q", c.GoTrueURL))
+	switch raw := strings.TrimSpace(os.Getenv("ACCOUNT_GOTRUE_INSECURE_HTTP")); raw {
+	case "":
+	case "1":
+		c.GoTrueInsecureHTTP = true
+	default:
+		errs = append(errs, fmt.Errorf("ACCOUNT_GOTRUE_INSECURE_HTTP: sólo se admite 1 para desarrollo local, no %q", raw))
+	}
+	if gotrueURL, err := validarGoTrueURL(os.Getenv("ACCOUNT_GOTRUE_URL"), c.GoTrueInsecureHTTP); err != nil {
+		errs = append(errs, err)
+	} else {
+		c.GoTrueURL = gotrueURL
 	}
 
 	c.AnonKey = strings.TrimSpace(os.Getenv("ACCOUNT_ANON_KEY"))
@@ -99,6 +129,29 @@ func FromEnv() (*Config, error) {
 	c.ServiceKey = strings.TrimSpace(os.Getenv("ACCOUNT_SERVICE_KEY"))
 	if c.ServiceKey == "" {
 		errs = append(errs, errors.New("ACCOUNT_SERVICE_KEY: falta"))
+	}
+	var ttlCuenta, ttlProveedor int
+	var ttlCuentaOK, ttlProveedorOK bool
+	if raw := strings.TrimSpace(os.Getenv("ACCOUNT_EMAIL_LINK_TTL_SECONDS")); raw == "" {
+		errs = append(errs, errors.New("ACCOUNT_EMAIL_LINK_TTL_SECONDS: falta"))
+	} else if segundos, err := strconv.Atoi(raw); err != nil || segundos < 1 || segundos > 86400 {
+		errs = append(errs, fmt.Errorf("ACCOUNT_EMAIL_LINK_TTL_SECONDS: entero entre 1 y 86400, no %q", raw))
+	} else {
+		ttlCuenta, ttlCuentaOK = segundos, true
+	}
+	if raw := strings.TrimSpace(os.Getenv("GOTRUE_MAILER_OTP_EXP")); raw == "" {
+		errs = append(errs, errors.New("GOTRUE_MAILER_OTP_EXP: falta en el entorno de la app para comprobar la configuración del proveedor"))
+	} else if segundos, err := strconv.Atoi(raw); err != nil || segundos < 1 || segundos > 86400 {
+		errs = append(errs, fmt.Errorf("GOTRUE_MAILER_OTP_EXP: entero entre 1 y 86400, no %q", raw))
+	} else {
+		ttlProveedor, ttlProveedorOK = segundos, true
+	}
+	if ttlCuentaOK && ttlProveedorOK {
+		if ttlCuenta != ttlProveedor {
+			errs = append(errs, fmt.Errorf("ACCOUNT_EMAIL_LINK_TTL_SECONDS (%d) debe coincidir con GOTRUE_MAILER_OTP_EXP (%d)", ttlCuenta, ttlProveedor))
+		} else {
+			c.EmailLinkTTL = time.Duration(ttlCuenta) * time.Second
+		}
 	}
 	c.DatabaseURL = strings.TrimSpace(os.Getenv("ACCOUNT_DATABASE_URL"))
 	if c.DatabaseURL == "" {
@@ -187,8 +240,6 @@ func FromEnv() (*Config, error) {
 	if c.SMTPHost != "" && (c.SMTPUser == "" || c.SMTPPass == "" || c.SMTPFrom == "") {
 		errs = append(errs, errors.New("ACCOUNT_SMTP_HOST está pero faltan ACCOUNT_SMTP_USER, ACCOUNT_SMTP_PASS o ACCOUNT_SMTP_FROM (\"Nombre <correo>\")"))
 	}
-	c.InsecureCookies = os.Getenv("ACCOUNT_INSECURE_COOKIES") == "1"
-
 	host := os.Getenv("HOSTNAME")
 	if host == "" {
 		host = "127.0.0.1"
@@ -205,7 +256,36 @@ func FromEnv() (*Config, error) {
 	return c, nil
 }
 
-// CookieSecure dice si las cookies llevan Secure: siempre salvo en pruebas por http.
+func validarGoTrueURL(raw string, permitirHTTP bool) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", errors.New("ACCOUNT_GOTRUE_URL: falta (https://<pasarela>/auth/v1)")
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.Opaque != "" || u.Host == "" || (u.Scheme != "https" && u.Scheme != "http") {
+		return "", fmt.Errorf("ACCOUNT_GOTRUE_URL: no es una URL https válida: %q", raw)
+	}
+	if u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+		return "", fmt.Errorf("ACCOUNT_GOTRUE_URL: no admite usuario, query ni fragmento: %q", raw)
+	}
+	if u.Scheme == "http" {
+		if !permitirHTTP {
+			return "", errors.New("ACCOUNT_GOTRUE_URL: exige https; sólo desarrollo local puede usar http con ACCOUNT_GOTRUE_INSECURE_HTTP=1")
+		}
+		if !esLoopbackLiteral(u.Hostname()) {
+			return "", errors.New("ACCOUNT_GOTRUE_URL: el http de desarrollo sólo admite una IP literal de loopback")
+		}
+	}
+	return strings.TrimRight(raw, "/"), nil
+}
+
+func esLoopbackLiteral(host string) bool {
+	ip, err := netip.ParseAddr(host)
+	return err == nil && !ip.Is4In6() && ip.Zone() == "" && ip.IsLoopback()
+}
+
+// CookieSecure dice si las cookies llevan Secure. FromEnv sólo permite false
+// para el modo HTTP explícito sobre una IP literal de loopback.
 func (c *Config) CookieSecure() bool {
 	return !c.InsecureCookies && c.PublicURL.Scheme == "https"
 }

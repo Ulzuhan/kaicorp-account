@@ -78,7 +78,7 @@ func TestCookieSesionFirmada(t *testing.T) {
 	w := httptest.NewRecorder()
 	m.ponerCookie(w, id, expira)
 	cookie := w.Result().Cookies()[0]
-	if cookie.Name != CookieName || cookie.Value == id || !cookie.Expires.Equal(expira) || !cookie.HttpOnly || !cookie.Secure || cookie.Path != "/" || cookie.SameSite != http.SameSiteLaxMode {
+	if cookie.Name != CookieName || cookie.Value == id || !cookie.Expires.Equal(expira) || !cookie.HttpOnly || !cookie.Secure || cookie.Path != "/" || cookie.Domain != "" || cookie.SameSite != http.SameSiteLaxMode {
 		t.Fatalf("cookie firmada o política incorrectas: %+v", cookie)
 	}
 	if leido, ok := m.idDeCookie(cookie.Value); !ok || leido != id {
@@ -124,6 +124,75 @@ func TestCookieSesionFirmada(t *testing.T) {
 			}
 			if len(w.Result().Cookies()) != 0 {
 				t.Fatal("una cookie inválida sobrescribió otra respuesta concurrente")
+			}
+		})
+	}
+}
+
+func TestCookieSesionHostOnlyPorModoYSinAmbiguedad(t *testing.T) {
+	id := strings.Repeat("ab", 32)
+	for _, seguro := range []bool{true, false} {
+		t.Run(map[bool]string{true: "https", false: "http-desarrollo"}[seguro], func(t *testing.T) {
+			m := gestor(t)
+			m.secure = seguro
+			emitida := httptest.NewRecorder()
+			m.ponerCookie(emitida, id, time.Now().Add(time.Hour))
+			nombre := DevelopmentCookieName
+			if seguro {
+				nombre = CookieName
+			}
+			var activa *http.Cookie
+			for _, c := range emitida.Result().Cookies() {
+				if c.Name == nombre && c.MaxAge >= 0 && c.Value != "" {
+					activa = c
+				}
+			}
+			if activa == nil || activa.Path != "/" || activa.Domain != "" || activa.Secure != seguro || !activa.HttpOnly {
+				t.Fatalf("cookie activa incorrecta: %+v", activa)
+			}
+
+			alias := CookieName
+			if seguro {
+				alias = DevelopmentCookieName
+			}
+			rAlias := httptest.NewRequest(http.MethodGet, "/cuenta", nil)
+			rAlias.AddCookie(&http.Cookie{Name: alias, Value: activa.Value})
+			wAlias := httptest.NewRecorder()
+			if actual, err := m.Cargar(t.Context(), wAlias, rAlias); err != nil || actual != nil {
+				t.Fatalf("se aceptó el alias del otro modo: %+v %v", actual, err)
+			}
+			if seguro {
+				expiradas := make(map[string]bool, len(rutasCookieSesionLegada))
+				for _, c := range wAlias.Result().Cookies() {
+					if c.Name == DevelopmentCookieName && c.MaxAge < 0 && c.Domain == "" && c.Secure {
+						expiradas[c.Path] = true
+					}
+				}
+				for _, ruta := range rutasCookieSesionLegada {
+					if !expiradas[ruta] {
+						t.Fatalf("no se expiró la cookie de sesión legada en %s", ruta)
+					}
+				}
+			}
+
+			for _, distinta := range []bool{false, true} {
+				for _, cabecerasSeparadas := range []bool{false, true} {
+					r := httptest.NewRequest(http.MethodGet, "/cuenta", nil)
+					r.AddCookie(activa)
+					valor := activa.Value
+					if distinta {
+						valor = "v1." + strings.Repeat("cd", 32) + "." + m.firmaSesion(strings.Repeat("cd", 32))
+					}
+					duplicada := (&http.Cookie{Name: nombre, Value: valor}).String()
+					if cabecerasSeparadas {
+						r.Header.Add("Cookie", duplicada)
+					} else {
+						r.Header.Set("Cookie", r.Header.Get("Cookie")+"; "+duplicada)
+					}
+					if actual, err := m.Cargar(t.Context(), httptest.NewRecorder(), r); err != nil || actual != nil {
+						t.Fatalf("cookies duplicadas aceptadas (distinta=%t separadas=%t): %+v %v", distinta, cabecerasSeparadas, actual, err)
+					}
+				}
 			}
 		})
 	}

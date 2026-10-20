@@ -52,9 +52,26 @@ func respuestaDeCambio(w *httptest.ResponseRecorder) respuestaCambioCorreo {
 	return out
 }
 
+func capacidadFragmentoPrueba(t *testing.T, u *url.URL, nombre string) string {
+	t.Helper()
+	if u.Query().Has(nombre) {
+		t.Fatalf("la capacidad %s apareció en la query: %s", nombre, u.String())
+	}
+	valores, err := url.ParseQuery(u.Fragment)
+	if err != nil || len(valores[nombre]) != 1 || valores.Get(nombre) == "" {
+		t.Fatalf("fragmento de capacidad inválido: %q %v", u.Fragment, err)
+	}
+	return valores.Get(nombre)
+}
+
 func TestCambioCorreoNoDistingueDireccionOcupada(t *testing.T) {
 	var llamadas atomic.Int32
 	s := servidorMFA(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/user" {
+			userID := strings.TrimPrefix(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "), "access-")
+			_ = json.NewEncoder(w).Encode(gotrue.User{ID: userID, Email: "test@example.com"})
+			return
+		}
 		llamadas.Add(1)
 		var body map[string]string
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -134,7 +151,7 @@ func TestCambioCorreoNoDistingueDireccionOcupada(t *testing.T) {
 		if strings.Contains(envio.datos.Confirmar, email) || strings.Contains(envio.datos.Confirmar, envio.actual) {
 			t.Fatalf("el enlace opaco contiene una dirección: %s", envio.datos.Confirmar)
 		}
-		token := confirmar.Query().Get("token")
+		token := capacidadFragmentoPrueba(t, confirmar, "token")
 		clave, ok := claveCambioCorreo(token)
 		if !ok {
 			t.Fatalf("token no opaco para %s: %q", email, token)
@@ -150,11 +167,11 @@ func TestCambioCorreoNoDistingueDireccionOcupada(t *testing.T) {
 		get.AddCookie(cookieSesion)
 		wGet := httptest.NewRecorder()
 		s.Handler().ServeHTTP(wGet, get)
-		if wGet.Code != http.StatusOK || llamadas.Load() != 0 {
+		if wGet.Code != http.StatusOK || llamadas.Load() != 0 || wGet.Header().Get("Referrer-Policy") != "no-referrer" {
 			t.Fatalf("GET tuvo efecto: status=%d proveedor=%d", wGet.Code, llamadas.Load())
 		}
-		if strings.Contains(wGet.Body.String(), email) {
-			t.Fatalf("GET reflejó la dirección propuesta %s", email)
+		if strings.Contains(wGet.Body.String(), email) || strings.Contains(wGet.Body.String(), token) || !strings.Contains(wGet.Body.String(), "/static/js/email-link.js?") {
+			t.Fatalf("GET reflejó datos o no cargó el traslado seguro para %s", email)
 		}
 	}
 
@@ -162,7 +179,7 @@ func TestCambioCorreoNoDistingueDireccionOcupada(t *testing.T) {
 	// no revela por GET si hay una capacidad almacenada.
 	desconocido := strings.Repeat("a", 64)
 	wDesconocido := httptest.NewRecorder()
-	rDesconocido := httptest.NewRequest(http.MethodGet, "/cuenta/correo/confirmar?token="+desconocido, nil)
+	rDesconocido := peticionEnlace(t, http.MethodGet, "/cuenta/correo/confirmar#token="+desconocido)
 	rDesconocido.AddCookie(cookieSesion)
 	s.Handler().ServeHTTP(wDesconocido, rDesconocido)
 	if wDesconocido.Code != http.StatusOK || llamadas.Load() != 0 {
@@ -172,7 +189,11 @@ func TestCambioCorreoNoDistingueDireccionOcupada(t *testing.T) {
 	// La capacidad pertenece a quien inició el cambio. Otra sesión no la consume
 	// y recibe exactamente el mismo acuse que todos los demás resultados.
 	confirmarDisponible, _ := url.Parse(envios["disponible@example.com"].datos.Confirmar)
-	tokenDisponible := confirmarDisponible.Query().Get("token")
+	tokenDisponible := capacidadFragmentoPrueba(t, confirmarDisponible, "token")
+	duplicada := respuestaDeCambio(postMFA(t, s, cookieSesion, "/cuenta/correo/confirmar", url.Values{"token": {tokenDisponible, strings.Repeat("b", 64)}}))
+	if duplicada != base || llamadas.Load() != 0 {
+		t.Fatalf("un token duplicado distinguió o consumió la capacidad: respuesta=%+v proveedor=%d", duplicada, llamadas.Load())
+	}
 	_, cookieAjena := sesionMFA(t, s, "00000000-0000-4000-8000-000000000099", "aal2", 3600)
 	respuestaAjena := respuestaDeCambio(postMFA(t, s, cookieAjena, "/cuenta/correo/confirmar", url.Values{"token": {tokenDisponible}}))
 	if respuestaAjena != base || llamadas.Load() != 0 {
@@ -182,7 +203,7 @@ func TestCambioCorreoNoDistingueDireccionOcupada(t *testing.T) {
 	confirmaciones := map[string]respuestaCambioCorreo{}
 	for _, email := range direcciones {
 		u, _ := url.Parse(envios[email].datos.Confirmar)
-		confirmaciones[email] = respuestaDeCambio(postMFA(t, s, cookieSesion, "/cuenta/correo/confirmar", url.Values{"token": {u.Query().Get("token")}}))
+		confirmaciones[email] = respuestaDeCambio(postMFA(t, s, cookieSesion, "/cuenta/correo/confirmar", url.Values{"token": {capacidadFragmentoPrueba(t, u, "token")}}))
 	}
 	for _, email := range direcciones {
 		if confirmaciones[email] != base {
@@ -197,7 +218,7 @@ func TestCambioCorreoNoDistingueDireccionOcupada(t *testing.T) {
 	// hay reintento que permita convertir el proveedor en un oráculo.
 	for _, email := range direcciones {
 		u, _ := url.Parse(envios[email].datos.Confirmar)
-		repetida := respuestaDeCambio(postMFA(t, s, cookieSesion, "/cuenta/correo/confirmar", url.Values{"token": {u.Query().Get("token")}}))
+		repetida := respuestaDeCambio(postMFA(t, s, cookieSesion, "/cuenta/correo/confirmar", url.Values{"token": {capacidadFragmentoPrueba(t, u, "token")}}))
 		if repetida != base || llamadas.Load() != 3 {
 			t.Fatalf("la capacidad de %s se pudo repetir: respuesta=%+v proveedor=%d", email, repetida, llamadas.Load())
 		}
@@ -255,7 +276,11 @@ func TestCambioCorreoConfirmacionConcurrenteEsUnSoloUso(t *testing.T) {
 
 func TestCambioCorreoCaducadoNoLlegaAlProveedor(t *testing.T) {
 	var llamadas atomic.Int32
-	s := servidorMFA(t, func(w http.ResponseWriter, _ *http.Request) {
+	s := servidorMFA(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/user" {
+			_ = json.NewEncoder(w).Encode(gotrue.User{ID: consentPersona})
+			return
+		}
 		llamadas.Add(1)
 		_ = json.NewEncoder(w).Encode(gotrue.User{ID: consentPersona})
 	})

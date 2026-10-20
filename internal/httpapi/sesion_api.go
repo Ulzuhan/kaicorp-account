@@ -6,6 +6,24 @@ import (
 	"strings"
 )
 
+const etiquetaSesionSinNombre = "Account"
+
+// respuestaSesionAPI es deliberadamente incapaz de transportar correo, id o
+// tokens. Esta ruta cruza un origen y su contrato público termina en estos tres
+// campos.
+type respuestaSesionAPI struct {
+	SignedIn bool   `json:"signed_in"`
+	Name     string `json:"name,omitempty"`
+	Admin    *bool  `json:"admin,omitempty"`
+}
+
+func proyectarSesionAPI(nombre string, admin bool) respuestaSesionAPI {
+	if strings.TrimSpace(nombre) == "" {
+		nombre = etiquetaSesionSinNombre
+	}
+	return respuestaSesionAPI{SignedIn: true, Name: nombre, Admin: &admin}
+}
+
 // apiSesion dice a la web pública si quien mira tiene sesión aquí, para que su
 // cabecera enseñe «Your tools · Nombre» en vez de «Sign in». Es la única ruta
 // con CORS, y sólo para los orígenes de la casa (cfg.SessionOrigins): la
@@ -27,18 +45,10 @@ func (s *Server) apiSesion(w http.ResponseWriter, r *http.Request) {
 	}
 	a := sesionDe(r)
 	if a == nil {
-		_ = json.NewEncoder(w).Encode(map[string]any{"signed_in": false})
+		_ = json.NewEncoder(w).Encode(respuestaSesionAPI{SignedIn: false})
 		return
 	}
-	nombre := a.Nombre
-	if nombre == "" {
-		nombre = a.Email
-	}
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"signed_in": true,
-		"name":      nombre,
-		"admin":     s.esAdmin(r.Context(), a),
-	})
+	_ = json.NewEncoder(w).Encode(proyectarSesionAPI(a.Nombre, s.esAdmin(r.Context(), a)))
 }
 
 func (s *Server) origenDeCasa(origen string) bool {

@@ -11,12 +11,14 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/Ulzuhan/kaicorp-account/internal/correo"
 	"github.com/Ulzuhan/kaicorp-account/internal/gotrue"
 	"github.com/Ulzuhan/kaicorp-account/internal/policy"
+	"github.com/Ulzuhan/kaicorp-account/internal/session"
 	"github.com/Ulzuhan/kaicorp-account/internal/store"
 )
 
@@ -26,10 +28,11 @@ type herramientaVista struct {
 	store.Grupo
 	Miembro   bool
 	Pendiente bool
+	EsRol     bool
 }
 
-// grupoVista es un grupo tal y como lo enseña la administración: los roles
-// (sin URL) no abren ninguna herramienta y no llevan cliente.
+// grupoVista es un grupo tal y como lo enseña la administración: los roles no
+// abren ninguna herramienta y no llevan cliente.
 type grupoVista struct {
 	store.Grupo
 	EsRol         bool
@@ -62,10 +65,11 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 	var hs []herramientaVista
 	concedidas, esperando := 0, 0
 	for _, g := range grupos {
-		if g.URL == "" && !miembro[g.Nombre] {
+		esRol := g.Tipo == store.TipoGrupoRol
+		if esRol && !miembro[g.Nombre] {
 			continue // los roles sólo se enseñan a quien los tiene
 		}
-		h := herramientaVista{Grupo: g, Miembro: miembro[g.Nombre], Pendiente: pendiente[g.Nombre]}
+		h := herramientaVista{Grupo: g, Miembro: miembro[g.Nombre], Pendiente: pendiente[g.Nombre], EsRol: esRol}
 		if h.Miembro {
 			concedidas++
 		} else if h.Pendiente {
@@ -84,7 +88,7 @@ func (s *Server) solicitar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	nombre := r.PathValue("grupo")
-	g, decision, err := s.st.SolicitarAcceso(r.Context(), a.UserID, nombre)
+	g, decision, err := s.st.SolicitarAcceso(r.Context(), a.UserID, nombre, s.cfg.AdminGroup)
 	if err != nil {
 		if errors.Is(err, store.ErrNoExiste) {
 			s.errorPagina(w, r, http.StatusNotFound, "Unknown tool", "There is no tool with that name.")
@@ -238,9 +242,14 @@ func (s *Server) consentSiguePermitido(w http.ResponseWriter, r *http.Request, u
 // ── Seguridad de la cuenta ─────────────────────────────────────────────────
 
 type enrolamiento struct {
-	factor  *gotrue.EnrolledFactor
-	passkey *passkeyPendiente
-	hasta   time.Time
+	factor      *gotrue.EnrolledFactor
+	passkey     *passkeyPendiente
+	userID      string
+	sessionID   string
+	autoridadID string
+	factorID    string
+	challengeID string
+	hasta       time.Time
 }
 
 // passkeyPendiente es un reto WebAuthn abierto: el factor existe en GoTrue y
@@ -266,7 +275,6 @@ func (s *Server) cuenta(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	datos := map[string]any{}
-	datos["PasswordSetup"] = s.capacidadPasswordDisponible(r, propositoInvitacion, a.UserID)
 	if u, err := s.gt.Me(r.Context(), a.Token()); err == nil {
 		datos["Factores"] = u.Factors
 		if n := u.Name(); n != "" {
@@ -286,6 +294,9 @@ func (s *Server) cuenta(w http.ResponseWriter, r *http.Request) {
 	if ss, err := s.st.SesionesDe(r.Context(), a.UserID); err == nil {
 		datos["Sesiones"] = ss
 	}
+	if mfa := s.vistaMFA(r, a); mfa != nil {
+		datos["MFA"] = mfa
+	}
 	if v, ok := s.enrolando.Load(a.ID); ok {
 		e := v.(enrolamiento)
 		if time.Now().Before(e.hasta) {
@@ -293,6 +304,7 @@ func (s *Server) cuenta(w http.ResponseWriter, r *http.Request) {
 				datos["Passkey"] = e.passkey
 			} else {
 				datos["Enrolando"] = e.factor
+				datos["EnrolandoChallenge"] = e.challengeID
 				// html/template convierte una URL data: en "#ZgotmplZ" salvo que
 				// llegue marcada como segura; el QR viene de GoTrue y va en base64.
 				datos["EnrolandoQR"] = template.URL(e.factor.QRDataURL())
@@ -388,8 +400,8 @@ func (s *Server) enviarPruebaCambioCorreo(userID, actual, propuesta, token strin
 	}
 	confirmar := *s.cfg.PublicURL
 	confirmar.Path = strings.TrimRight(confirmar.Path, "/") + "/cuenta/correo/confirmar"
-	confirmar.RawQuery = url.Values{"token": {token}}.Encode()
-	confirmar.Fragment = ""
+	confirmar.RawQuery = ""
+	confirmar.Fragment = url.Values{"token": {token}}.Encode()
 	cuenta := *s.cfg.PublicURL
 	cuenta.Path = strings.TrimRight(cuenta.Path, "/") + "/cuenta"
 	cuenta.RawQuery, cuenta.Fragment = "", ""
@@ -409,12 +421,7 @@ func (s *Server) cuentaCorreoConfirmarGET(w http.ResponseWriter, r *http.Request
 	if s.requiereSesion(w, r) == nil {
 		return
 	}
-	token := r.URL.Query().Get("token")
-	if _, ok := claveCambioCorreo(token); !ok {
-		s.responderCambioCorreo(w, r)
-		return
-	}
-	s.render(w, r, "confirmar-correo.html", "Confirm email change", map[string]any{"Token": token}, http.StatusOK)
+	s.render(w, r, "confirmar-correo.html", "Confirm email change", nil, http.StatusOK)
 }
 
 func (s *Server) cuentaCorreoConfirmarPOST(w http.ResponseWriter, r *http.Request) {
@@ -422,8 +429,9 @@ func (s *Server) cuentaCorreoConfirmarPOST(w http.ResponseWriter, r *http.Reques
 	if a == nil {
 		return
 	}
-	clave, ok := claveCambioCorreo(r.PostFormValue("token"))
-	if !ok {
+	token, unico := campoPostUnico(r, "token")
+	clave, ok := claveCambioCorreo(token)
+	if !unico || !ok {
 		s.responderCambioCorreo(w, r)
 		return
 	}
@@ -467,42 +475,16 @@ func (s *Server) cuentaPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if id, capacidad, ok := s.reclamarCapacidadPassword(r, propositoInvitacion, a.UserID); ok {
-		if _, err := s.gt.UpdatePassword(r.Context(), capacidad.proveedor.AccessToken, p1, "", ""); err != nil {
-			if falloPasswordReintentable(err) {
-				s.liberarCapacidadPassword(capacidad)
-			} else {
-				s.descartarCapacidadPassword(w, id, capacidad)
-			}
-			s.ponerFlash(w, mensajeGoTrue(err))
-			http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
-			return
-		}
-		if err := s.ses.Reautenticar(r.Context(), w, a, &capacidad.proveedor); err != nil {
-			s.descartarCapacidadPassword(w, id, capacidad)
-			s.ses.Cerrar(r.Context(), w, a)
-			s.errorPagina(w, r, http.StatusInternalServerError, "Password", "The password changed, but the session could not be renewed. Sign in with the new password.")
-			return
-		}
-		if err := s.ses.CerrarOtrasProveedor(r.Context(), a); err != nil {
-			s.descartarCapacidadPassword(w, id, capacidad)
-			s.ses.Cerrar(r.Context(), w, a)
-			s.errorPagina(w, r, http.StatusBadGateway, "Password", "The password changed, but every provider session could not be closed. Sign in with the new password and try closing other sessions again.")
-			return
-		}
-		s.descartarCapacidadPassword(w, id, capacidad)
-		s.ponerFlash(w, "Password saved.")
-		http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
-		return
-	}
-
 	actual := r.PostFormValue("current_password")
 	if actual == "" {
 		s.ponerFlash(w, "Type your current password to change it.")
 		http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
 		return
 	}
-	prueba, err := s.gt.Login(r.Context(), a.Email, actual)
+	prueba, err, respondido := s.verificarPassword(w, r, a.Email, actual, a.UserID)
+	if respondido {
+		return
+	}
 	if err != nil {
 		s.ponerFlash(w, "The current password is not correct.")
 		http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
@@ -525,15 +507,24 @@ func (s *Server) cuentaPassword(w http.ResponseWriter, r *http.Request) {
 		// que el proveedor no rebaje una cuenta con segundo factor.
 		token = a.Token()
 	}
-	if _, err := s.gt.UpdatePassword(r.Context(), token, p1, actual, ""); err != nil {
+	_, generacion, err := s.cambiarPassword(r.Context(), a.UserID, session.EmitidoDe(prueba.AccessToken), nil, token, p1, actual, "")
+	if err != nil {
 		s.ponerFlash(w, mensajeGoTrue(err))
 		http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
 		return
 	}
 	if a.EsAAL2() {
-		err = s.ses.RotarPortador(r.Context(), w, a)
+		if generacion > 0 {
+			err = s.ses.RotarPortadorEnGeneracion(r.Context(), w, a, generacion)
+		} else {
+			err = s.ses.RotarPortador(r.Context(), w, a)
+		}
 	} else {
-		err = s.ses.Reautenticar(r.Context(), w, a, prueba)
+		if generacion > 0 {
+			err = s.ses.ReautenticarEnGeneracion(r.Context(), w, a, prueba, generacion)
+		} else {
+			err = s.ses.Reautenticar(r.Context(), w, a, prueba)
+		}
 		conservarPrueba = err == nil
 	}
 	if err != nil {
@@ -555,11 +546,54 @@ func (s *Server) factorAlta(w http.ResponseWriter, r *http.Request) {
 	if a == nil {
 		return
 	}
+	id, autoridad, ok := s.cargarAutoridadMFA(r, a)
+	if !ok {
+		s.ponerFlash(w, "Confirm your current password before adding a factor.")
+		http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
+		return
+	}
+	autoridad.mu.Lock()
+	if !autoridad.Autorizada || autoridad.Proposito != propositoMFAAlta || !time.Now().Before(autoridad.Hasta) {
+		autoridad.mu.Unlock()
+		s.descartarAutoridadMFA(w, id, autoridad, true)
+		s.ponerFlash(w, "The recent-authentication proof expired. Start again.")
+		http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
+		return
+	}
+	if autoridad.EnUso {
+		autoridad.mu.Unlock()
+		s.ponerFlash(w, "A factor enrollment is already in progress.")
+		http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
+		return
+	}
+	autoridad.EnUso = true
+	defer autoridad.mu.Unlock()
+	desbloquear := s.bloquearMFA(a.UserID)
+	defer desbloquear()
+	if !s.sesionMFASigueViva(r.Context(), a) {
+		token := autoridad.Proveedor.AccessToken
+		s.autoridadesMFA.CompareAndDelete(id, autoridad)
+		s.ponerCookieAutoridadMFA(w, "", -1)
+		if token != "" {
+			_ = s.gt.Logout(r.Context(), token, "local")
+		}
+		http.Redirect(w, r, "/entrar", http.StatusSeeOther)
+		return
+	}
 	f, err := s.gt.EnrollTOTP(r.Context(), a.Token(), "Authenticator app", "KaiCorp Labs")
 	if err != nil {
+		autoridad.EnUso = false
 		s.ponerFlash(w, mensajeGoTrue(err))
 	} else {
-		s.enrolando.Store(a.ID, enrolamiento{factor: f, hasta: time.Now().Add(10 * time.Minute)})
+		ch, challengeErr := s.gt.ChallengeFactor(r.Context(), a.Token(), f.ID)
+		if challengeErr != nil {
+			_ = s.gt.DeleteFactor(r.Context(), a.Token(), f.ID)
+			autoridad.EnUso = false
+			s.ponerFlash(w, mensajeGoTrue(challengeErr))
+		} else {
+			s.enrolando.Store(a.ID, enrolamiento{factor: f, userID: a.UserID, sessionID: a.ID, autoridadID: id,
+				factorID: f.ID, challengeID: ch.ID, hasta: autoridad.Hasta})
+		}
 	}
 	http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
 }
@@ -569,23 +603,72 @@ func (s *Server) factorVerificar(w http.ResponseWriter, r *http.Request) {
 	if a == nil {
 		return
 	}
-	factorID := r.PostFormValue("factor_id")
-	ch, err := s.gt.ChallengeFactor(r.Context(), a.Token(), factorID)
+	id, autoridad, ok := s.cargarAutoridadMFA(r, a)
+	v, pendienteOK := s.enrolando.Load(a.ID)
+	pendiente, tipoOK := v.(enrolamiento)
+	if !ok || !pendienteOK || !tipoOK {
+		s.ponerFlash(w, "This factor enrollment was not started by this session, or it expired.")
+		http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
+		return
+	}
+	autoridad.mu.Lock()
+	defer autoridad.mu.Unlock()
+	if !autoridad.Autorizada || autoridad.Proposito != propositoMFAAlta || !autoridad.EnUso || autoridad.Consumida || pendiente.userID != a.UserID ||
+		pendiente.sessionID != a.ID || pendiente.autoridadID != id || pendiente.factorID != r.PostFormValue("factor_id") ||
+		pendiente.challengeID != r.PostFormValue("challenge_id") || !time.Now().Before(pendiente.hasta) {
+		s.ponerFlash(w, "This factor challenge does not belong to the pending enrollment. Start again.")
+		http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
+		return
+	}
+	autoridad.Consumida = true
+	desbloquear := s.bloquearMFA(a.UserID)
+	defer desbloquear()
+	if !s.sesionMFASigueViva(r.Context(), a) {
+		http.Redirect(w, r, "/entrar", http.StatusSeeOther)
+		return
+	}
+	gs, err := s.gt.VerifyFactor(r.Context(), a.Token(), pendiente.factorID, pendiente.challengeID, strings.TrimSpace(r.PostFormValue("code")))
 	if err != nil {
+		if !rechazoMutacionMFA(err) {
+			log.Printf("resultado ambiguo al verificar TOTP: %v", err)
+			s.enrolando.Delete(a.ID)
+			s.autoridadesMFA.CompareAndDelete(id, autoridad)
+			s.ponerCookieAutoridadMFA(w, "", -1)
+			s.errorCierreCambioMFA(w, r, a, http.StatusBadGateway, "Sign in again", "The factor result was uncertain, so every session was closed. Sign in again.")
+			return
+		}
 		s.ponerFlash(w, mensajeGoTrue(err))
 		http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
 		return
 	}
-	gs, err := s.gt.VerifyFactor(r.Context(), a.Token(), factorID, ch.ID, strings.TrimSpace(r.PostFormValue("code")))
-	if err != nil {
-		s.ponerFlash(w, mensajeGoTrue(err))
-		http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
+	if gs == nil || gs.AccessToken == "" {
+		s.errorCierreCambioMFA(w, r, a, http.StatusBadGateway, "Sign in again", "The factor was verified without a usable identity, so every session was closed. Sign in again.")
+		return
+	}
+	if gs.User.ID == "" {
+		u, comprobarErr := s.gt.Me(r.Context(), gs.AccessToken)
+		if comprobarErr == nil {
+			gs.User = *u
+		} else {
+			err = comprobarErr
+		}
+	}
+	if err != nil || gs.User.ID != a.UserID {
+		_ = s.gt.Logout(r.Context(), gs.AccessToken, "local")
+		s.errorCierreCambioMFA(w, r, a, http.StatusBadGateway, "Sign in again", "The verified factor did not belong to this account, so every session was closed. Sign in again.")
 		return
 	}
 	s.enrolando.Delete(a.ID)
-	if err := s.ses.Promover(r.Context(), w, a, gs); err != nil {
+	s.autoridadesMFA.CompareAndDelete(id, autoridad)
+	s.ponerCookieAutoridadMFA(w, "", -1)
+	if err := s.ses.ReautenticarComo(r.Context(), w, a, gs, "aal2"); err != nil {
 		log.Printf("promover sesión aal2: %v", err)
-		s.errorPagina(w, r, http.StatusServiceUnavailable, "Sign in again", "Your factor was verified, but the session could not be renewed. Sign in again.")
+		s.errorCierreCambioMFA(w, r, a, http.StatusServiceUnavailable, "Sign in again", "Your factor was verified, but the session could not be renewed, so every session was closed. Sign in again.")
+		return
+	}
+	if err := s.ses.CerrarOtrasProveedor(r.Context(), a); err != nil {
+		log.Printf("cerrar sesiones tras alta MFA: %v", err)
+		s.errorCierreCambioMFA(w, r, a, http.StatusBadGateway, "Sign in again", "The factor was added, but closing the other provider sessions failed, so every session was revoked locally. Sign in again.")
 		return
 	}
 	s.ponerFlash(w, "Second factor active. From now on, signing in asks for a code.")
@@ -599,6 +682,40 @@ func (s *Server) passkeyAlta(w http.ResponseWriter, r *http.Request) {
 	if a == nil {
 		return
 	}
+	id, autoridad, ok := s.cargarAutoridadMFA(r, a)
+	if !ok {
+		s.ponerFlash(w, "Confirm your current password before adding a factor.")
+		http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
+		return
+	}
+	autoridad.mu.Lock()
+	if !autoridad.Autorizada || autoridad.Proposito != propositoMFAAlta || !time.Now().Before(autoridad.Hasta) {
+		autoridad.mu.Unlock()
+		s.descartarAutoridadMFA(w, id, autoridad, true)
+		s.ponerFlash(w, "The recent-authentication proof expired. Start again.")
+		http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
+		return
+	}
+	if autoridad.EnUso {
+		autoridad.mu.Unlock()
+		s.ponerFlash(w, "A factor enrollment is already in progress.")
+		http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
+		return
+	}
+	autoridad.EnUso = true
+	defer autoridad.mu.Unlock()
+	desbloquear := s.bloquearMFA(a.UserID)
+	defer desbloquear()
+	if !s.sesionMFASigueViva(r.Context(), a) {
+		token := autoridad.Proveedor.AccessToken
+		s.autoridadesMFA.CompareAndDelete(id, autoridad)
+		s.ponerCookieAutoridadMFA(w, "", -1)
+		if token != "" {
+			_ = s.gt.Logout(r.Context(), token, "local")
+		}
+		http.Redirect(w, r, "/entrar", http.StatusSeeOther)
+		return
+	}
 	nombre := strings.TrimSpace(r.PostFormValue("name"))
 	if nombre == "" {
 		nombre = "Passkey"
@@ -608,6 +725,7 @@ func (s *Server) passkeyAlta(w http.ResponseWriter, r *http.Request) {
 	}
 	f, err := s.gt.EnrollWebAuthn(r.Context(), a.Token(), nombre)
 	if err != nil {
+		autoridad.EnUso = false
 		s.ponerFlash(w, mensajeGoTrue(err))
 		http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
 		return
@@ -616,11 +734,13 @@ func (s *Server) passkeyAlta(w http.ResponseWriter, r *http.Request) {
 	ch, err := s.gt.ChallengeWebAuthn(r.Context(), a.Token(), f.ID, "create", rpID, origins)
 	if err != nil {
 		_ = s.gt.DeleteFactor(r.Context(), a.Token(), f.ID)
+		autoridad.EnUso = false
 		s.ponerFlash(w, mensajeGoTrue(err))
 		http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
 		return
 	}
-	s.enrolando.Store(a.ID, enrolamiento{passkey: &passkeyPendiente{FactorID: f.ID, ChallengeID: ch.ID, Options: string(ch.Options)}, hasta: time.Now().Add(5 * time.Minute)})
+	s.enrolando.Store(a.ID, enrolamiento{passkey: &passkeyPendiente{FactorID: f.ID, ChallengeID: ch.ID, Options: string(ch.Options)},
+		userID: a.UserID, sessionID: a.ID, autoridadID: id, factorID: f.ID, challengeID: ch.ID, hasta: autoridad.Hasta})
 	http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
 }
 
@@ -631,6 +751,24 @@ func (s *Server) passkeyVerificar(w http.ResponseWriter, r *http.Request) {
 	if a == nil {
 		return
 	}
+	id, autoridad, ok := s.cargarAutoridadMFA(r, a)
+	v, pendienteOK := s.enrolando.Load(a.ID)
+	pendiente, tipoOK := v.(enrolamiento)
+	if !ok || !pendienteOK || !tipoOK || pendiente.passkey == nil {
+		s.ponerFlash(w, "This passkey enrollment was not started by this session, or it expired.")
+		http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
+		return
+	}
+	autoridad.mu.Lock()
+	defer autoridad.mu.Unlock()
+	if !autoridad.Autorizada || autoridad.Proposito != propositoMFAAlta || !autoridad.EnUso || autoridad.Consumida || pendiente.userID != a.UserID ||
+		pendiente.sessionID != a.ID || pendiente.autoridadID != id || pendiente.factorID != r.PostFormValue("factor_id") ||
+		pendiente.challengeID != r.PostFormValue("challenge_id") || !time.Now().Before(pendiente.hasta) {
+		s.ponerFlash(w, "This passkey challenge does not belong to the pending enrollment. Start again.")
+		http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
+		return
+	}
+	autoridad.Consumida = true
 	cred := strings.TrimSpace(r.PostFormValue("credential"))
 	if cred == "" || len(cred) > 32<<10 || !json.Valid([]byte(cred)) {
 		s.ponerFlash(w, "The browser did not return a passkey. Try again.")
@@ -638,16 +776,54 @@ func (s *Server) passkeyVerificar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	rpID, origins := s.rp()
-	gs, err := s.gt.VerifyWebAuthn(r.Context(), a.Token(), r.PostFormValue("factor_id"), r.PostFormValue("challenge_id"), "create", rpID, origins, json.RawMessage(cred))
+	desbloquear := s.bloquearMFA(a.UserID)
+	defer desbloquear()
+	if !s.sesionMFASigueViva(r.Context(), a) {
+		http.Redirect(w, r, "/entrar", http.StatusSeeOther)
+		return
+	}
+	gs, err := s.gt.VerifyWebAuthn(r.Context(), a.Token(), pendiente.factorID, pendiente.challengeID, "create", rpID, origins, json.RawMessage(cred))
 	if err != nil {
+		if !rechazoMutacionMFA(err) {
+			log.Printf("resultado ambiguo al verificar passkey: %v", err)
+			s.enrolando.Delete(a.ID)
+			s.autoridadesMFA.CompareAndDelete(id, autoridad)
+			s.ponerCookieAutoridadMFA(w, "", -1)
+			s.errorCierreCambioMFA(w, r, a, http.StatusBadGateway, "Sign in again", "The passkey result was uncertain, so every session was closed. Sign in again.")
+			return
+		}
 		s.ponerFlash(w, mensajeGoTrue(err))
 		http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
 		return
 	}
+	if gs == nil || gs.AccessToken == "" {
+		s.errorCierreCambioMFA(w, r, a, http.StatusBadGateway, "Sign in again", "The passkey was verified without a usable identity, so every session was closed. Sign in again.")
+		return
+	}
+	if gs.User.ID == "" {
+		u, comprobarErr := s.gt.Me(r.Context(), gs.AccessToken)
+		if comprobarErr == nil {
+			gs.User = *u
+		} else {
+			err = comprobarErr
+		}
+	}
+	if err != nil || gs.User.ID != a.UserID {
+		_ = s.gt.Logout(r.Context(), gs.AccessToken, "local")
+		s.errorCierreCambioMFA(w, r, a, http.StatusBadGateway, "Sign in again", "The verified passkey did not belong to this account, so every session was closed. Sign in again.")
+		return
+	}
 	s.enrolando.Delete(a.ID)
-	if err := s.ses.Promover(r.Context(), w, a, gs); err != nil {
+	s.autoridadesMFA.CompareAndDelete(id, autoridad)
+	s.ponerCookieAutoridadMFA(w, "", -1)
+	if err := s.ses.ReautenticarComo(r.Context(), w, a, gs, "aal2"); err != nil {
 		log.Printf("promover sesión aal2 tras passkey: %v", err)
-		s.errorPagina(w, r, http.StatusServiceUnavailable, "Sign in again", "Your passkey was verified, but the session could not be renewed. Sign in again.")
+		s.errorCierreCambioMFA(w, r, a, http.StatusServiceUnavailable, "Sign in again", "Your passkey was verified, but the session could not be renewed, so every session was closed. Sign in again.")
+		return
+	}
+	if err := s.ses.CerrarOtrasProveedor(r.Context(), a); err != nil {
+		log.Printf("cerrar sesiones tras alta de passkey: %v", err)
+		s.errorCierreCambioMFA(w, r, a, http.StatusBadGateway, "Sign in again", "The passkey was added, but closing the other provider sessions failed, so every session was revoked locally. Sign in again.")
 		return
 	}
 	s.ponerFlash(w, "Passkey added. From now on, signing in asks for it.")
@@ -659,10 +835,100 @@ func (s *Server) factorBorrar(w http.ResponseWriter, r *http.Request) {
 	if a == nil {
 		return
 	}
-	if err := s.gt.DeleteFactor(r.Context(), a.Token(), r.PostFormValue("factor_id")); err != nil {
+	factorID := r.PostFormValue("factor_id")
+	// Cancelar exactamente el factor aún no verificado creado por esta misma
+	// sesión revierte el alta pendiente; no convierte el endpoint en un borrado
+	// general y sigue limitado por la ventana de la prueba reciente.
+	if v, pendienteOK := s.enrolando.Load(a.ID); pendienteOK {
+		p, tipoOK := v.(enrolamiento)
+		if tipoOK && p.sessionID == a.ID && p.userID == a.UserID && p.factorID == factorID && time.Now().Before(p.hasta) {
+			desbloquear := s.bloquearMFA(a.UserID)
+			defer desbloquear()
+			if !s.sesionMFASigueViva(r.Context(), a) {
+				http.Redirect(w, r, "/entrar", http.StatusSeeOther)
+				return
+			}
+			if err := s.gt.DeleteFactor(r.Context(), a.Token(), factorID); err != nil {
+				s.ponerFlash(w, mensajeGoTrue(err))
+			} else {
+				s.enrolando.CompareAndDelete(a.ID, p)
+				if v, ok := s.autoridadesMFA.Load(p.autoridadID); ok {
+					if autoridad, tipoOK := v.(*autoridadMFA); tipoOK {
+						s.descartarAutoridadMFA(w, p.autoridadID, autoridad, true)
+					}
+				}
+				s.ponerCookieAutoridadMFA(w, "", -1)
+				s.ponerFlash(w, "Factor enrollment cancelled.")
+			}
+			http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
+			return
+		}
+	}
+	id, autoridad, ok := s.cargarAutoridadMFA(r, a)
+	if !ok {
+		s.ponerFlash(w, "Confirm your current password before removing a factor.")
+		http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
+		return
+	}
+	autoridad.mu.Lock()
+	defer autoridad.mu.Unlock()
+	if !autoridad.Autorizada || autoridad.Consumida || !time.Now().Before(autoridad.Hasta) ||
+		(autoridad.Proposito != propositoMFABorrar || autoridad.FactorObjetivo != factorID) {
+		s.ponerFlash(w, "The recent-authentication proof does not authorize removing that factor.")
+		http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
+		return
+	}
+	autoridad.Consumida = true
+	desbloquear := s.bloquearMFA(a.UserID)
+	defer desbloquear()
+	if !s.sesionMFASigueViva(r.Context(), a) {
+		http.Redirect(w, r, "/entrar", http.StatusSeeOther)
+		return
+	}
+	u, err := s.gt.Me(r.Context(), a.Token())
+	if err != nil {
+		s.ponerFlash(w, mensajeGoTrue(err))
+		http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
+		return
+	}
+	objetivo, existe := factorPorID(u.Factors, factorID)
+	verificados := factoresVerificados(u.Factors)
+	if !existe || (objetivo.Status == "verified" && len(verificados) == 1 && autoridad.Metodo != "recovery") ||
+		(objetivo.Status == "verified" && len(verificados) > 1 && autoridad.Metodo != "factor") {
+		s.ponerFlash(w, "The factor state changed. Authorize its removal again.")
+		http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
+		return
+	}
+	if err := s.gt.DeleteFactor(r.Context(), a.Token(), factorID); err != nil {
+		s.autoridadesMFA.CompareAndDelete(id, autoridad)
+		s.ponerCookieAutoridadMFA(w, "", -1)
+		if !rechazoMutacionMFA(err) {
+			log.Printf("resultado ambiguo al borrar factor MFA: %v", err)
+			s.errorCierreCambioMFA(w, r, a, http.StatusBadGateway, "Sign in again", "The factor result was uncertain, so every session was closed. Sign in again.")
+			return
+		}
+		if autoridad.Proveedor.AccessToken != "" {
+			_ = s.gt.Logout(r.Context(), autoridad.Proveedor.AccessToken, "local")
+		}
 		s.ponerFlash(w, mensajeGoTrue(err))
 	} else {
 		s.enrolando.Delete(a.ID)
+		s.autoridadesMFA.CompareAndDelete(id, autoridad)
+		s.ponerCookieAutoridadMFA(w, "", -1)
+		aal := "aal1"
+		if (objetivo.Status != "verified" && len(verificados) > 0) || (objetivo.Status == "verified" && len(verificados) > 1) {
+			aal = "aal2"
+		}
+		if err := s.ses.ReautenticarComo(r.Context(), w, a, &autoridad.Proveedor, aal); err != nil {
+			log.Printf("rotar sesión tras borrar MFA: %v", err)
+			s.errorCierreCambioMFA(w, r, a, http.StatusServiceUnavailable, "Sign in again", "The factor was removed, but the session could not be renewed, so every session was closed. Sign in again.")
+			return
+		}
+		if err := s.ses.CerrarOtrasProveedor(r.Context(), a); err != nil {
+			log.Printf("cerrar sesiones tras borrar MFA: %v", err)
+			s.errorCierreCambioMFA(w, r, a, http.StatusBadGateway, "Sign in again", "The factor was removed, but closing the other provider sessions failed, so every session was revoked locally. Sign in again.")
+			return
+		}
 		s.ponerFlash(w, "Factor removed.")
 	}
 	http.Redirect(w, r, "/cuenta", http.StatusSeeOther)
@@ -723,7 +989,7 @@ func (s *Server) admin(w http.ResponseWriter, r *http.Request) {
 	if gs, err := s.st.Grupos(r.Context()); err == nil {
 		var vistas []grupoVista
 		for _, g := range gs {
-			v := grupoVista{Grupo: g, EsRol: g.URL == "", ClienteNombre: nombres[g.ClienteID]}
+			v := grupoVista{Grupo: g, EsRol: g.Tipo == store.TipoGrupoRol, ClienteNombre: nombres[g.ClienteID]}
 			if !v.EsRol {
 				herramientas++
 				if g.ClienteID != "" {
@@ -754,7 +1020,8 @@ func (s *Server) adminCuenta(w http.ResponseWriter, r *http.Request) {
 	// fechas y el dato en crudo no dice nada: lo que quien administra necesita
 	// saber de un vistazo es si el enlace que esa persona tiene es de esta
 	// semana o de hace un mes. No se afirma si ha caducado —el plazo lo fija
-	// GoTrue con GOTRUE_MAILER_OTP_EXP, no esta app, y una etiqueta que se
+	// GoTrue con GOTRUE_MAILER_OTP_EXP y esta app sólo exige una copia exacta
+	// para comprobarlo al canjear; una etiqueta que se
 	// desincronizara mentiría—; reenviar es inofensivo en cualquier caso.
 	if !u.Confirmada && u.Invitada != nil {
 		datos["InvitadaHace"] = enPalabras(time.Since(*u.Invitada))
@@ -766,8 +1033,9 @@ func (s *Server) adminCuenta(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) adminSolicitud(w http.ResponseWriter, r *http.Request) {
-	a := s.requiereAdmin(w, r)
-	if a == nil {
+	// La lectura inicial evita enseñar solicitudes a una sesión ordinaria; la
+	// autoridad efectiva se vuelve a decidir bajo actor+destino después.
+	if s.requiereAdmin(w, r) == nil {
 		return
 	}
 	x, err := s.st.Solicitud(r.Context(), r.PostFormValue("id"))
@@ -776,28 +1044,45 @@ func (s *Server) adminSolicitud(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/admin", http.StatusSeeOther)
 		return
 	}
+	a, autoridad := s.requiereAutoridadAdmin(w, r, x.UserID)
+	if autoridad == nil {
+		return
+	}
+	defer autoridad.Cerrar()
 	switch r.PostFormValue("decision") {
 	case "aprobar":
-		if err := s.st.Conceder(r.Context(), x.UserID, x.Grupo, a.Email); err == nil {
-			_ = s.st.ResolverSolicitud(r.Context(), x.ID, "aprobada", a.Email)
-			s.ponerFlash(w, x.Email+" can now use "+x.Grupo+"."+s.avisarAcceso(r.Context(), x.UserID, x.Grupo))
+		if err := autoridad.Conceder(r.Context(), x.UserID, x.Grupo, a.Email); err == nil {
+			if err := autoridad.ResolverSolicitud(r.Context(), x.UserID, x.ID, "aprobada", a.Email); err != nil {
+				log.Printf("resolver aprobación %s: %v", x.ID, err)
+				s.ponerFlash(w, "Access was granted, but the request could not be closed. Retry it.")
+			} else if err := autoridad.Verificar(r.Context()); err != nil {
+				s.ponerFlash(w, x.Email+" can now use "+x.Grupo+". The notification was not sent.")
+			} else {
+				s.ponerFlash(w, x.Email+" can now use "+x.Grupo+"."+s.avisarAcceso(r.Context(), x.UserID, x.Grupo))
+			}
 		} else {
 			log.Printf("aprobar %s/%s: %v", x.UserID, x.Grupo, err)
 			s.ponerFlash(w, "Could not grant the access.")
 		}
 	case "rechazar":
-		_ = s.st.ResolverSolicitud(r.Context(), x.ID, "rechazada", a.Email)
-		s.ponerFlash(w, "Request from "+x.Email+" rejected.")
+		if err := autoridad.ResolverSolicitud(r.Context(), x.UserID, x.ID, "rechazada", a.Email); err != nil {
+			log.Printf("rechazar solicitud %s: %v", x.ID, err)
+			s.ponerFlash(w, "Could not reject the request.")
+		} else {
+			s.ponerFlash(w, "Request from "+x.Email+" rejected.")
+		}
 	}
 	http.Redirect(w, r, "/admin", http.StatusSeeOther)
 }
 
 func (s *Server) adminVincular(w http.ResponseWriter, r *http.Request) {
-	if s.requiereAdmin(w, r) == nil {
+	_, autoridad := s.requiereAutoridadAdmin(w, r)
+	if autoridad == nil {
 		return
 	}
+	defer autoridad.Cerrar()
 	grupo, cliente := r.PostFormValue("grupo"), r.PostFormValue("cliente_id")
-	if err := s.st.VincularCliente(r.Context(), grupo, cliente); err != nil {
+	if err := autoridad.VincularCliente(r.Context(), grupo, cliente); err != nil {
 		log.Printf("vincular: %v", err)
 		s.ponerFlash(w, "Could not change the client.")
 	} else if cliente == "" {
@@ -809,14 +1094,19 @@ func (s *Server) adminVincular(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) adminConceder(w http.ResponseWriter, r *http.Request) {
-	a := s.requiereAdmin(w, r)
-	if a == nil {
+	uid, grupo := r.PostFormValue("user_id"), r.PostFormValue("grupo")
+	a, autoridad := s.requiereAutoridadAdmin(w, r, uid)
+	if autoridad == nil {
 		return
 	}
-	uid, grupo := r.PostFormValue("user_id"), r.PostFormValue("grupo")
-	if err := s.st.Conceder(r.Context(), uid, grupo, a.Email); err != nil {
+	defer autoridad.Cerrar()
+	if err := autoridad.Conceder(r.Context(), uid, grupo, a.Email); errors.Is(err, store.ErrAutoconcesionAdmin) {
+		s.ponerFlash(w, "You cannot grant administration to yourself.")
+	} else if err != nil {
 		log.Printf("conceder %s/%s: %v", uid, grupo, err)
 		s.ponerFlash(w, "Could not grant the membership.")
+	} else if err := autoridad.Verificar(r.Context()); err != nil {
+		s.ponerFlash(w, "Granted "+grupo+". The notification was not sent.")
 	} else {
 		s.ponerFlash(w, "Granted "+grupo+"."+s.avisarAcceso(r.Context(), uid, grupo))
 	}
@@ -824,35 +1114,41 @@ func (s *Server) adminConceder(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) adminRevocar(w http.ResponseWriter, r *http.Request) {
-	a := s.requiereAdmin(w, r)
-	if a == nil {
+	uid, grupo := r.PostFormValue("user_id"), r.PostFormValue("grupo")
+	_, autoridad := s.requiereAutoridadAdmin(w, r, uid)
+	if autoridad == nil {
 		return
 	}
-	uid, grupo := r.PostFormValue("user_id"), r.PostFormValue("grupo")
-	if uid == a.UserID && grupo == s.cfg.AdminGroup {
+	defer autoridad.Cerrar()
+	if autoridad.EsActor(r.Context(), uid) && grupo == s.cfg.AdminGroup {
 		s.ponerFlash(w, "You cannot remove your own administration.")
 		http.Redirect(w, r, "/admin/cuenta/"+url.PathEscape(uid), http.StatusSeeOther)
 		return
 	}
-	if err := s.st.Revocar(r.Context(), uid, grupo); err != nil {
+	if err := autoridad.Revocar(r.Context(), uid, grupo); err != nil {
 		log.Printf("revocar %s/%s: %v", uid, grupo, err)
 		s.ponerFlash(w, "Could not revoke.")
 	} else {
-		s.ponerFlash(w, "Revoked "+grupo+". The tool's sessions end within its cookie lifetime.")
+		if grupo == s.cfg.AdminGroup {
+			s.ponerFlash(w, "Revoked "+grupo+" and closed every session of that administrator.")
+		} else {
+			s.ponerFlash(w, "Revoked "+grupo+". The tool's sessions end within its cookie lifetime.")
+		}
 	}
 	http.Redirect(w, r, "/admin/cuenta/"+url.PathEscape(uid), http.StatusSeeOther)
 }
 
 func (s *Server) adminCerrarSesiones(w http.ResponseWriter, r *http.Request) {
-	if s.requiereAdmin(w, r) == nil {
+	uid := r.PostFormValue("user_id")
+	_, autoridad := s.requiereAutoridadAdmin(w, r, uid)
+	if autoridad == nil {
 		return
 	}
-	uid := r.PostFormValue("user_id")
-	if err := s.st.CerrarSesionesGoTrue(r.Context(), uid); err != nil {
+	defer autoridad.Cerrar()
+	if err := autoridad.RevocarSesiones(r.Context(), uid); err != nil {
 		log.Printf("cerrar sesiones %s: %v", uid, err)
-		s.ponerFlash(w, "Could not close the provider sessions.")
+		s.ponerFlash(w, "Could not close every session. Retry the operation.")
 	} else {
-		_ = s.st.BorrarSesionesDe(r.Context(), uid, "")
 		s.ponerFlash(w, "Every session of that account is closed.")
 	}
 	http.Redirect(w, r, "/admin/cuenta/"+url.PathEscape(uid), http.StatusSeeOther)
@@ -861,7 +1157,7 @@ func (s *Server) adminCerrarSesiones(w http.ResponseWriter, r *http.Request) {
 // adminReenviarInvitacion vuelve a mandar el correo de invitación a quien no lo
 // ha aceptado. GoTrue conserva su id, su fecha de alta y las membresías ya
 // concedidas: sólo cambia el enlace, que vuelve a valer lo que diga
-// GOTRUE_MAILER_OTP_EXP.
+// GOTRUE_MAILER_OTP_EXP y su copia comprobada ACCOUNT_EMAIL_LINK_TTL_SECONDS.
 //
 // POR QUÉ EXISTE: esto ya se podía hacer —escribir otra vez la misma dirección
 // en el formulario de invitar reenvía—, pero nada en el panel lo decía, así que
@@ -887,11 +1183,12 @@ func enPalabras(d time.Duration) string {
 }
 
 func (s *Server) adminReenviarInvitacion(w http.ResponseWriter, r *http.Request) {
-	a := s.requiereAdmin(w, r)
-	if a == nil {
+	uid := r.PostFormValue("user_id")
+	_, autoridad := s.requiereAutoridadAdmin(w, r, uid)
+	if autoridad == nil {
 		return
 	}
-	uid := r.PostFormValue("user_id")
+	defer autoridad.Cerrar()
 	volver := func(msg string) {
 		s.ponerFlash(w, msg)
 		http.Redirect(w, r, "/admin/cuenta/"+url.PathEscape(uid), http.StatusSeeOther)
@@ -907,7 +1204,17 @@ func (s *Server) adminReenviarInvitacion(w http.ResponseWriter, r *http.Request)
 		volver(u.Email + " has already accepted. There is nothing to resend.")
 		return
 	}
-	if _, err := s.gt.AdminInvite(r.Context(), u.Email); err != nil {
+	if err := autoridad.VerificarEfecto(r.Context(), uid); err != nil {
+		volver("Your administration changed before the invitation could be sent. Try again.")
+		return
+	}
+	redirectTo, err := RedireccionInvitacion(s.cfg.PublicURL, s.ses, u.Email)
+	if err != nil {
+		log.Printf("preparar reenvío de invitación a %s: %v", u.Email, err)
+		volver("The invitation could not be prepared. Try again.")
+		return
+	}
+	if _, err := s.gt.AdminInvite(r.Context(), u.Email, redirectTo); err != nil {
 		log.Printf("reenviar invitación a %s: %v", u.Email, err)
 		volver(mensajeGoTrue(err))
 		return
@@ -916,12 +1223,13 @@ func (s *Server) adminReenviarInvitacion(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) adminBloquear(w http.ResponseWriter, r *http.Request) {
-	a := s.requiereAdmin(w, r)
-	if a == nil {
+	uid := r.PostFormValue("user_id")
+	_, autoridad := s.requiereAutoridadAdmin(w, r, uid)
+	if autoridad == nil {
 		return
 	}
-	uid := r.PostFormValue("user_id")
-	if uid == a.UserID {
+	defer autoridad.Cerrar()
+	if autoridad.EsActor(r.Context(), uid) {
 		s.ponerFlash(w, "You cannot block yourself.")
 		http.Redirect(w, r, "/admin/cuenta/"+url.PathEscape(uid), http.StatusSeeOther)
 		return
@@ -930,16 +1238,32 @@ func (s *Server) adminBloquear(w http.ResponseWriter, r *http.Request) {
 	if r.PostFormValue("accion") == "desbloquear" {
 		duracion = "none"
 	}
-	if err := s.gt.AdminBanUser(r.Context(), uid, duracion); err != nil {
-		s.ponerFlash(w, mensajeGoTrue(err))
-	} else {
-		if duracion != "none" {
-			_ = s.st.CerrarSesionesGoTrue(r.Context(), uid)
-			_ = s.st.BorrarSesionesDe(r.Context(), uid, "")
-			s.ponerFlash(w, "Account blocked and signed out everywhere.")
+	if duracion == "none" {
+		if err := autoridad.VerificarEfecto(r.Context(), uid); err != nil {
+			s.ponerFlash(w, "Your administration changed before the account could be unblocked.")
+		} else if err := s.gt.AdminBanUser(r.Context(), uid, duracion); err != nil {
+			s.ponerFlash(w, mensajeGoTrue(err))
 		} else {
 			s.ponerFlash(w, "Account unblocked.")
 		}
+		http.Redirect(w, r, "/admin/cuenta/"+url.PathEscape(uid), http.StatusSeeOther)
+		return
+	}
+	errAutoridad := autoridad.VerificarEfecto(r.Context(), uid)
+	var errBloqueo, errSesiones error
+	if errAutoridad == nil {
+		errBloqueo = s.gt.AdminBanUser(r.Context(), uid, duracion)
+		if err := autoridad.VerificarEfecto(r.Context(), uid); err != nil {
+			errAutoridad = err
+		} else {
+			errSesiones = autoridad.RevocarSesiones(r.Context(), uid)
+		}
+	}
+	if err := errors.Join(errAutoridad, errBloqueo, errSesiones); err != nil {
+		log.Printf("bloquear y cerrar sesiones %s: %v", uid, err)
+		s.ponerFlash(w, "The account could not be fully blocked and signed out. Retry the operation.")
+	} else {
+		s.ponerFlash(w, "Account blocked and signed out everywhere.")
 	}
 	http.Redirect(w, r, "/admin/cuenta/"+url.PathEscape(uid), http.StatusSeeOther)
 }
@@ -994,7 +1318,7 @@ func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 // panel: quien aprueba sabe si el correo salió.
 func (s *Server) avisarAcceso(ctx context.Context, userID, grupo string) string {
 	g, err := s.st.Grupo(ctx, grupo)
-	if err != nil || g.URL == "" {
+	if err != nil || g.Tipo != store.TipoGrupoHerramienta || g.URL == "" {
 		return ""
 	}
 	if s.correo == nil {
@@ -1026,10 +1350,11 @@ func nombreDe(u *store.Usuario) string {
 // Invitar otra vez a quien aún no ha aceptado reenvía el enlace sobre la misma
 // cuenta (mismo id, así que el remapeo de datos que hubiera sigue valiendo).
 func (s *Server) adminInvitar(w http.ResponseWriter, r *http.Request) {
-	a := s.requiereAdmin(w, r)
-	if a == nil {
+	a, autoridad := s.requiereAutoridadAdmin(w, r)
+	if autoridad == nil {
 		return
 	}
+	defer autoridad.Cerrar()
 	volver := func(msg string) {
 		s.ponerFlash(w, msg)
 		http.Redirect(w, r, "/admin", http.StatusSeeOther)
@@ -1039,8 +1364,27 @@ func (s *Server) adminInvitar(w http.ResponseWriter, r *http.Request) {
 		volver("That does not look like an email address.")
 		return
 	}
+	const maxGruposInvitacion = 32
+	seleccionados := r.Form["grupo"]
+	if len(seleccionados) > maxGruposInvitacion {
+		volver("Choose at most 32 groups.")
+		return
+	}
+	unicos := make(map[string]bool, len(seleccionados))
+	nombres := make([]string, 0, len(seleccionados))
+	for _, nombre := range seleccionados {
+		if !unicos[nombre] {
+			unicos[nombre] = true
+			nombres = append(nombres, nombre)
+		}
+	}
+	if len(nombres) > maxGruposInvitacion {
+		volver("Choose at most 32 groups.")
+		return
+	}
+	sort.Strings(nombres)
 	var grupos []*store.Grupo
-	for _, nombre := range r.Form["grupo"] {
+	for _, nombre := range nombres {
 		g, err := s.st.Grupo(r.Context(), nombre)
 		if err != nil {
 			volver("Unknown group: " + nombre + ".")
@@ -1048,7 +1392,18 @@ func (s *Server) adminInvitar(w http.ResponseWriter, r *http.Request) {
 		}
 		grupos = append(grupos, g)
 	}
-	u, err := s.gt.AdminInvite(r.Context(), email)
+	if err := autoridad.Verificar(r.Context()); err != nil {
+		volver("Your administration changed before the invitation could be sent. Try again.")
+		return
+	}
+	generacion := autoridad.Generacion()
+	redirectTo, err := RedireccionInvitacion(s.cfg.PublicURL, s.ses, email)
+	if err != nil {
+		log.Printf("preparar invitación a %s: %v", email, err)
+		volver("The invitation could not be prepared. Try again.")
+		return
+	}
+	u, err := s.gt.AdminInvite(r.Context(), email, redirectTo)
 	if err != nil {
 		var ge *gotrue.Error
 		if errors.As(err, &ge) && ge.Status == http.StatusUnprocessableEntity {
@@ -1059,9 +1414,24 @@ func (s *Server) adminInvitar(w http.ResponseWriter, r *http.Request) {
 		volver("The invitation could not be sent. It has been logged.")
 		return
 	}
+	// El efecto remoto ya terminó bajo el bloqueo del actor. Para conocer el
+	// nuevo id hay que abrir una segunda fase actor+destino; conserva la
+	// generación original, de modo que revocar y volver a conceder no la revive.
+	autoridad.Cerrar()
+	autoridadDestino, err := s.st.AutorizarAdminEnGeneracion(r.Context(), a.UserID, s.cfg.AdminGroup, generacion, u.ID)
+	if errors.Is(err, store.ErrAdministradorRevocado) {
+		volver("Invitation sent to " + email + ", but no memberships were granted because your administration changed.")
+		return
+	}
+	if err != nil {
+		log.Printf("invitar %s, reautorizar membresías: %v", email, err)
+		volver("Invitation sent to " + email + ", but its memberships could not be granted.")
+		return
+	}
+	defer autoridadDestino.Cerrar()
 	var titulos []string
 	for _, g := range grupos {
-		if err := s.st.Conceder(r.Context(), u.ID, g.Nombre, a.Email); err != nil {
+		if err := autoridadDestino.Conceder(r.Context(), u.ID, g.Nombre, a.Email); err != nil {
 			log.Printf("invitar %s, conceder %s: %v", email, g.Nombre, err)
 			continue
 		}

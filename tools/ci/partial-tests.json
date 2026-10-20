@@ -1,0 +1,882 @@
+{
+  "schema": 1,
+  "status": "PARTIAL_DO_NOT_MERGE",
+  "selected_count": 80,
+  "deferred_count": 98,
+  "selected": [
+    {
+      "package": "./internal/config",
+      "name": "TestConfiguracionExpiracionEnlacesCoincideConGoTrue",
+      "file": "internal/config/config_test.go",
+      "sha256": "0dfe4933b30b576cdd83ac27a74f772aab8d8c0774ba08f39263121eeb805ea1"
+    },
+    {
+      "package": "./internal/config",
+      "name": "TestConfiguracionExpiracionEnlacesRechazaDiferenciaConGoTrue",
+      "file": "internal/config/config_test.go",
+      "sha256": "0dfe4933b30b576cdd83ac27a74f772aab8d8c0774ba08f39263121eeb805ea1"
+    },
+    {
+      "package": "./internal/config",
+      "name": "TestConfiguracionCookiesInsegurasSoloEnLoopbackHTTPExplicito",
+      "file": "internal/config/config_test.go",
+      "sha256": "0dfe4933b30b576cdd83ac27a74f772aab8d8c0774ba08f39263121eeb805ea1"
+    },
+    {
+      "package": "./internal/config",
+      "name": "TestConfiguracionProxy",
+      "file": "internal/config/config_test.go",
+      "sha256": "0dfe4933b30b576cdd83ac27a74f772aab8d8c0774ba08f39263121eeb805ea1"
+    },
+    {
+      "package": "./internal/config",
+      "name": "TestConfiguracionGoTrueExigeTransporteSeguro",
+      "file": "internal/config/config_test.go",
+      "sha256": "0dfe4933b30b576cdd83ac27a74f772aab8d8c0774ba08f39263121eeb805ea1"
+    },
+    {
+      "package": "./internal/config",
+      "name": "TestConfiguracionGoTrueRechazaPermisoInseguroAmbiguo",
+      "file": "internal/config/config_test.go",
+      "sha256": "0dfe4933b30b576cdd83ac27a74f772aab8d8c0774ba08f39263121eeb805ea1"
+    },
+    {
+      "package": "./internal/correo",
+      "name": "TestPlantillasCambioCorreoSeparanLosBuzones",
+      "file": "internal/correo/correo_test.go",
+      "sha256": "4ff78c2635a72aa20bc039a5dc6f224f284e7d8fe7a99dcc30079c1b29aa0651"
+    },
+    {
+      "package": "./internal/gotrue",
+      "name": "TestLoginMandaApikeyYSinBearer",
+      "file": "internal/gotrue/client_test.go",
+      "sha256": "284210a70cda0953ae8bed0d876da5d4e6a930859891ba0fc23ba4eb973d0a17"
+    },
+    {
+      "package": "./internal/gotrue",
+      "name": "TestErroresConservanCodigoYErrorCode",
+      "file": "internal/gotrue/client_test.go",
+      "sha256": "284210a70cda0953ae8bed0d876da5d4e6a930859891ba0fc23ba4eb973d0a17"
+    },
+    {
+      "package": "./internal/gotrue",
+      "name": "TestAdminUsaLaClaveDeServicioComoBearer",
+      "file": "internal/gotrue/client_test.go",
+      "sha256": "284210a70cda0953ae8bed0d876da5d4e6a930859891ba0fc23ba4eb973d0a17"
+    },
+    {
+      "package": "./internal/gotrue",
+      "name": "TestAdminUpdatePasswordUsaServicioYLigaUsuario",
+      "file": "internal/gotrue/client_test.go",
+      "sha256": "284210a70cda0953ae8bed0d876da5d4e6a930859891ba0fc23ba4eb973d0a17"
+    },
+    {
+      "package": "./internal/gotrue",
+      "name": "TestNoSigueRedireccionesConCredenciales",
+      "file": "internal/gotrue/client_test.go",
+      "sha256": "284210a70cda0953ae8bed0d876da5d4e6a930859891ba0fc23ba4eb973d0a17"
+    },
+    {
+      "package": "./internal/gotrue",
+      "name": "TestHTTPSValidaElCertificado",
+      "file": "internal/gotrue/client_test.go",
+      "sha256": "284210a70cda0953ae8bed0d876da5d4e6a930859891ba0fc23ba4eb973d0a17"
+    },
+    {
+      "package": "./internal/gotrue",
+      "name": "TestResendConservaLaRedireccionDeSetup",
+      "file": "internal/gotrue/client_test.go",
+      "sha256": "284210a70cda0953ae8bed0d876da5d4e6a930859891ba0fc23ba4eb973d0a17"
+    },
+    {
+      "package": "./internal/gotrue",
+      "name": "TestAdminInviteConservaLaRedireccionDeProposito",
+      "file": "internal/gotrue/client_test.go",
+      "sha256": "284210a70cda0953ae8bed0d876da5d4e6a930859891ba0fc23ba4eb973d0a17"
+    },
+    {
+      "package": "./internal/gotrue",
+      "name": "TestAutorizacionAutoAprobada",
+      "file": "internal/gotrue/client_test.go",
+      "sha256": "284210a70cda0953ae8bed0d876da5d4e6a930859891ba0fc23ba4eb973d0a17"
+    },
+    {
+      "package": "./internal/gotrue",
+      "name": "TestHasVerifiedFactor",
+      "file": "internal/gotrue/client_test.go",
+      "sha256": "284210a70cda0953ae8bed0d876da5d4e6a930859891ba0fc23ba4eb973d0a17"
+    },
+    {
+      "package": "./internal/gotrue",
+      "name": "TestUpdatePasswordLigaLaPrueba",
+      "file": "internal/gotrue/client_test.go",
+      "sha256": "284210a70cda0953ae8bed0d876da5d4e6a930859891ba0fc23ba4eb973d0a17"
+    },
+    {
+      "package": "./internal/gotrue",
+      "name": "TestQRDataURL",
+      "file": "internal/gotrue/client_test.go",
+      "sha256": "284210a70cda0953ae8bed0d876da5d4e6a930859891ba0fc23ba4eb973d0a17"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestProxyConservaClientesYAcciones",
+      "file": "internal/httpapi/client_ip_test.go",
+      "sha256": "c18427bc33a313610720e396cbf464a2310fca5ff4095c4688afac9248b3d374"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestFrenaComparteIPCanonica",
+      "file": "internal/httpapi/client_ip_test.go",
+      "sha256": "c18427bc33a313610720e396cbf464a2310fca5ff4095c4688afac9248b3d374"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestFrenaRechazaIdentidadInvalida",
+      "file": "internal/httpapi/client_ip_test.go",
+      "sha256": "c18427bc33a313610720e396cbf464a2310fca5ff4095c4688afac9248b3d374"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestLoginNoReiniciaLimiteConCabeceras",
+      "file": "internal/httpapi/client_ip_test.go",
+      "sha256": "c18427bc33a313610720e396cbf464a2310fca5ff4095c4688afac9248b3d374"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestCookiesDeAutoridadHostOnlyPorModo",
+      "file": "internal/httpapi/cookie_security_test.go",
+      "sha256": "de62c32f26cda07257220c92883aabd863e8679590882f29b442c900788681d9"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestCookiesDeAutoridadDuplicadasSeRechazan",
+      "file": "internal/httpapi/cookie_security_test.go",
+      "sha256": "de62c32f26cda07257220c92883aabd863e8679590882f29b442c900788681d9"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestCookiesDeAutoridadExpiranNombresLegados",
+      "file": "internal/httpapi/cookie_security_test.go",
+      "sha256": "de62c32f26cda07257220c92883aabd863e8679590882f29b442c900788681d9"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestCSRFOrigenFormulario",
+      "file": "internal/httpapi/csrf_test.go",
+      "sha256": "630d956146d8193e586927123f5bacf3e18e0391a7a891da3acdc6db315c160e"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestCSRFGuardiaYDesarrolloHTTP",
+      "file": "internal/httpapi/csrf_test.go",
+      "sha256": "630d956146d8193e586927123f5bacf3e18e0391a7a891da3acdc6db315c160e"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestCSRFOrigenIPv6Canonico",
+      "file": "internal/httpapi/csrf_test.go",
+      "sha256": "630d956146d8193e586927123f5bacf3e18e0391a7a891da3acdc6db315c160e"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestRedireccionInvitacionNormalizaDestinatario",
+      "file": "internal/httpapi/email_link_test.go",
+      "sha256": "8acddafb8376bab0b0be7ab2340b2f635ea09723ac169ad859376e7709bf4127"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestNavegarEnlaceCorreoNoCanjeaToken",
+      "file": "internal/httpapi/email_link_test.go",
+      "sha256": "8acddafb8376bab0b0be7ab2340b2f635ea09723ac169ad859376e7709bf4127"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestAliasAmbiguosSeRechazanSinCanjear",
+      "file": "internal/httpapi/email_link_test.go",
+      "sha256": "8acddafb8376bab0b0be7ab2340b2f635ea09723ac169ad859376e7709bf4127"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestPlantillasCorreoPonenCapacidadSoloEnFragmento",
+      "file": "internal/httpapi/email_link_test.go",
+      "sha256": "8acddafb8376bab0b0be7ab2340b2f635ea09723ac169ad859376e7709bf4127"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestBordeHTTPDescartaCapacidadesDeLaQuery",
+      "file": "internal/httpapi/email_link_test.go",
+      "sha256": "8acddafb8376bab0b0be7ab2340b2f635ea09723ac169ad859376e7709bf4127"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestRecuperarEmiteIntencionLigadaAlCorreo",
+      "file": "internal/httpapi/email_link_test.go",
+      "sha256": "8acddafb8376bab0b0be7ab2340b2f635ea09723ac169ad859376e7709bf4127"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestConfirmarRecuperacionExigePostCSRFYCorreo",
+      "file": "internal/httpapi/email_link_test.go",
+      "sha256": "8acddafb8376bab0b0be7ab2340b2f635ea09723ac169ad859376e7709bf4127"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestConfirmarEnlaceValidaAntesDeCanjear",
+      "file": "internal/httpapi/email_link_test.go",
+      "sha256": "8acddafb8376bab0b0be7ab2340b2f635ea09723ac169ad859376e7709bf4127"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestPropositoConfirmacionNoSePuedeSustituir",
+      "file": "internal/httpapi/email_link_test.go",
+      "sha256": "8acddafb8376bab0b0be7ab2340b2f635ea09723ac169ad859376e7709bf4127"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestConfirmarEnlaceRechazaCorreoDistintoAntesDeCanjear",
+      "file": "internal/httpapi/email_link_test.go",
+      "sha256": "8acddafb8376bab0b0be7ab2340b2f635ea09723ac169ad859376e7709bf4127"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestConfirmarEnlaceCaducadoNoSeCanjea",
+      "file": "internal/httpapi/email_link_test.go",
+      "sha256": "8acddafb8376bab0b0be7ab2340b2f635ea09723ac169ad859376e7709bf4127"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestConfirmarEnlaceConFactorPreservaProposito",
+      "file": "internal/httpapi/email_link_test.go",
+      "sha256": "8acddafb8376bab0b0be7ab2340b2f635ea09723ac169ad859376e7709bf4127"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestCambioCorreoParcialNoEmiteAutoridad",
+      "file": "internal/httpapi/email_link_test.go",
+      "sha256": "8acddafb8376bab0b0be7ab2340b2f635ea09723ac169ad859376e7709bf4127"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestRespuestaParcialNoSeAceptaParaOtroProposito",
+      "file": "internal/httpapi/email_link_test.go",
+      "sha256": "8acddafb8376bab0b0be7ab2340b2f635ea09723ac169ad859376e7709bf4127"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestSesionesOrdinariasNoCambianPasswordSinPruebaFresca",
+      "file": "internal/httpapi/password_proof_test.go",
+      "sha256": "1a4750780e418378c1b2a769c9d87802efe28403c44766d62a4a9e5b9eec1386"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestCuentaPasswordExigePruebaDeLaMismaIdentidad",
+      "file": "internal/httpapi/password_proof_test.go",
+      "sha256": "1a4750780e418378c1b2a769c9d87802efe28403c44766d62a4a9e5b9eec1386"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestRecuperacionEmiteSoloCapacidadAcotada",
+      "file": "internal/httpapi/password_proof_test.go",
+      "sha256": "1a4750780e418378c1b2a769c9d87802efe28403c44766d62a4a9e5b9eec1386"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestPropositoMFANoSeInfiereDeNext",
+      "file": "internal/httpapi/password_proof_test.go",
+      "sha256": "1a4750780e418378c1b2a769c9d87802efe28403c44766d62a4a9e5b9eec1386"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestMFARecuperacionEmiteCapacidadSinSesionGeneral",
+      "file": "internal/httpapi/password_proof_test.go",
+      "sha256": "1a4750780e418378c1b2a769c9d87802efe28403c44766d62a4a9e5b9eec1386"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestMFAAltaEmiteCapacidadAcotadaSinSesionGeneral",
+      "file": "internal/httpapi/password_proof_test.go",
+      "sha256": "1a4750780e418378c1b2a769c9d87802efe28403c44766d62a4a9e5b9eec1386"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestAltaRechazaCapacidadesDeRegistroEInvitacionSimultaneas",
+      "file": "internal/httpapi/password_proof_test.go",
+      "sha256": "1a4750780e418378c1b2a769c9d87802efe28403c44766d62a4a9e5b9eec1386"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestRegistroNoPersistePasswordElegidaYNormalizaRespuestaDelProveedor",
+      "file": "internal/httpapi/registration_security_test.go",
+      "sha256": "82482b7019d789ba6d277989f35d370e1cf901f79ba408519eeff07205569259"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestFormularioRegistroNoPidePasswordAntesDelCorreo",
+      "file": "internal/httpapi/registration_security_test.go",
+      "sha256": "82482b7019d789ba6d277989f35d370e1cf901f79ba408519eeff07205569259"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestFalloDeRotacionBloqueaLaCuentaConfirmada",
+      "file": "internal/httpapi/registration_security_test.go",
+      "sha256": "82482b7019d789ba6d277989f35d370e1cf901f79ba408519eeff07205569259"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestReentradaNoProbadaBloqueaLaCuentaConfirmada",
+      "file": "internal/httpapi/registration_security_test.go",
+      "sha256": "82482b7019d789ba6d277989f35d370e1cf901f79ba408519eeff07205569259"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestEnlaceSignupAntiguoSeRechazaAntesDeConfirmar",
+      "file": "internal/httpapi/registration_security_test.go",
+      "sha256": "82482b7019d789ba6d277989f35d370e1cf901f79ba408519eeff07205569259"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestRegistroHTTPCodificaYEntrecomillaLaRuta",
+      "file": "internal/httpapi/server_test.go",
+      "sha256": "d2cc2f2f41724976adb0e7132b0e3be176610bd6eba65f65cef4d66390014c8f"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestRutaLogHTTPCanonizaCodificacionesEquivalentes",
+      "file": "internal/httpapi/server_test.go",
+      "sha256": "d2cc2f2f41724976adb0e7132b0e3be176610bd6eba65f65cef4d66390014c8f"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestRegistroDePanicoUsaLaMismaRutaSegura",
+      "file": "internal/httpapi/server_test.go",
+      "sha256": "d2cc2f2f41724976adb0e7132b0e3be176610bd6eba65f65cef4d66390014c8f"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestNextSeguro",
+      "file": "internal/httpapi/server_test.go",
+      "sha256": "d2cc2f2f41724976adb0e7132b0e3be176610bd6eba65f65cef4d66390014c8f"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestSalirGETNoRedirigeTrasNormalizarNext",
+      "file": "internal/httpapi/server_test.go",
+      "sha256": "d2cc2f2f41724976adb0e7132b0e3be176610bd6eba65f65cef4d66390014c8f"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestCorreoValido",
+      "file": "internal/httpapi/server_test.go",
+      "sha256": "d2cc2f2f41724976adb0e7132b0e3be176610bd6eba65f65cef4d66390014c8f"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestLimitadorFrenaYRecarga",
+      "file": "internal/httpapi/server_test.go",
+      "sha256": "d2cc2f2f41724976adb0e7132b0e3be176610bd6eba65f65cef4d66390014c8f"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestPlantillasCompilan",
+      "file": "internal/httpapi/server_test.go",
+      "sha256": "d2cc2f2f41724976adb0e7132b0e3be176610bd6eba65f65cef4d66390014c8f"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestProyeccionSesionAPINoExponeCorreoConMetadatosVacios",
+      "file": "internal/httpapi/sesion_api_test.go",
+      "sha256": "62f9c3083ca869cb20cb6b93273dbc8a8a03181a386a3d0a60b37962fa39fc9b"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestProyeccionSesionAPIConservaContratoLegitimo",
+      "file": "internal/httpapi/sesion_api_test.go",
+      "sha256": "62f9c3083ca869cb20cb6b93273dbc8a8a03181a386a3d0a60b37962fa39fc9b"
+    },
+    {
+      "package": "./internal/policy",
+      "name": "TestSolicitarPrimeraVezQuedaPendiente",
+      "file": "internal/policy/policy_test.go",
+      "sha256": "bb031f762fcdd5f72c2019e6f84208863956cad4a3d12e295edf9e455b1c5c00"
+    },
+    {
+      "package": "./internal/policy",
+      "name": "TestSolicitarSegundaHerramientaEsAutomatica",
+      "file": "internal/policy/policy_test.go",
+      "sha256": "bb031f762fcdd5f72c2019e6f84208863956cad4a3d12e295edf9e455b1c5c00"
+    },
+    {
+      "package": "./internal/policy",
+      "name": "TestUnRolNoCuentaComoAprobacionPrevia",
+      "file": "internal/policy/policy_test.go",
+      "sha256": "bb031f762fcdd5f72c2019e6f84208863956cad4a3d12e295edf9e455b1c5c00"
+    },
+    {
+      "package": "./internal/policy",
+      "name": "TestLoQueNoSePidesSeRechaza",
+      "file": "internal/policy/policy_test.go",
+      "sha256": "bb031f762fcdd5f72c2019e6f84208863956cad4a3d12e295edf9e455b1c5c00"
+    },
+    {
+      "package": "./internal/policy",
+      "name": "TestRepetirLoQueYaTienesEsIdempotente",
+      "file": "internal/policy/policy_test.go",
+      "sha256": "bb031f762fcdd5f72c2019e6f84208863956cad4a3d12e295edf9e455b1c5c00"
+    },
+    {
+      "package": "./internal/policy",
+      "name": "TestPuedeEntrar",
+      "file": "internal/policy/policy_test.go",
+      "sha256": "bb031f762fcdd5f72c2019e6f84208863956cad4a3d12e295edf9e455b1c5c00"
+    },
+    {
+      "package": "./internal/policy",
+      "name": "TestAdministra",
+      "file": "internal/policy/policy_test.go",
+      "sha256": "bb031f762fcdd5f72c2019e6f84208863956cad4a3d12e295edf9e455b1c5c00"
+    },
+    {
+      "package": "./internal/session",
+      "name": "TestCSRFLigadoASesion",
+      "file": "internal/session/csrf_test.go",
+      "sha256": "e52c6ed5e01aa666a70db52b7fa2364c8b410e8755e2cab30b2ea008f6c6e944"
+    },
+    {
+      "package": "./internal/session",
+      "name": "TestCSRFCookieEmitidaYUnica",
+      "file": "internal/session/csrf_test.go",
+      "sha256": "e52c6ed5e01aa666a70db52b7fa2364c8b410e8755e2cab30b2ea008f6c6e944"
+    },
+    {
+      "package": "./internal/session",
+      "name": "TestCSRFEstadoCaducado",
+      "file": "internal/session/csrf_test.go",
+      "sha256": "e52c6ed5e01aa666a70db52b7fa2364c8b410e8755e2cab30b2ea008f6c6e944"
+    },
+    {
+      "package": "./internal/session",
+      "name": "TestSellarYAbrir",
+      "file": "internal/session/session_test.go",
+      "sha256": "ef0b215e0a9cd095080db94445bf552ffd7ffcb6fdac9a096f18e7c2e1d8f868"
+    },
+    {
+      "package": "./internal/session",
+      "name": "TestCSRFDobleEnvio",
+      "file": "internal/session/session_test.go",
+      "sha256": "ef0b215e0a9cd095080db94445bf552ffd7ffcb6fdac9a096f18e7c2e1d8f868"
+    },
+    {
+      "package": "./internal/session",
+      "name": "TestCookieSesionFirmada",
+      "file": "internal/session/session_test.go",
+      "sha256": "ef0b215e0a9cd095080db94445bf552ffd7ffcb6fdac9a096f18e7c2e1d8f868"
+    },
+    {
+      "package": "./internal/session",
+      "name": "TestCookieSesionHostOnlyPorModoYSinAmbiguedad",
+      "file": "internal/session/session_test.go",
+      "sha256": "ef0b215e0a9cd095080db94445bf552ffd7ffcb6fdac9a096f18e7c2e1d8f868"
+    },
+    {
+      "package": "./internal/store",
+      "name": "TestPausaIntentosPasswordProgresaYSeAcota",
+      "file": "internal/store/intentos_password_test.go",
+      "sha256": "c0b42743a9f5aaeba5adcaf1e6f8169d6f1407e7357fa96458e548116c9d89fd"
+    }
+  ],
+  "deferred": [
+    {
+      "file": "internal/httpapi/admin_authority_test.go",
+      "name": "TestRevocarAdministracionInvalidaSesionesYComandos"
+    },
+    {
+      "file": "internal/httpapi/admin_authority_test.go",
+      "name": "TestInvitacionLimitaGruposAntesDelProveedor"
+    },
+    {
+      "file": "internal/httpapi/admin_session_revocation_test.go",
+      "name": "TestAdministracionNoAnunciaExitoSiLaRevocacionFalla"
+    },
+    {
+      "file": "internal/httpapi/admin_session_revocation_test.go",
+      "name": "TestRevocacionInvalidaCargaAAL2YEmisionAnterior"
+    },
+    {
+      "file": "internal/httpapi/admin_session_revocation_test.go",
+      "name": "TestBloqueoDeEmergenciaUsaRevocacionDurable"
+    },
+    {
+      "file": "internal/httpapi/admin_session_revocation_test.go",
+      "name": "TestCierreDeSeguridadMFADevuelveFalloDeLimpieza"
+    },
+    {
+      "file": "internal/httpapi/consent_revocation_test.go",
+      "name": "TestConsentimientoMigracionEsperaProveedor"
+    },
+    {
+      "file": "internal/httpapi/consent_revocation_test.go",
+      "name": "TestConsentimientoRevocarSinMembresia"
+    },
+    {
+      "file": "internal/httpapi/consent_revocation_test.go",
+      "name": "TestConsentimientoDenegarSinMembresia"
+    },
+    {
+      "file": "internal/httpapi/consent_revocation_test.go",
+      "name": "TestConsentimientoTardio"
+    },
+    {
+      "file": "internal/httpapi/consent_revocation_test.go",
+      "name": "TestConsentimientoAnteriorARevocacion"
+    },
+    {
+      "file": "internal/httpapi/consent_revocation_test.go",
+      "name": "TestConsentimientoEsperaRevocacion"
+    },
+    {
+      "file": "internal/httpapi/consent_revocation_test.go",
+      "name": "TestConsentimientoSnapshotAntiguo"
+    },
+    {
+      "file": "internal/httpapi/consent_revocation_test.go",
+      "name": "TestConsentimientoRollbackYBorrado"
+    },
+    {
+      "file": "internal/httpapi/consent_revocation_test.go",
+      "name": "TestConsentimientoLegitimo"
+    },
+    {
+      "file": "internal/httpapi/consent_revocation_test.go",
+      "name": "TestConsentimientoRespuesta"
+    },
+    {
+      "file": "internal/httpapi/csrf_test.go",
+      "name": "TestCSRFProtegeMutacionesAutenticadas"
+    },
+    {
+      "file": "internal/httpapi/csrf_test.go",
+      "name": "TestCSRFSesionCaducadaPermiteLogin"
+    },
+    {
+      "file": "internal/httpapi/email_change_privacy_test.go",
+      "name": "TestCambioCorreoNoDistingueDireccionOcupada"
+    },
+    {
+      "file": "internal/httpapi/email_change_privacy_test.go",
+      "name": "TestCambioCorreoConfirmacionConcurrenteEsUnSoloUso"
+    },
+    {
+      "file": "internal/httpapi/email_change_privacy_test.go",
+      "name": "TestCambioCorreoCaducadoNoLlegaAlProveedor"
+    },
+    {
+      "file": "internal/httpapi/email_link_test.go",
+      "name": "TestCambioCorreoSeguroAceptaAmbosOrdenesYNoRepiteLaPrimeraMitad"
+    },
+    {
+      "file": "internal/httpapi/email_link_test.go",
+      "name": "TestResolverEnlaceCorreoLigaPropositoBuzonYUsuario"
+    },
+    {
+      "file": "internal/httpapi/email_link_test.go",
+      "name": "TestResolverEnlaceCorreoSerializaMitadesDelMismoCambio"
+    },
+    {
+      "file": "internal/httpapi/email_link_test.go",
+      "name": "TestAltaPublicaNoReclasificaInvitacionPendiente"
+    },
+    {
+      "file": "internal/httpapi/email_link_test.go",
+      "name": "TestConfirmarEnlacesAgrupaAliasPorAutoridad"
+    },
+    {
+      "file": "internal/httpapi/membership_test.go",
+      "name": "TestSolicitudConSesionCargadaAntesDeRevocarTodo"
+    },
+    {
+      "file": "internal/httpapi/mfa_security_test.go",
+      "name": "TestMutacionesMFARechazanSesionYCSRFSolos"
+    },
+    {
+      "file": "internal/httpapi/mfa_security_test.go",
+      "name": "TestResultadoAmbiguoDeMutacionMFAFallaCerrado"
+    },
+    {
+      "file": "internal/httpapi/mfa_security_test.go",
+      "name": "TestResultadoAmbiguoAlBorrarMFAFallaCerrado"
+    },
+    {
+      "file": "internal/httpapi/mfa_security_test.go",
+      "name": "TestCancelacionPendienteEsExactaYNoExigeOtraPrueba"
+    },
+    {
+      "file": "internal/httpapi/mfa_security_test.go",
+      "name": "TestAltaMFAUsaEstadoServidorYRotaSesiones"
+    },
+    {
+      "file": "internal/httpapi/mfa_security_test.go",
+      "name": "TestBorradoMFAExigeFactorDistintoYObjetivoExacto"
+    },
+    {
+      "file": "internal/httpapi/mfa_security_test.go",
+      "name": "TestUltimoFactorExigeRecuperacionLigadaALaSesion"
+    },
+    {
+      "file": "internal/httpapi/mfa_security_test.go",
+      "name": "TestCapacidadInvitacionNoAutorizaMFADesdeUnaSesion"
+    },
+    {
+      "file": "internal/httpapi/mfa_sessions_test.go",
+      "name": "TestMFAAltaCierraSesionesSinFactor"
+    },
+    {
+      "file": "internal/httpapi/mfa_sessions_test.go",
+      "name": "TestMFACargaCompruebaFactoresActuales"
+    },
+    {
+      "file": "internal/httpapi/mfa_sessions_test.go",
+      "name": "TestMFARefreshDuranteActivacion"
+    },
+    {
+      "file": "internal/httpapi/mfa_sessions_test.go",
+      "name": "TestMFACargaDurantePromocion"
+    },
+    {
+      "file": "internal/httpapi/password_proof_test.go",
+      "name": "TestCuentaPasswordComparteLimiteEntreReplicasEIPs"
+    },
+    {
+      "file": "internal/httpapi/password_proof_test.go",
+      "name": "TestLoginLimiteNoEnumeraCuenta"
+    },
+    {
+      "file": "internal/httpapi/password_proof_test.go",
+      "name": "TestIntencionRecuperacionAnteriorNoSeRejuveneceAlCanjear"
+    },
+    {
+      "file": "internal/httpapi/password_proof_test.go",
+      "name": "TestCapacidadRecuperacionNoSeRepiteTrasResultadoAmbiguo"
+    },
+    {
+      "file": "internal/httpapi/password_proof_test.go",
+      "name": "TestCambioPasswordInvalidaMFAPendiente"
+    },
+    {
+      "file": "internal/httpapi/password_proof_test.go",
+      "name": "TestCambioPasswordDuranteMFAImpideSesionNueva"
+    },
+    {
+      "file": "internal/httpapi/password_proof_test.go",
+      "name": "TestCambioPasswordLegitimoRotaSesionYConservaPrueba"
+    },
+    {
+      "file": "internal/httpapi/password_proof_test.go",
+      "name": "TestFalloAlCerrarProveedorNoConservaSesionesLocales"
+    },
+    {
+      "file": "internal/httpapi/password_proof_test.go",
+      "name": "TestRecuperacionValidaCambiaUnaVezYCierraSesiones"
+    },
+    {
+      "file": "internal/httpapi/password_proof_test.go",
+      "name": "TestInvitacionCreaSesionSoloDespuesDelPasswordFinal"
+    },
+    {
+      "file": "internal/httpapi/password_proof_test.go",
+      "name": "TestInvitacionNoPublicaSesionSiNoCierraProveedor"
+    },
+    {
+      "file": "internal/httpapi/registration_security_test.go",
+      "name": "TestConfirmacionSignupUsaPasswordSelladaYLaSesionNaceTrasElegirLaFinal"
+    },
+    {
+      "file": "internal/httpapi/sesion_api_test.go",
+      "name": "TestAPISesionNoExponeCorreoEnLaRespuestaCORS"
+    },
+    {
+      "file": "internal/httpapi/session_binding_test.go",
+      "name": "TestCiphertextProveedorNoSeTrasplantaEntreSesiones"
+    },
+    {
+      "file": "internal/httpapi/session_binding_test.go",
+      "name": "TestMetadataLigadaNoSePuedeReescribir"
+    },
+    {
+      "file": "internal/httpapi/session_binding_test.go",
+      "name": "TestCargaAAL2RechazaSujetoProveedorDistinto"
+    },
+    {
+      "file": "internal/httpapi/session_binding_test.go",
+      "name": "TestRefreshRechazaSujetoProveedorDistinto"
+    },
+    {
+      "file": "internal/httpapi/session_binding_test.go",
+      "name": "TestRotacionYPromocionVuelvenASellarTokens"
+    },
+    {
+      "file": "internal/httpapi/session_cookie_test.go",
+      "name": "TestIdentificadoresGuardadosNoAutentican"
+    },
+    {
+      "file": "internal/httpapi/session_rotation_test.go",
+      "name": "TestAltaFactorRotaSesion"
+    },
+    {
+      "file": "internal/httpapi/session_rotation_test.go",
+      "name": "TestRefreshConservaSesion"
+    },
+    {
+      "file": "internal/httpapi/session_rotation_test.go",
+      "name": "TestRefreshAnteriorNoHeredaPromocion"
+    },
+    {
+      "file": "internal/httpapi/session_rotation_test.go",
+      "name": "TestPromocionesConcurrentes"
+    },
+    {
+      "file": "internal/httpapi/session_rotation_test.go",
+      "name": "TestPromocionRechazaCaducadaYColision"
+    },
+    {
+      "file": "internal/httpapi/session_rotation_test.go",
+      "name": "TestAltaFactorNoResucitaSesion"
+    },
+    {
+      "file": "internal/httpapi/session_rotation_test.go",
+      "name": "TestCierreConcurrenteConPromocion"
+    },
+    {
+      "file": "internal/httpapi/session_rotation_test.go",
+      "name": "TestRefreshRechazadoNoBorraCookiePromovida"
+    },
+    {
+      "file": "internal/store/administracion_test.go",
+      "name": "TestAutoridadAdminReleeDespuesDeQueRevocacionGane"
+    },
+    {
+      "file": "internal/store/administracion_test.go",
+      "name": "TestRevocacionEsPosteriorAOpcionQueYaPoseeLaFrontera"
+    },
+    {
+      "file": "internal/store/administracion_test.go",
+      "name": "TestGeneracionImpideRevivirOrdenYAutoconcederse"
+    },
+    {
+      "file": "internal/store/administracion_test.go",
+      "name": "TestFronteraAdministrativaNoAgotaPoolDeTrabajo"
+    },
+    {
+      "file": "internal/store/intentos_password_test.go",
+      "name": "TestIntentosPasswordPersistenEntreReplicasEIPs"
+    },
+    {
+      "file": "internal/store/intentos_password_test.go",
+      "name": "TestIntentosPasswordReservanAtomicos"
+    },
+    {
+      "file": "internal/store/membresias_test.go",
+      "name": "TestSolicitarAccesoMantienePoliticaYAtomicidad"
+    },
+    {
+      "file": "internal/store/membresias_test.go",
+      "name": "TestGruposCerradosPorDefectoYRolesNoSolicitables"
+    },
+    {
+      "file": "internal/store/membresias_test.go",
+      "name": "TestSolicitarAccesoRechazaRolesYGrupoAdministradorAunqueDatosCorruptos"
+    },
+    {
+      "file": "internal/store/membresias_test.go",
+      "name": "TestMigracionTipoGruposReparaRolesHeredados"
+    },
+    {
+      "file": "internal/store/membresias_test.go",
+      "name": "TestSolicitarAccesoRevierteMembresiaSiNoRegistraDecision"
+    },
+    {
+      "file": "internal/store/membresias_test.go",
+      "name": "TestSolicitudYRevocacionCompartenOrdenCanonico"
+    },
+    {
+      "file": "internal/store/membresias_test.go",
+      "name": "TestRevocarTodoNoOmiteConcesionAutomaticaEnVuelo"
+    },
+    {
+      "file": "internal/store/roles_test.go",
+      "name": "TestRolesRestringidosProtegenHook"
+    },
+    {
+      "file": "internal/store/session_cutoff_test.go",
+      "name": "TestCambioCredencialSerializaMutacionesPorPersona"
+    },
+    {
+      "file": "internal/store/session_cutoff_test.go",
+      "name": "TestSesionDeCambioExigeGeneracionActual"
+    },
+    {
+      "file": "internal/store/session_cutoff_test.go",
+      "name": "TestGeneracionLigadaNoSeRejuveneceConOtroToken"
+    },
+    {
+      "file": "internal/store/session_cutoff_test.go",
+      "name": "TestRechazoConocidoConservaCredencial"
+    },
+    {
+      "file": "internal/store/session_cutoff_test.go",
+      "name": "TestResultadoAmbiguoAvanzaGeneracion"
+    },
+    {
+      "file": "internal/store/session_cutoff_test.go",
+      "name": "TestResultadoAmbiguoConPeticionCanceladaAvanzaGeneracion"
+    },
+    {
+      "file": "internal/store/session_cutoff_test.go",
+      "name": "TestCorteCredencialSerializaCreacionConCambioPassword"
+    },
+    {
+      "file": "internal/store/session_revocation_test.go",
+      "name": "TestRevocarSesionesCierraCarreraYFiltraSuperviviente"
+    },
+    {
+      "file": "internal/store/session_revocation_test.go",
+      "name": "TestRevocacionSerializaPublicacionTardia"
+    },
+    {
+      "file": "internal/store/session_revocation_test.go",
+      "name": "TestRevocarSesionesIntentaAmbasLimpiezasYSePuedeReintentar"
+    },
+    {
+      "file": "internal/store/vincular_test.go",
+      "name": "TestVincularReconciliaAutoridadEntrante"
+    },
+    {
+      "file": "internal/store/vincular_test.go",
+      "name": "TestVincularRetiraGrants"
+    },
+    {
+      "file": "internal/store/vincular_test.go",
+      "name": "TestVincularMismaIdentidadYRollback"
+    },
+    {
+      "file": "internal/store/vincular_test.go",
+      "name": "TestVincularRechazaGrantTardio"
+    },
+    {
+      "file": "internal/store/vincular_test.go",
+      "name": "TestVincularEsperaEscrituraProveedor"
+    },
+    {
+      "file": "internal/store/vincular_test.go",
+      "name": "TestVincularEsperaAutoridadEntrante"
+    },
+    {
+      "file": "internal/store/vincular_test.go",
+      "name": "TestVincularSnapshotAntiguo"
+    },
+    {
+      "file": "internal/store/vincular_test.go",
+      "name": "TestVincularMigracionUUID"
+    }
+  ]
+}

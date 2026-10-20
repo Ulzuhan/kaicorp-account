@@ -2,6 +2,8 @@ package store
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/Ulzuhan/kaicorp-account/internal/policy"
@@ -53,17 +55,24 @@ func crearSolicitud(ctx context.Context, q ejecutorSolicitud, userID, grupo, est
 // bloqueo antes de leer las membresías y lo conserva hasta registrar la
 // decisión y, si corresponde, la nueva membresía. Repetir un acceso que ya se
 // tiene se registra, pero no ejecuta otro INSERT que pueda resucitarlo.
-func (s *Store) SolicitarAcceso(ctx context.Context, userID, grupo string) (*Grupo, policy.Decision, error) {
+func (s *Store) SolicitarAcceso(ctx context.Context, userID, grupo, grupoAdmin string) (*Grupo, policy.Decision, error) {
 	tx, err := s.transaccionMembresias(ctx, userID)
 	if err != nil {
 		return nil, policy.Rechazada, err
 	}
 	defer tx.Rollback(ctx)
-	g, err := scanGrupo(tx.QueryRow(ctx, `select `+grupoCols+` from account.grupos where nombre=$1`, grupo))
+	// El bloqueo de la fila conserva la clasificación validada hasta que la
+	// decisión y su posible membresía quedan confirmadas.
+	g, err := scanGrupo(tx.QueryRow(ctx, `select `+grupoCols+` from account.grupos where nombre=$1 for share`, grupo))
 	if err != nil {
 		return nil, policy.Rechazada, err
 	}
-	rows, err := tx.Query(ctx, `select m.grupo, g.solicitable from account.membresias m
+	// La defensa de aplicación no confía en `solicitable`: ni un rol corrupto
+	// ni el nombre configurado para /admin entran jamás en autoservicio.
+	if g.Tipo != TipoGrupoHerramienta || g.Nombre == grupoAdmin {
+		return g, policy.Rechazada, nil
+	}
+	rows, err := tx.Query(ctx, `select m.grupo, g.tipo from account.membresias m
 		join account.grupos g on g.nombre=m.grupo where m.user_id=$1`, userID)
 	if err != nil {
 		return nil, policy.Rechazada, err
@@ -72,13 +81,13 @@ func (s *Store) SolicitarAcceso(ctx context.Context, userID, grupo string) (*Gru
 	herramientas := map[string]bool{}
 	for rows.Next() {
 		var nombre string
-		var solicitable bool
-		if err := rows.Scan(&nombre, &solicitable); err != nil {
+		var tipo TipoGrupo
+		if err := rows.Scan(&nombre, &tipo); err != nil {
 			rows.Close()
 			return nil, policy.Rechazada, err
 		}
 		membresias = append(membresias, nombre)
-		herramientas[nombre] = solicitable
+		herramientas[nombre] = tipo == TipoGrupoHerramienta
 	}
 	rows.Close()
 	if err := rows.Err(); err != nil {
@@ -108,12 +117,21 @@ func (s *Store) SolicitarAcceso(ctx context.Context, userID, grupo string) (*Gru
 }
 
 // RevocarTodo toma el bloqueo antes de enumerar y lo conserva mientras borra
-// todas las membresías y las dos clases de sesión. Los triggers de membresía
-// revocan los grants OAuth dentro de esta misma transacción.
+// todas las membresías y aplica la misma frontera durable de sesiones que los
+// cierres del panel. Los triggers revocan los grants OAuth en esta transacción.
 func (s *Store) RevocarTodo(ctx context.Context, userID string) ([]string, error) {
-	tx, err := s.transaccionMembresias(ctx, userID)
+	b, err := s.bloquearAutoridad(ctx, userID)
 	if err != nil {
 		return nil, err
+	}
+	defer b.cerrar()
+	errProveedor := s.CerrarSesionesGoTrue(ctx, userID)
+	if errProveedor != nil {
+		errProveedor = fmt.Errorf("cerrar sesiones del proveedor: %w", errProveedor)
+	}
+	tx, err := s.transaccionMembresias(ctx, userID)
+	if err != nil {
+		return nil, errors.Join(errProveedor, err)
 	}
 	defer tx.Rollback(ctx)
 	rows, err := tx.Query(ctx, `select grupo from account.membresias where user_id=$1 order by grupo`, userID)
@@ -133,17 +151,21 @@ func (s *Store) RevocarTodo(ctx context.Context, userID string) ([]string, error
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	for _, q := range []string{
-		`delete from account.membresias where user_id=$1`,
-		`delete from auth.sessions where user_id=$1`,
-		`delete from account.sesiones where user_id=$1`,
-	} {
-		if _, err := tx.Exec(ctx, q, userID); err != nil {
-			return nil, err
-		}
+	espera, err := revocarSesionesLocalesTx(ctx, tx, userID)
+	if err != nil {
+		return nil, errors.Join(errProveedor, fmt.Errorf("cerrar sesiones locales: %w", err))
+	}
+	if err := avanzarAutoridadAdministrativa(ctx, tx, userID); err != nil {
+		return nil, errors.Join(errProveedor, err)
+	}
+	if _, err := tx.Exec(ctx, `delete from account.membresias where user_id=$1`, userID); err != nil {
+		return nil, errors.Join(errProveedor, err)
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return nil, err
+		return nil, errors.Join(errProveedor, err)
 	}
-	return grupos, nil
+	if err := esperarEmisionPosterior(ctx, espera); err != nil {
+		return nil, errors.Join(errProveedor, fmt.Errorf("esperar nueva emisión de sesión: %w", err))
+	}
+	return grupos, errProveedor
 }

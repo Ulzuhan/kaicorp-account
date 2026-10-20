@@ -28,15 +28,56 @@ bounty.
   bounded by its own expiry, not by the revocation.
 - **The session key encrypts tokens at rest and signs session cookies and CSRF tokens.**
   Rotating it closes every session at once.
+  Each access and refresh envelope is authenticated against its token kind,
+  provider user ID, AAL, stable row reference, and current cookie bearer. Every
+  load authenticates both envelopes and asks GoTrue to confirm the access-token
+  subject, including AAL2; refresh responses are checked before storage. Session
+  lifecycle updates use narrow `SECURITY DEFINER` operations instead of direct
+  runtime `UPDATE` rights. The migration that introduces these envelopes closes
+  existing local sessions once because legacy ciphertext has no trustworthy row
+  binding; deploy it with legacy replicas stopped so no old process can publish
+  another unbound envelope during the transition.
   Database session IDs alone cannot authenticate. Unsigned cookies from older
   versions are rejected; users must sign in again when signed cookies are introduced.
-- **Changing a password needs proof beyond the app session.** An ordinary change
-  verifies the current password for the same provider user. Recovery and initial
-  invitation setup use separate five-minute, single-purpose, one-use capabilities;
-  neither can authenticate as a normal session. A successful change rotates the
-  app credential and closes the account's other sessions.
-- **The service key is used for one thing**: blocking and deleting accounts. It
-  is not the key the app runs on.
+  Administrative sign-out advances a durable per-user generation and
+  not-before cutoff under the session-publication lock. Pre-cutoff provider
+  tokens cannot publish later, and every load rejects a surviving old row,
+  including cached AAL2 sessions. Provider and local cleanup are idempotent and
+  an incomplete cleanup is reported as a failure. The operation does not report
+  success until a newly issued provider token can be strictly newer than the
+  cutoff; administrative, CLI, and fail-closed security paths use the same
+  primitive.
+- **Choosing or changing a password needs fresh proof.** Self-registration stores
+  only a server-random unknown credential until the mailbox is confirmed.
+  A signup email also carries an encrypted, address-bound setup proof; links
+  issued before that proof existed are rejected without confirming the account,
+  and requesting a replacement rotates an old unconfirmed credential before the
+  new email is sent. Onboarding (signup or invitation) and recovery then use
+  distinct five-minute, single-purpose, one-use capabilities. Neither capability
+  can authenticate as a normal session; that session exists only after the final
+  password is saved. An app-generated, sealed and time-limited intent also
+  binds password recovery to a recovery email;
+  a raw token from the provider's shared magic-link storage is not enough. An
+  email hash is never redeemed until the provider's authoritative
+  `auth.one_time_tokens` row binds its exact purpose, normalized recipient,
+  user and unconsumed state, and the matching issuance time is still live. The
+  configured local lifetime must match GoTrue's email OTP lifetime and is capped
+  at one day. Secure email change distinguishes the old-recipient hash from the
+  new-recipient hash and serializes both arms for that user across replicas before
+  accepting either partial confirmation. An
+  ordinary change verifies the current password for the same provider user. A
+  successful change rotates the app credential and closes the account's other sessions.
+- **Password guesses have a durable shared budget.** Before every human-entered
+  password reaches GoTrue, the app atomically reserves from a PostgreSQL-backed
+  account budget and an account/client budget. The account key is the stable
+  provider user ID when known; unknown addresses use an opaque digest with the
+  same external behavior. Moving between IPs, processes, routes, or replicas
+  cannot reset the account budget. Backoff grows to a capped 60 seconds and is
+  returned as a generic HTTP 429 with `Retry-After`; provider and edge limits
+  remain defense in depth.
+- **The service key has three narrow jobs**: blocking and deleting accounts,
+  and replacing pending passwords before a replacement signup email or while
+  completing an administrator-issued invitation. It is not the key the app runs on.
 - **Database authority is split by capability.** The long-running `account` login
   has explicit DML only, the one-off `account_migrator` login owns schema
   objects, and the no-login `account_hook` role owns the five provider-facing
@@ -45,11 +86,41 @@ bounty.
   replace relations or functions consumed by a privileged hook.
 - **The second factor is optional and double**: a TOTP authenticator, and since
   0.7.0 passkeys, stored by GoTrue as `webauthn` factors with the app's public
-  host as the relying party.
+  host as the relying party. Adding, verifying, or removing one requires a
+  five-minute, one-use recent-authentication grant bound server-side to the
+  user, initiating app session, purpose, and exact pending or removal target.
+  It starts with the current password and, if a factor already exists, a fresh
+  assertion from a different verified factor. Removing the final factor also
+  requires a recovery email opened by that same signed-in session. A completed
+  change rotates the active bearer and closes every other app and provider
+  session; cancelling the exact unverified factor only rolls back its pending
+  enrollment.
 - **The app refuses to run half-configured.** Every `ACCOUNT_*` variable is
   validated at start, because an account app missing a piece is a door left ajar.
-- **One script, no inline code.** `static/js/passkey.js` exists because WebAuthn
-  only exists in the browser; the content policy is `script-src 'self'`.
+  The configured administrator group must also exist as a non-requestable role.
+- **Roles are never self-service.** Group kind is stored explicitly and enforced
+  by a database constraint. Groups default to non-requestable roles; an ordinary
+  tool must opt in to both tool kind and requestability. The request transaction
+  independently rejects every role and the configured administrator group even
+  if stored flags are corrupt.
+- **Two narrowly scoped scripts, no inline code.** `static/js/passkey.js` exists
+  because WebAuthn only exists in the browser. `static/js/email-link.js` moves
+  one-use mail capabilities from URL fragments into CSRF-protected forms and
+  immediately removes the fragment from history. Neither makes network calls;
+  the content policy is `script-src 'self'`.
+
+### Registration-hardening rollout
+
+Old signup links are rejected before token exchange. An owner can register again;
+the replacement flow rotates any still-unconfirmed account to a new unknown
+password before sending its new link. The app still cannot tell whether an account
+confirmed before deployment was created by its mailbox owner or was already taken
+over. A rollout after an exposure window therefore also needs an operator-led
+response for those already-confirmed accounts: first randomize or otherwise
+disable their old passwords, then revoke their app/provider sessions, and require
+a new mailbox-bound password recovery before restoring access. Revocation alone
+is not enough because an attacker who knows the old password can immediately sign
+in again.
 
 ## In scope
 

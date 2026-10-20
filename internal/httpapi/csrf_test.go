@@ -140,6 +140,10 @@ func TestCSRFOrigenIPv6Canonico(t *testing.T) {
 func TestCSRFProtegeMutacionesAutenticadas(t *testing.T) {
 	var cambios atomic.Int32
 	s := servidorMFA(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/user" && r.Method == http.MethodGet {
+			fmt.Fprint(w, `{"id":"`+consentPersona+`"}`)
+			return
+		}
 		if r.URL.Path != "/user" || r.Method != http.MethodPut {
 			t.Errorf("llamada inesperada al proveedor: %s %s", r.Method, r.URL.Path)
 			w.WriteHeader(http.StatusInternalServerError)

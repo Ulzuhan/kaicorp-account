@@ -13,7 +13,7 @@ func TestPlantillasCambioCorreoSeparanLosBuzones(t *testing.T) {
 	}
 	datos := CambioCorreo{
 		Cuenta:    "https://account.example.com/security-overview",
-		Confirmar: "https://account.example.com/cuenta/correo/confirmar?token=secreto-opaco",
+		Confirmar: "https://account.example.com/cuenta/correo/confirmar#token=secreto-opaco",
 	}
 	var actual, propuesta bytes.Buffer
 	if err := r.cambioIniciado.Execute(&actual, datos); err != nil {

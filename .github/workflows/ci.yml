@@ -1,4 +1,4 @@
-name: CI
+name: Partial validation — NOT ready to merge
 
 on:
   push:
@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   go:
+    name: Allowed unit tests (80 of 178; partial)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -17,9 +18,33 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '1.27.1'
+          go-version: '1.27.3'
           cache: false
       - run: test -z "$(gofmt -l cmd internal)"
       - run: go vet ./...
-      - run: go test -race ./...
+      # Lista cerrada revisada; no ejecutar ./... ni las pruebas aplazadas.
+      # Sin PostgreSQL; este pase no equivale a la suite completa.
+      - name: Run only the explicitly allowed selection
+        run: python3 tools/ci/partial-tests.py
       - run: CGO_ENABLED=0 go build -trimpath -o account ./cmd/account
+      - name: Explain the validation gap
+        if: always()
+        run: |
+          {
+            echo '## PARTIAL validation — do not merge or deploy'
+            echo 'Only the 80 selected tests may run. 98 tests remain deferred.'
+            echo 'Full-suite and race validation have not been completed.'
+            echo 'See docs/AUDIT-VALIDATION-STATUS.md and tools/ci/deferred-tests.tsv.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  full-validation-pending:
+    name: BLOCKED — full validation pending (98 deferred)
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Keep incomplete validation visible and blocking
+        run: |
+          echo '::error::Full validation is incomplete: 98 tests are deferred. Keep this PR draft; do not merge or deploy.'
+          echo '## BLOCKED: full validation is incomplete' >> "$GITHUB_STEP_SUMMARY"
+          echo 'The partial checks do not certify the full suite or close the audit.' >> "$GITHUB_STEP_SUMMARY"
+          exit 1

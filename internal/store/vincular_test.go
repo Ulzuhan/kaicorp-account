@@ -61,12 +61,14 @@ func storeVinculos(t *testing.T) (*Store, *pgxpool.Pool) {
 	end $$;
 	create schema auth;
 	create table auth.users(id uuid primary key);
-	create table auth.sessions(user_id uuid);
+	create table auth.one_time_tokens(id uuid primary key, user_id uuid, token_type text, token_hash text, relates_to text, created_at timestamptz, updated_at timestamptz);
+	create table auth.sessions(user_id uuid, oauth_client_id uuid);
 	create table auth.oauth_clients(id uuid primary key);
-	create table auth.oauth_authorizations(client_id uuid);
+	create table auth.oauth_authorizations(authorization_id uuid primary key, client_id uuid, user_id uuid,
+		status text default 'pending', authorization_code text, expires_at timestamptz default now()+interval '1 hour');
 	create table auth.oauth_consents(user_id uuid, client_id uuid, revoked_at timestamptz, primary key(user_id,client_id));
 	grant usage on schema auth to supabase_auth_admin;
-	grant select, insert, update on auth.oauth_consents to supabase_auth_admin;`)
+	grant select, insert, update on auth.oauth_consents,auth.oauth_authorizations,auth.sessions to supabase_auth_admin;`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +104,8 @@ func storeVinculos(t *testing.T) (*Store, *pgxpool.Pool) {
 	if err := s.CheckMigrations(ctx); err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec(ctx, `insert into account.grupos(nombre,titulo,cliente_id) values ('herramienta','Tool',$1),('otra','Other',null)`, clienteViejo)
+	_, err = db.Exec(ctx, `insert into account.grupos(nombre,titulo,tipo,cliente_id,solicitable) values
+		('herramienta','Tool','herramienta',$1,true),('otra','Other','herramienta',null,true)`, clienteViejo)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,6 +129,105 @@ func vivosVinculo(t *testing.T, db *pgxpool.Pool, client string) int {
 		t.Fatal(err)
 	}
 	return n
+}
+
+func cuentaVinculo(t *testing.T, db *pgxpool.Pool, tabla, condicion string, args ...any) int {
+	t.Helper()
+	var n int
+	if err := db.QueryRow(t.Context(), `select count(*) from `+tabla+` where `+condicion, args...).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+func TestVincularReconciliaAutoridadEntrante(t *testing.T) {
+	s, db := storeVinculos(t)
+	grantVinculo(t, db, personaUno, clienteNuevo)
+	grantVinculo(t, db, personaDos, clienteNuevo)
+	if _, err := db.Exec(t.Context(), `insert into auth.oauth_authorizations
+		(authorization_id,client_id,user_id,status,authorization_code,expires_at) values
+		('30000000-0000-4000-8000-000000000001',$1,$2,'approved','member',now()+interval '1 hour'),
+		('30000000-0000-4000-8000-000000000002',$1,$3,'approved','excluded',now()+interval '1 hour'),
+		('30000000-0000-4000-8000-000000000003',$1,$3,'approved','expired',now()-interval '1 hour'),
+		('30000000-0000-4000-8000-000000000004',$1,$3,'pending',null,now()+interval '1 hour')`,
+		clienteNuevo, personaUno, personaDos); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(t.Context(), `insert into auth.sessions(user_id,oauth_client_id) values ($2,$1),($3,$1)`,
+		clienteNuevo, personaUno, personaDos); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.VincularCliente(t.Context(), "herramienta", clienteNuevo); err != nil {
+		t.Fatal(err)
+	}
+	if got := cuentaVinculo(t, db, "auth.oauth_consents", "client_id=$1 and user_id=$2 and revoked_at is null", clienteNuevo, personaUno); got != 1 {
+		t.Fatalf("el miembro perdió su grant: %d", got)
+	}
+	if got := cuentaVinculo(t, db, "auth.oauth_consents", "client_id=$1 and user_id=$2 and revoked_at is null", clienteNuevo, personaDos); got != 0 {
+		t.Fatalf("sobrevivió el grant del no miembro: %d", got)
+	}
+	if got := cuentaVinculo(t, db, "auth.oauth_authorizations", "client_id=$1 and user_id=$2 and status='approved' and expires_at>now()", clienteNuevo, personaDos); got != 0 {
+		t.Fatalf("sobrevivió el código aprobado del no miembro: %d", got)
+	}
+	if got := cuentaVinculo(t, db, "auth.oauth_authorizations", "client_id=$1 and user_id=$2 and status='approved' and expires_at>now()", clienteNuevo, personaUno); got != 1 {
+		t.Fatalf("el miembro perdió su código aprobado: %d", got)
+	}
+	if got := cuentaVinculo(t, db, "auth.oauth_authorizations", "client_id=$1 and user_id=$2 and status='approved' and expires_at<=now()", clienteNuevo, personaDos); got != 1 {
+		t.Fatalf("se reescribió una autorización ya expirada: %d", got)
+	}
+	if got := cuentaVinculo(t, db, "auth.oauth_authorizations", "client_id=$1 and user_id=$2 and status='pending'", clienteNuevo, personaDos); got != 1 {
+		t.Fatalf("se reescribió una autorización pendiente: %d", got)
+	}
+	if got := cuentaVinculo(t, db, "auth.sessions", "oauth_client_id=$1 and user_id=$2", clienteNuevo, personaUno); got != 1 {
+		t.Fatalf("el miembro perdió su sesión OAuth: %d", got)
+	}
+	if got := cuentaVinculo(t, db, "auth.sessions", "oauth_client_id=$1 and user_id=$2", clienteNuevo, personaDos); got != 0 {
+		t.Fatalf("sobrevivió el refresh token del no miembro: %d", got)
+	}
+
+	// Repetir el mismo vínculo también repara filas históricas anteriores al
+	// despliegue de esta reconciliación, sin expulsar a miembros legítimos.
+	for _, sql := range []string{
+		`alter table auth.oauth_consents disable trigger account_valida_consentimiento`,
+		`alter table auth.oauth_authorizations disable trigger account_valida_consentimiento`,
+		`alter table auth.sessions disable trigger account_valida_sesiones_oauth`,
+	} {
+		if _, err := db.Exec(t.Context(), sql); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := db.Exec(t.Context(), `update auth.oauth_consents set revoked_at=null where client_id=$1 and user_id=$2`, clienteNuevo, personaDos); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(t.Context(), `update auth.oauth_authorizations set status='approved'
+		where authorization_id='30000000-0000-4000-8000-000000000002'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(t.Context(), `insert into auth.sessions(user_id,oauth_client_id) values ($2,$1)`, clienteNuevo, personaDos); err != nil {
+		t.Fatal(err)
+	}
+	for _, sql := range []string{
+		`alter table auth.oauth_consents enable trigger account_valida_consentimiento`,
+		`alter table auth.oauth_authorizations enable trigger account_valida_consentimiento`,
+		`alter table auth.sessions enable trigger account_valida_sesiones_oauth`,
+	} {
+		if _, err := db.Exec(t.Context(), sql); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.VincularCliente(t.Context(), "herramienta", "{"+strings.ToUpper(clienteNuevo)+"}"); err != nil {
+		t.Fatal(err)
+	}
+	if got := cuentaVinculo(t, db, "auth.oauth_consents", "client_id=$1 and user_id=$2 and revoked_at is null", clienteNuevo, personaDos); got != 0 {
+		t.Fatalf("el mismo vínculo dejó un grant histórico: %d", got)
+	}
+	if got := cuentaVinculo(t, db, "auth.oauth_authorizations", "client_id=$1 and user_id=$2 and status='approved' and expires_at>now()", clienteNuevo, personaDos); got != 0 {
+		t.Fatalf("el mismo vínculo dejó un código histórico: %d", got)
+	}
+	if got := cuentaVinculo(t, db, "auth.sessions", "oauth_client_id=$1 and user_id=$2", clienteNuevo, personaDos); got != 0 {
+		t.Fatalf("el mismo vínculo dejó una sesión histórica: %d", got)
+	}
 }
 
 func TestVincularRetiraGrants(t *testing.T) {
@@ -223,11 +325,14 @@ func TestVincularRechazaGrantTardio(t *testing.T) {
 		`insert into auth.oauth_consents(user_id,client_id) values ('` + personaDos + `','` + clienteViejo + `')`,
 		`update auth.oauth_consents set revoked_at=null where client_id='` + clienteViejo + `'`,
 		`insert into auth.oauth_consents(user_id,client_id) values ('` + personaUno + `','` + clienteViejo + `') on conflict(user_id,client_id) do update set revoked_at=null`,
+		`insert into auth.oauth_authorizations(authorization_id,client_id,user_id,status,authorization_code)
+			values ('30000000-0000-4000-8000-000000000019','` + clienteViejo + `','` + personaUno + `','approved','late-unbound')`,
+		`insert into auth.sessions(user_id,oauth_client_id) values ('` + personaUno + `','` + clienteViejo + `')`,
 	} {
 		_, err := provider.Exec(t.Context(), sql)
 		var pe *pgconn.PgError
 		if !errors.As(err, &pe) || pe.Code != "42501" {
-			t.Fatalf("tenía que rechazar el grant tardío: %v", err)
+			t.Fatalf("tenía que rechazar la autoridad tardía: %v", err)
 		}
 	}
 	// Si C se mueve a otro grupo, no hereda los miembros del grupo antiguo.
@@ -237,11 +342,27 @@ func TestVincularRechazaGrantTardio(t *testing.T) {
 	if _, err := provider.Exec(t.Context(), `update auth.oauth_consents set revoked_at=null where client_id=$1`, clienteViejo); err == nil {
 		t.Fatal("un miembro del grupo anterior no pertenece al nuevo")
 	}
+	if _, err := provider.Exec(t.Context(), `insert into auth.oauth_authorizations
+		(authorization_id,client_id,user_id,status,authorization_code)
+		values ('30000000-0000-4000-8000-000000000020',$1,$2,'approved','late')`, clienteViejo, personaUno); err == nil {
+		t.Fatal("un no miembro no puede aprobar una autorización tardía")
+	}
+	if _, err := provider.Exec(t.Context(), `insert into auth.sessions(user_id,oauth_client_id) values ($1,$2)`, personaUno, clienteViejo); err == nil {
+		t.Fatal("un no miembro no puede crear una sesión OAuth tardía")
+	}
 	if err := s.Conceder(t.Context(), personaUno, "otra", "test"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := provider.Exec(t.Context(), `update auth.oauth_consents set revoked_at=null where user_id=$1 and client_id=$2`, personaUno, clienteViejo); err != nil {
 		t.Fatal("el miembro actual puede autorizar", err)
+	}
+	if _, err := provider.Exec(t.Context(), `insert into auth.oauth_authorizations
+		(authorization_id,client_id,user_id,status,authorization_code)
+		values ('30000000-0000-4000-8000-000000000020',$1,$2,'approved','member-late')`, clienteViejo, personaUno); err != nil {
+		t.Fatal("el miembro actual puede aprobar", err)
+	}
+	if _, err := provider.Exec(t.Context(), `insert into auth.sessions(user_id,oauth_client_id) values ($1,$2)`, personaUno, clienteViejo); err != nil {
+		t.Fatal("el miembro actual puede crear sesión OAuth", err)
 	}
 	if err := s.RevocarGrants(t.Context(), personaUno, clienteViejo); err != nil {
 		t.Fatal("la revocación sigue permitida", err)
@@ -272,6 +393,50 @@ func TestVincularEsperaEscrituraProveedor(t *testing.T) {
 	}
 	if vivosVinculo(t, db, clienteViejo) != 0 {
 		t.Fatal("la escritura en vuelo debe quedar revocada")
+	}
+}
+
+func TestVincularEsperaAutoridadEntrante(t *testing.T) {
+	s, db := storeVinculos(t)
+	if _, err := db.Exec(t.Context(), `insert into auth.oauth_authorizations
+		(authorization_id,client_id,user_id) values
+		('30000000-0000-4000-8000-000000000010',$1,$2)`, clienteNuevo, personaDos); err != nil {
+		t.Fatal(err)
+	}
+	tx, err := db.Begin(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(context.Background())
+	if _, err := tx.Exec(t.Context(), `update auth.oauth_authorizations
+		set status='approved',authorization_code='in-flight' where authorization_id='30000000-0000-4000-8000-000000000010'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(t.Context(), `insert into auth.oauth_consents(user_id,client_id) values ($1,$2)`, personaDos, clienteNuevo); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(t.Context(), `insert into auth.sessions(user_id,oauth_client_id) values ($1,$2)`, personaDos, clienteNuevo); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
+	defer cancel()
+	if err := s.VincularCliente(ctx, "herramienta", clienteNuevo); err == nil {
+		t.Fatal("no puede publicar el vínculo antes del commit del proveedor")
+	}
+	if err := tx.Commit(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.VincularCliente(t.Context(), "herramienta", clienteNuevo); err != nil {
+		t.Fatal(err)
+	}
+	if got := cuentaVinculo(t, db, "auth.oauth_authorizations", "client_id=$1 and user_id=$2 and status='approved'", clienteNuevo, personaDos); got != 0 {
+		t.Fatalf("sobrevivió la autorización en vuelo: %d", got)
+	}
+	if got := cuentaVinculo(t, db, "auth.oauth_consents", "client_id=$1 and user_id=$2 and revoked_at is null", clienteNuevo, personaDos); got != 0 {
+		t.Fatalf("sobrevivió el grant en vuelo: %d", got)
+	}
+	if got := cuentaVinculo(t, db, "auth.sessions", "oauth_client_id=$1 and user_id=$2", clienteNuevo, personaDos); got != 0 {
+		t.Fatalf("sobrevivió la sesión en vuelo: %d", got)
 	}
 }
 

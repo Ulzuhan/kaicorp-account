@@ -12,10 +12,11 @@ func TestRolesRestringidosProtegenHook(t *testing.T) {
 	s, db := storeVinculos(t)
 
 	var hooksSeguros bool
-	if err := db.QueryRow(t.Context(), `select count(*)=5 and bool_and(r.rolname='account_hook' and not r.rolsuper)
+	if err := db.QueryRow(t.Context(), `select count(*)=6 and bool_and(r.rolname='account_hook' and not r.rolsuper)
 		from pg_proc p join pg_namespace n on n.oid=p.pronamespace join pg_roles r on r.oid=p.proowner
 		where n.nspname='public' and p.proname in ('custom_access_token_hook','account_ordena_grants',
-		'account_valida_grants','account_sincroniza_consentimiento','account_valida_consentimiento')`).Scan(&hooksSeguros); err != nil {
+		'account_valida_grants','account_sincroniza_consentimiento','account_valida_consentimiento',
+		'account_valida_sesiones_oauth')`).Scan(&hooksSeguros); err != nil {
 		t.Fatal(err)
 	}
 	if !hooksSeguros {
@@ -42,14 +43,15 @@ func TestRolesRestringidosProtegenHook(t *testing.T) {
 	}
 
 	var creaSchema, hookLee, hookEscribe, hookLeeAjeno, lockLee, lockActualizaVersion, lockActualizaID, lockLeeNegocio bool
-	var runtimeLee, runtimeInserta, runtimeActualiza, runtimeBorra, runtimeMigra bool
+	var runtimeLee, runtimeInserta, runtimeActualiza, runtimeBorra, runtimeIntentos, runtimeMigra bool
+	var runtimeActualizaSesiones, runtimeProcedimientosSesion bool
 	if err := db.QueryRow(t.Context(), `select
 		has_schema_privilege('account','account','CREATE'),
 		(select count(*)=3 and bool_and(has_table_privilege('account_hook',format('account.%I',nombre),'SELECT'))
 		 from unnest(array['membresias','grupos','clientes_anteriores']) nombre),
 		has_table_privilege('account_hook','account.membresias','INSERT,UPDATE,DELETE'),
 		(select bool_or(has_table_privilege('account_hook',format('account.%I',nombre),'SELECT'))
-		 from unnest(array['estado_vinculos','estado_consentimiento','solicitudes','sesiones','cortes_credencial','schema_migrations']) nombre),
+		 from unnest(array['estado_vinculos','estado_consentimiento','solicitudes','sesiones','cortes_credencial','intentos_password','schema_migrations']) nombre),
 		(select bool_and(has_table_privilege('account_hook_lock',format('account.%I',nombre),'SELECT'))
 		 from unnest(array['estado_vinculos','estado_consentimiento']) nombre),
 		(select bool_and(has_column_privilege('account_hook_lock',format('account.%I',nombre),'version','UPDATE'))
@@ -61,16 +63,34 @@ func TestRolesRestringidosProtegenHook(t *testing.T) {
 		has_table_privilege('account','account.membresias','INSERT'),
 		has_table_privilege('account','account.membresias','UPDATE'),
 		has_table_privilege('account','account.membresias','DELETE'),
-		has_table_privilege('account','account.schema_migrations','INSERT,UPDATE,DELETE')`).
+		has_table_privilege('account','account.intentos_password','SELECT,INSERT,UPDATE,DELETE'),
+		has_table_privilege('account','account.schema_migrations','INSERT,UPDATE,DELETE'),
+		has_table_privilege('account','account.sesiones','UPDATE'),
+		(select count(*)=4 and bool_and(has_function_privilege('account',p.oid,'EXECUTE'))
+		 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+		 where n.nspname='account' and p.proname in ('actualizar_tokens_sesion','rotar_sesion','tocar_sesion','actualizar_correo_sesiones'))`).
 		Scan(&creaSchema, &hookLee, &hookEscribe, &hookLeeAjeno, &lockLee, &lockActualizaVersion, &lockActualizaID, &lockLeeNegocio,
-			&runtimeLee, &runtimeInserta, &runtimeActualiza, &runtimeBorra, &runtimeMigra); err != nil {
+			&runtimeLee, &runtimeInserta, &runtimeActualiza, &runtimeBorra, &runtimeIntentos, &runtimeMigra,
+			&runtimeActualizaSesiones, &runtimeProcedimientosSesion); err != nil {
 		t.Fatal(err)
 	}
 	if creaSchema || !hookLee || hookEscribe || hookLeeAjeno || !lockLee || !lockActualizaVersion || lockActualizaID || lockLeeNegocio ||
-		!runtimeLee || !runtimeInserta || !runtimeActualiza || !runtimeBorra || runtimeMigra {
-		t.Fatalf("privilegios inseguros: create=%v hook=%v/%v/%v lock=%v/%v/%v/%v runtime=%v/%v/%v/%v migra=%v",
+		!runtimeLee || !runtimeInserta || !runtimeActualiza || !runtimeBorra || !runtimeIntentos || runtimeMigra ||
+		runtimeActualizaSesiones || !runtimeProcedimientosSesion {
+		t.Fatalf("privilegios inseguros: create=%v hook=%v/%v/%v lock=%v/%v/%v/%v runtime=%v/%v/%v/%v intentos=%v migra=%v sesiones-update=%v sesiones-funciones=%v",
 			creaSchema, hookLee, hookEscribe, hookLeeAjeno, lockLee, lockActualizaVersion, lockActualizaID, lockLeeNegocio,
-			runtimeLee, runtimeInserta, runtimeActualiza, runtimeBorra, runtimeMigra)
+			runtimeLee, runtimeInserta, runtimeActualiza, runtimeBorra, runtimeIntentos, runtimeMigra,
+			runtimeActualizaSesiones, runtimeProcedimientosSesion)
+	}
+	var invalidaAutorizacion, cambiaCodigo bool
+	if err := db.QueryRow(t.Context(), `select
+		has_column_privilege('account','auth.oauth_authorizations','status','UPDATE'),
+		has_column_privilege('account','auth.oauth_authorizations','authorization_code','UPDATE')`).
+		Scan(&invalidaAutorizacion, &cambiaCodigo); err != nil {
+		t.Fatal(err)
+	}
+	if !invalidaAutorizacion || cambiaCodigo {
+		t.Fatalf("permiso OAuth demasiado amplio: status=%v code=%v", invalidaAutorizacion, cambiaCodigo)
 	}
 
 	for _, sql := range []string{

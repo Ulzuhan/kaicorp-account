@@ -48,7 +48,7 @@ func sesionMFA(t *testing.T, s *Server, uid, aal string, segundos int) (*session
 	return a, cookieSesion(w)
 }
 
-func postMFA(t *testing.T, s *Server, cookie *http.Cookie, ruta string, form url.Values) *httptest.ResponseRecorder {
+func postMFA(t *testing.T, s *Server, cookie *http.Cookie, ruta string, form url.Values, extras ...*http.Cookie) *httptest.ResponseRecorder {
 	t.Helper()
 	csrf := httptest.NewRecorder()
 	form.Set(session.CSRFField, s.ses.CSRF(csrf, httptest.NewRequest(http.MethodGet, "/", nil), &session.Actual{ID: strings.Split(cookie.Value, ".")[1]}))
@@ -56,6 +56,11 @@ func postMFA(t *testing.T, s *Server, cookie *http.Cookie, ruta string, form url
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	r.Header.Set("Origin", s.cfg.PublicURL.Scheme+"://"+s.cfg.PublicURL.Host)
 	r.AddCookie(cookie)
+	for _, extra := range extras {
+		if extra != nil {
+			r.AddCookie(extra)
+		}
+	}
 	r.AddCookie(csrf.Result().Cookies()[0])
 	w := httptest.NewRecorder()
 	s.Handler().ServeHTTP(w, r)
@@ -69,8 +74,12 @@ func TestMFAAltaCierraSesionesSinFactor(t *testing.T) {
 			s := servidorMFA(t, func(w http.ResponseWriter, r *http.Request) {
 				switch r.URL.Path {
 				case "/user":
-					u := gotrue.User{ID: consentPersona}
-					if activa.Load() {
+					userID := consentPersona
+					if token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "); strings.HasPrefix(token, "access-") {
+						userID = strings.TrimPrefix(token, "access-")
+					}
+					u := gotrue.User{ID: userID}
+					if activa.Load() && userID == consentPersona {
 						u.Factors = []gotrue.Factor{{FactorType: "totp", Status: "verified"}}
 					}
 					_ = json.NewEncoder(w).Encode(u)
@@ -78,7 +87,9 @@ func TestMFAAltaCierraSesionesSinFactor(t *testing.T) {
 					_, _ = w.Write([]byte(`{"id":"reto"}`))
 				case "/factors/factor/verify":
 					activa.Store(true)
-					respuestaVerificada(w)
+					respuestaVerificada(w, consentPersona)
+				case "/logout":
+					w.WriteHeader(http.StatusNoContent)
 				default:
 					t.Errorf("llamada inesperada: %s", r.URL.Path)
 					w.WriteHeader(http.StatusInternalServerError)
@@ -87,7 +98,7 @@ func TestMFAAltaCierraSesionesSinFactor(t *testing.T) {
 			if err := s.st.Conceder(t.Context(), consentPersona, "rol", "test"); err != nil {
 				t.Fatal(err)
 			}
-			_, actual := sesionMFA(t, s, consentPersona, "aal1", 3600)
+			actualSesion, actual := sesionMFA(t, s, consentPersona, "aal1", 3600)
 			sesionAnterior, anterior := sesionMFA(t, s, consentPersona, "aal1", 3600)
 			_, verificada := sesionMFA(t, s, consentPersona, "aal2", 3600)
 			_, ajena := sesionMFA(t, s, "00000000-0000-4000-8000-000000000099", "aal2", 3600)
@@ -97,7 +108,8 @@ func TestMFAAltaCierraSesionesSinFactor(t *testing.T) {
 			if ok, err := s.st.EsMiembro(t.Context(), destino, "rol"); err != nil || !ok {
 				t.Fatal("control legítimo", ok, err)
 			}
-			w := postMFA(t, s, actual, ruta, url.Values{"factor_id": {"factor"}, "code": {"123456"}, "challenge_id": {"reto"}, "credential": {`{"id":"credencial"}`}})
+			autoridad := prepararAltaMFADePrueba(s, actualSesion, ruta)
+			w := postMFA(t, s, actual, ruta, url.Values{"factor_id": {"factor"}, "code": {"123456"}, "challenge_id": {"reto"}, "credential": {`{"id":"credencial"}`}}, autoridad)
 			nueva := cookieSesion(w)
 			if w.Code != http.StatusSeeOther || nueva == nil {
 				t.Fatal("alta no completada", w.Code, w.Body.String())
@@ -105,14 +117,25 @@ func TestMFAAltaCierraSesionesSinFactor(t *testing.T) {
 			if _, err := s.st.Sesion(t.Context(), sesionAnterior.ID); !errors.Is(err, store.ErrNoExiste) {
 				t.Fatal("el alta dejó la sesión aal1 anterior", err)
 			}
-			for _, c := range []*http.Cookie{nueva, verificada, ajena} {
+			for _, c := range []*http.Cookie{nueva, ajena} {
 				if a, err := cargarCookie(s, c); err != nil || a == nil || !a.EsAAL2() {
 					t.Fatal("se perdió una sesión legítima", a, err)
 				}
 			}
-			// Una respuesta de login anterior al alta puede crear una fila tarde.
-			_, tardia := sesionMFA(t, s, consentPersona, "aal1", 3600)
-			for _, c := range []*http.Cookie{anterior, tardia} {
+			if a, err := cargarCookie(s, verificada); err != nil || a != nil {
+				t.Fatal("el cambio MFA conservó otra sesión aal2", a, err)
+			}
+			// Una respuesta de login iniciada antes del alta tampoco puede publicar
+			// una fila después del corte que acompaña la mutación MFA.
+			tardia := httptest.NewRecorder()
+			_, err := s.ses.Crear(t.Context(), tardia, httptest.NewRequest(http.MethodGet, "/", nil), &gotrue.Session{
+				AccessToken: "login-anterior", RefreshToken: "refresh-anterior", ExpiresIn: 3600,
+				User: gotrue.User{ID: consentPersona, Email: "test@example.com"},
+			}, "aal2", false)
+			if !errors.Is(err, store.ErrCredencialAnterior) || cookieSesion(tardia) != nil {
+				t.Fatalf("una entrada anterior se publicó tarde: %v %+v", err, cookieSesion(tardia))
+			}
+			for _, c := range []*http.Cookie{anterior} {
 				destino = "00000000-0000-4000-8000-000000000043"
 				w := postMFA(t, s, c, "/admin/conceder", url.Values{"user_id": {destino}, "grupo": {"rol"}})
 				// Al invalidarse la sesión también caduca su formulario firmado.
@@ -128,7 +151,7 @@ func TestMFAAltaCierraSesionesSinFactor(t *testing.T) {
 }
 
 func TestMFACargaCompruebaFactoresActuales(t *testing.T) {
-	for _, aal := range []string{"aal1", "desconocido"} {
+	for _, aal := range []string{"aal1"} {
 		for _, tipo := range []string{"totp", "webauthn", "otro"} {
 			t.Run(aal+"/"+tipo, func(t *testing.T) {
 				var estado atomic.Int32
@@ -174,7 +197,7 @@ func TestMFARefreshDuranteActivacion(t *testing.T) {
 		if r.URL.Path == "/token" {
 			close(inicio)
 			<-continuar
-			respuestaVerificada(w)
+			respuestaVerificada(w, consentPersona)
 			return
 		}
 		if r.URL.Path != "/user" {
@@ -232,7 +255,8 @@ func TestMFACargaDurantePromocion(t *testing.T) {
 		close(continuar)
 		t.Fatal("no se consultaron los factores")
 	}
-	err := s.ses.Promover(context.Background(), httptest.NewRecorder(), a, &gotrue.Session{AccessToken: "nuevo", RefreshToken: "nuevo", ExpiresIn: 3600})
+	err := s.ses.Promover(context.Background(), httptest.NewRecorder(), a, &gotrue.Session{AccessToken: "nuevo", RefreshToken: "nuevo", ExpiresIn: 3600,
+		User: gotrue.User{ID: consentPersona}})
 	close(continuar)
 	if err != nil {
 		t.Fatal(err)

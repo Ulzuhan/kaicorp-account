@@ -168,14 +168,41 @@ func baseConsentimientoConMigracion(t *testing.T, completa bool) (*store.Store, 
  if not exists(select 1 from pg_roles where rolname='anon') then create role anon; end if;
  end $$;
  create schema auth;
- create table auth.users(id uuid primary key);
- create table auth.sessions(user_id uuid);
+ create table auth.users(
+   id uuid primary key,
+   email text,
+   created_at timestamptz not null default now(),
+   last_sign_in_at timestamptz,
+   email_confirmed_at timestamptz,
+   confirmation_token text,
+   confirmation_sent_at timestamptz,
+   recovery_token text,
+   recovery_sent_at timestamptz,
+   email_change text,
+   email_change_token_current text,
+   email_change_token_new text,
+   email_change_sent_at timestamptz,
+   email_change_confirm_status smallint not null default 0,
+   banned_until timestamptz,
+   raw_user_meta_data jsonb,
+   invited_at timestamptz,
+   deleted_at timestamptz);
+ create table auth.one_time_tokens(
+   id uuid primary key default gen_random_uuid(),
+   user_id uuid not null references auth.users(id),
+   token_type text not null,
+   token_hash text not null,
+   relates_to text not null,
+   created_at timestamptz not null default now(),
+   updated_at timestamptz not null default now());
+ create table auth.sessions(user_id uuid, oauth_client_id uuid);
  create table auth.oauth_clients(id uuid primary key);
  create table auth.oauth_authorizations(authorization_id uuid primary key, client_id uuid, user_id uuid,
    status text default 'pending', authorization_code text, expires_at timestamptz default now()+interval '1 hour');
  create table auth.oauth_consents(user_id uuid, client_id uuid, revoked_at timestamptz, primary key(user_id,client_id));
  alter table auth.oauth_consents enable row level security;
  alter table auth.oauth_authorizations enable row level security;
+ alter table auth.one_time_tokens enable row level security;
  grant usage on schema auth to supabase_auth_admin;
  grant select,insert,update on auth.oauth_consents,auth.oauth_authorizations to supabase_auth_admin;
  create policy provider_consents on auth.oauth_consents to supabase_auth_admin using(true) with check(true);
@@ -242,7 +269,8 @@ func baseConsentimientoConMigracion(t *testing.T, completa bool) (*store.Store, 
 			}
 		}
 	}
-	if _, err := db.Exec(ctx, `insert into account.grupos(nombre,titulo,cliente_id) values ('herramienta','Tool',$1),('rol','Role',null);
+	if _, err := db.Exec(ctx, `insert into account.grupos(nombre,titulo,tipo,cliente_id,solicitable) values
+		('herramienta','Tool','herramienta',$1,true),('rol','Role','rol',null,false);
  `, consentCliente); err != nil {
 		t.Fatal(err)
 	}

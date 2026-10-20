@@ -1,5 +1,5 @@
 -- Consolida la frontera entre despliegue, runtime y funciones privilegiadas.
--- El bootstrap debe ejecutarse primero: reescribe las cinco funciones públicas,
+-- El bootstrap debe ejecutarse primero: reescribe las seis funciones públicas,
 -- transfiere instalaciones antiguas y crea los tres roles sin superusuario.
 do $$
 declare
@@ -29,7 +29,8 @@ begin
       ('account_ordena_grants',null::pg_catalog.regtype),
       ('account_valida_grants',null::pg_catalog.regtype),
       ('account_sincroniza_consentimiento',null::pg_catalog.regtype),
-      ('account_valida_consentimiento',null::pg_catalog.regtype)
+      ('account_valida_consentimiento',null::pg_catalog.regtype),
+      ('account_valida_sesiones_oauth',null::pg_catalog.regtype)
     ) expected(name,arg)
     where not exists (
       select 1 from pg_catalog.pg_proc p

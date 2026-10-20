@@ -34,10 +34,10 @@
       </div></div>
 
       <div class="card"><div class="body">
-        <div class="head"><div><p class="k">Password</p><h2>{{if .PasswordSetup}}Choose it{{else}}Change it{{end}}</h2><p>Twelve characters or more. Other sessions are signed out after it changes.</p></div></div>
+        <div class="head"><div><p class="k">Password</p><h2>Change it</h2><p>Twelve characters or more. Other sessions are signed out after it changes.</p></div></div>
         <form class="content" method="post" action="/cuenta/password">
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
-          {{if not .PasswordSetup}}<div class="field"><label for="current-password">Current password</label><input class="input" id="current-password" name="current_password" type="password" autocomplete="current-password" required></div>{{end}}
+          <div class="field"><label for="current-password">Current password</label><input class="input" id="current-password" name="current_password" type="password" autocomplete="current-password" required></div>
           <div class="field"><label for="password">New password</label><input class="input" id="password" name="password" type="password" autocomplete="new-password" required minlength="12"></div>
           <div class="field"><label for="password2">Repeat it</label><input class="input" id="password2" name="password2" type="password" autocomplete="new-password" required minlength="12"></div>
           <div class="form-actions"><button class="btn btn-ghost btn-sm" type="submit">Change password</button></div>
@@ -46,12 +46,38 @@
 
       <div class="card span"><div class="body">
         <div class="head">
-          <div><p class="k">Second factor</p><h2>Passkeys and authenticator apps</h2><p>With a second factor, signing in asks for more than the password: a <strong>passkey</strong> (your phone or computer proving it is you with a fingerprint, your face or its PIN) or a six-digit code from an <strong>authenticator app</strong>. Either protects the account even if the password leaks; you can have both.</p></div>
-          {{if and (not .Enrolando) (not .Passkey)}}<div class="stack-sm">
+          <div><p class="k">Second factor</p><h2>Passkeys and authenticator apps</h2><p>Changing MFA requires your current password and, when one already exists, a fresh assertion from a different factor. Every other session is signed out after the change.</p></div>
+          {{if and (not .Enrolando) (not .Passkey) .MFA .MFA.Autorizada (eq .MFA.Proposito "enroll")}}<div class="stack-sm">
             <form method="post" action="/cuenta/passkey/alta"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn btn-primary btn-sm" type="submit">Add a passkey</button></form>
             <form method="post" action="/cuenta/factor/alta"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn btn-ghost btn-sm" type="submit">Add an authenticator app</button></form>
           </div>{{end}}
         </div>
+        {{if and .MFA (or .MFA.TOTP .MFA.Passkeys)}}
+          <div class="content"><div class="notice"><div><strong>Confirm this MFA change.</strong> Use a factor that was already active before the change began.</div></div></div>
+          {{range .MFA.Passkeys}}
+          <form method="post" action="/cuenta/mfa/confirmar" class="passkey content" data-passkey="request" data-options="{{.Options}}">
+            <input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="factor_id" value="{{.FactorID}}"><input type="hidden" name="challenge_id" value="{{.ChallengeID}}"><input type="hidden" name="credential" value="">
+            <div class="form-actions inline"><button class="btn btn-primary btn-sm" type="button" data-passkey-go>Use {{if .Nombre}}“{{.Nombre}}”{{else}}an existing passkey{{end}}</button><span class="fine status" data-passkey-status hidden></span></div>
+          </form>
+          {{end}}
+          {{with .MFA.TOTP}}
+          <form method="post" action="/cuenta/mfa/confirmar" class="content">
+            <input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="factor_id" value="{{.FactorID}}"><input type="hidden" name="challenge_id" value="{{.ChallengeID}}">
+            <div class="form-actions inline"><input class="input code sm" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required placeholder="······" aria-label="Code from an existing authenticator"><button class="btn btn-primary btn-sm" type="submit">Confirm change</button></div>
+          </form>
+          {{end}}
+          {{if .MFA.Passkeys}}<script src="/static/js/passkey.js?v={{.AssetVersion}}" defer></script>{{end}}
+        {{else if and (not .Enrolando) (not .Passkey) (not (and .MFA .MFA.Autorizada))}}
+          {{if and .MFA .MFA.EsperandoBuzon}}
+          <div class="content"><div class="notice"><div>Open the recovery email in this same signed-in browser. The link expires in five minutes.</div></div></div>
+          {{else}}
+          <form class="content" method="post" action="/cuenta/mfa/autorizar">
+            <input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="purpose" value="enroll">
+            <div class="field"><label>Current password</label><input class="input" name="current_password" type="password" autocomplete="current-password" required></div>
+            <div class="form-actions"><button class="btn btn-ghost btn-sm" type="submit">Authorize adding a factor</button></div>
+          </form>
+          {{end}}
+        {{end}}
         {{if .Factores}}
           <div class="table-wrap"><table class="table">
             <thead><tr><th>Name</th><th>Type</th><th>Status</th><th></th></tr></thead>
@@ -60,12 +86,20 @@
               <td data-label="Name">{{if .FriendlyName}}{{.FriendlyName}}{{else if eq .FactorType "webauthn"}}Passkey{{else}}Authenticator app{{end}}</td>
               <td data-label="Type" class="muted">{{if eq .FactorType "webauthn"}}Passkey{{else if eq .FactorType "totp"}}Authenticator app{{else}}{{.FactorType}}{{end}}</td>
               <td data-label="Status">{{if eq .Status "verified"}}<span class="pill live">Active</span>{{else}}<span class="pill soon">Not activated</span>{{end}}</td>
-              <td class="actions"><form method="post" action="/cuenta/factor/borrar"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="factor_id" value="{{.ID}}"><button class="btn btn-ghost btn-sm" type="submit">Remove</button></form></td>
+              <td class="actions">
+                {{if and $.MFA $.MFA.Autorizada (eq $.MFA.Proposito "delete") (eq $.MFA.FactorObjetivo .ID)}}
+                <form method="post" action="/cuenta/factor/borrar"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="factor_id" value="{{.ID}}"><button class="btn btn-ghost btn-sm" type="submit">Remove now</button></form>
+                {{else if and $.MFA $.MFA.EsperandoBuzon (eq $.MFA.FactorObjetivo .ID)}}
+                <span class="fine">Check your email</span>
+                {{else}}
+                <form method="post" action="/cuenta/mfa/autorizar"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="purpose" value="delete"><input type="hidden" name="factor_id" value="{{.ID}}"><input class="input" name="current_password" type="password" autocomplete="current-password" required placeholder="Current password" aria-label="Current password to remove this factor"><button class="btn btn-ghost btn-sm" type="submit">Authorize removal</button></form>
+                {{end}}
+              </td>
             </tr>{{end}}
             </tbody>
           </table></div>
         {{else if and (not .Enrolando) (not .Passkey)}}
-          <div class="content"><div class="empty">No second factor yet. Add a passkey or an authenticator app and every sign-in will ask for it.</div></div>
+          <div class="content"><div class="empty">No second factor yet. Authorize a change above to add one.</div></div>
         {{end}}
         {{if .Passkey}}
           <div class="passkey-box">
@@ -85,10 +119,10 @@
               <p class="lede mt0">Scan this code with your authenticator app, or type the secret by hand, then enter the six digits it shows to activate it.</p>
               <p class="secret">{{.Enrolando.TOTP.Secret}}</p>
               <form method="post" action="/cuenta/factor/verificar">
-                <input type="hidden" name="_csrf" value="{{.CSRF}}">
-                <input type="hidden" name="factor_id" value="{{.Enrolando.ID}}">
+                <input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="factor_id" value="{{.Enrolando.ID}}"><input type="hidden" name="challenge_id" value="{{.EnrolandoChallenge}}">
                 <div class="form-actions inline"><input class="input code sm" id="code" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required placeholder="······" aria-label="Six-digit code"><button class="btn btn-primary btn-sm" type="submit">Activate</button></div>
               </form>
+              <form method="post" action="/cuenta/factor/borrar"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="factor_id" value="{{.Enrolando.ID}}"><button class="btn btn-ghost btn-sm" type="submit">Cancel</button></form>
             </div>
           </div>
         {{end}}

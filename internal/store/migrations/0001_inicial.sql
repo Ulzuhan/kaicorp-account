@@ -12,13 +12,17 @@ create table if not exists account.grupos (
   titulo      text not null,
   descripcion text not null default '',
   url         text not null default '',
+  -- La clase es autoridad: no se infiere de la URL ni del cliente.
+  tipo        text not null default 'rol'
+              constraint grupos_tipo_valido check (tipo in ('herramienta','rol')),
   -- El cliente OAuth (auth.oauth_clients.id) al que este grupo abre la puerta.
-  -- Un cliente exige exactamente un grupo; los grupos sin cliente son roles
-  -- dentro de una app (linkup-admins) o de esta (account-admin).
+  -- Un cliente exige exactamente un grupo de tipo herramienta.
   cliente_id  text unique,
-  -- ¿Se puede pedir desde /solicitar? Chorus y los roles, no.
-  solicitable boolean not null default true,
-  orden       int not null default 100
+  -- El alta es cerrada: una herramienta debe optar explícitamente por admitir
+  -- peticiones; un rol no puede hacerlo ni por error de datos.
+  solicitable boolean not null default false,
+  orden       int not null default 100,
+  constraint grupos_rol_no_solicitable check (tipo <> 'rol' or not solicitable)
 );
 
 create table if not exists account.membresias (
@@ -31,6 +35,15 @@ create table if not exists account.membresias (
   primary key (user_id, grupo)
 );
 create index if not exists membresias_grupo on account.membresias (grupo);
+
+-- Generación de las operaciones administrativas iniciadas por una persona.
+-- Sobrevive a una revocación y a una concesión posterior para que una orden
+-- antigua nunca recupere autoridad.
+create table if not exists account.autoridad_administrativa (
+  user_id     uuid primary key,
+  generacion bigint not null default 0 check (generacion >= 0),
+  actualizada timestamptz not null default now()
+);
 
 create table if not exists account.solicitudes (
   id       uuid primary key default gen_random_uuid(),
@@ -60,10 +73,28 @@ create table if not exists account.sesiones (
   creada        timestamptz not null default now(),
   ultima        timestamptz not null default now(),
   expira        timestamptz not null,
-  agente        text not null default ''
+  agente        text not null default '',
+  -- Instantánea de la generación de revocación al publicar la fila. Una fila
+  -- de una generación anterior nunca vuelve a ser autoridad aunque sobreviva
+  -- físicamente a una limpieza.
+  revocacion_generacion bigint not null default 0
 );
 create index if not exists sesiones_user on account.sesiones (user_id);
 create index if not exists sesiones_expira on account.sesiones (expira);
+
+-- Presupuesto compartido de verificaciones de contraseña. La fila sin cliente
+-- impide reiniciar el límite cambiando de IP; la fila con cliente añade la
+-- identidad de red obtenida sólo de la frontera de proxy de confianza.
+create table if not exists account.intentos_password (
+  tipo        text not null check (tipo in ('usuario','correo')),
+  sujeto      text not null check (length(sujeto) between 1 and 128),
+  cliente     text not null default '' check (length(cliente) <= 64),
+  intentos    integer not null default 0 check (intentos >= 0),
+  no_antes    timestamptz not null default 'epoch',
+  actualizado timestamptz not null default now(),
+  primary key (tipo, sujeto, cliente)
+);
+create index if not exists intentos_password_actualizado on account.intentos_password (actualizado);
 
 -- El runtime y los hooks reciben capacidades explícitas; la propiedad se
 -- conserva siempre en account_migrator.
@@ -71,8 +102,10 @@ grant select, update on account.grupos to account;
 grant select on account.grupos to account_hook;
 grant select, insert, update, delete on account.membresias to account;
 grant select on account.membresias to account_hook;
+grant select, insert, update on account.autoridad_administrativa to account;
 grant select, insert, update, delete on account.solicitudes to account;
-grant select, insert, update, delete on account.sesiones to account;
+grant select, insert, delete on account.sesiones to account;
+grant select, insert, update, delete on account.intentos_password to account;
 
 -- Los grupos (herramientas y roles) no van aquí: son de cada instalación y se
 -- cargan con SQL (db/grupos.example.sql) o se vinculan desde /admin.
