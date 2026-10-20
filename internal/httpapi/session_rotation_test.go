@@ -57,6 +57,13 @@ func sesionDePrueba(t *testing.T, s *Server, recordar bool, aal string, segundos
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Las comparaciones usan la fecha realmente persistida: PostgreSQL guarda
+	// microsegundos, mientras que Crear también devuelve nanosegundos del reloj.
+	persistida, err := s.st.Sesion(t.Context(), a.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.Creada, a.Expira = persistida.Creada, persistida.Expira
 	t.Cleanup(func() { _ = s.st.BorrarSesionesDe(context.Background(), a.UserID, "") })
 	return a, cookieSesion(w)
 }
@@ -64,6 +71,15 @@ func sesionDePrueba(t *testing.T, s *Server, recordar bool, aal string, segundos
 func cookieSesion(w *httptest.ResponseRecorder) *http.Cookie {
 	for _, c := range w.Result().Cookies() {
 		if c.Name == session.CookieName {
+			return c
+		}
+	}
+	return nil
+}
+
+func cookieSesionActiva(w *httptest.ResponseRecorder) *http.Cookie {
+	for _, c := range w.Result().Cookies() {
+		if c.Name == session.CookieName && c.Value != "" && c.MaxAge >= 0 {
 			return c
 		}
 	}
@@ -106,6 +122,11 @@ func TestAltaFactorRotaSesion(t *testing.T) {
 							_, _ = w.Write([]byte(`{"id":"reto"}`))
 						case "/factors/factor/verify":
 							respuestaVerificada(w)
+						case "/logout":
+							if r.URL.Query().Get("scope") != "others" {
+								t.Errorf("scope inesperado: %s", r.URL)
+							}
+							w.WriteHeader(http.StatusNoContent)
 						default:
 							t.Errorf("llamada inesperada: %s", r.URL.Path)
 							http.Error(w, "inesperada", 500)
@@ -232,18 +253,28 @@ func TestRefreshAnteriorNoHeredaPromocion(t *testing.T) {
 func TestPromocionesConcurrentes(t *testing.T) {
 	entradas, continuar := make(chan struct{}, 2), make(chan struct{})
 	s := servidorConSesiones(t, func(w http.ResponseWriter, r *http.Request) {
-		entradas <- struct{}{}
-		<-continuar
-		respuestaVerificada(w)
+		t.Errorf("llamada inesperada al proveedor: %s", r.URL)
 	})
 	a, vieja := sesionDePrueba(t, s, false, "aal1", 3600)
 	copia := *a
-	hecho := make(chan *httptest.ResponseRecorder, 2)
+	type resultado struct {
+		w   *httptest.ResponseRecorder
+		err error
+	}
+	hecho := make(chan resultado, 2)
+	// Se prueba la sustitución atómica del portador directamente. El alta MFA
+	// HTTP tiene además una autoridad de un solo uso y serializa por persona;
+	// no sirve de barrera para dos llamadas concurrentes a Promover.
 	for _, actual := range []*session.Actual{a, &copia} {
 		go func() {
 			w := httptest.NewRecorder()
-			s.passkeyVerificar(w, peticionFactor(s, "/cuenta/passkey/verificar", actual))
-			hecho <- w
+			entradas <- struct{}{}
+			<-continuar
+			err := s.ses.Promover(t.Context(), w, actual, &gotrue.Session{
+				AccessToken: "verificado-aal2", RefreshToken: "refresh-verificado", ExpiresIn: 3600,
+				User: gotrue.User{ID: consentPersona},
+			})
+			hecho <- resultado{w, err}
 		}()
 	}
 	for i := 0; i < 2; i++ {
@@ -251,20 +282,24 @@ func TestPromocionesConcurrentes(t *testing.T) {
 		case <-entradas:
 		case <-time.After(5 * time.Second):
 			close(continuar)
-			t.Fatal("no llegaron las dos verificaciones")
+			t.Fatal("no llegaron las dos promociones")
 		}
 	}
 	close(continuar)
 	ganadoras := 0
 	for i := 0; i < 2; i++ {
-		w := <-hecho
+		r := <-hecho
+		w := r.w
 		if c := cookieSesion(w); c != nil {
 			ganadoras++
-			if c.Value == vieja.Value || w.Code != http.StatusSeeOther {
-				t.Fatalf("promoción inválida: %d %+v", w.Code, c)
+			if c.Value == vieja.Value || r.err != nil {
+				t.Fatalf("promoción inválida: %v %+v", r.err, c)
 			}
-		} else if w.Code != http.StatusServiceUnavailable {
-			t.Fatalf("la promoción perdedora anunció éxito: %d", w.Code)
+			if actual, err := cargarCookie(s, c); err != nil || actual == nil || actual.AAL != "aal2" || actual.Token() != "verificado-aal2" {
+				t.Fatalf("el portador ganador no autentica: %+v %v", actual, err)
+			}
+		} else if !errors.Is(r.err, store.ErrNoExiste) {
+			t.Fatalf("la promoción perdedora no rechazó el portador anterior: %v", r.err)
 		}
 	}
 	if ganadoras != 1 {
@@ -278,11 +313,12 @@ func TestPromocionesConcurrentes(t *testing.T) {
 func TestPromocionRechazaCaducadaYColision(t *testing.T) {
 	s := servidorConSesiones(t, func(w http.ResponseWriter, r *http.Request) { respuestaVerificada(w) })
 	a, vieja := sesionDePrueba(t, s, false, "aal1", 3600)
+	tokenAnterior := a.Token()
 	ocupada, _ := sesionDePrueba(t, s, false, "aal1", 3600)
 	if _, err := s.st.PromoverSesion(t.Context(), a.ID, ocupada.ID, []byte("access"), []byte("refresh"), time.Now()); err == nil {
 		t.Fatal("una colisión no debe sobrescribir otra sesión")
 	}
-	if actual, err := cargarCookie(s, vieja); err != nil || actual == nil || actual.Token() != "anterior" {
+	if actual, err := cargarCookie(s, vieja); err != nil || actual == nil || actual.Token() != tokenAnterior {
 		t.Fatalf("la escritura fallida alteró la sesión original: %+v %v", actual, err)
 	}
 	x, err := s.st.Sesion(t.Context(), a.ID)
@@ -298,7 +334,7 @@ func TestPromocionRechazaCaducadaYColision(t *testing.T) {
 	}
 	w := httptest.NewRecorder()
 	s.passkeyVerificar(w, peticionFactor(s, "/cuenta/passkey/verificar", a))
-	if w.Code != http.StatusServiceUnavailable || cookieSesion(w) != nil || a.Token() != "anterior" {
+	if w.Code != http.StatusServiceUnavailable || cookieSesionActiva(w) != nil || a.Token() != tokenAnterior {
 		t.Fatalf("se promovió una sesión caducada: %d %+v", w.Code, a)
 	}
 }
@@ -308,14 +344,24 @@ func TestAltaFactorNoResucitaSesion(t *testing.T) {
 		t.Run(ruta, func(t *testing.T) {
 			var antesDeVerificar func()
 			s := servidorConSesiones(t, func(w http.ResponseWriter, r *http.Request) {
-				if strings.HasSuffix(r.URL.Path, "/challenge") {
+				switch r.URL.Path {
+				case "/factors/factor/challenge":
 					_, _ = w.Write([]byte(`{"id":"reto"}`))
-					return
+				case "/factors/factor/verify":
+					antesDeVerificar()
+					respuestaVerificada(w)
+				case "/logout":
+					if r.URL.Query().Get("scope") != "local" {
+						t.Errorf("scope inesperado: %s", r.URL)
+					}
+					w.WriteHeader(http.StatusNoContent)
+				default:
+					t.Errorf("llamada inesperada: %s", r.URL)
+					w.WriteHeader(http.StatusInternalServerError)
 				}
-				antesDeVerificar()
-				respuestaVerificada(w)
 			})
 			a, _ := sesionDePrueba(t, s, false, "aal1", 3600)
+			tokenAnterior := a.Token()
 			antesDeVerificar = func() {
 				if err := s.st.BorrarSesion(context.Background(), a.ID); err != nil {
 					t.Error(err)
@@ -327,8 +373,11 @@ func TestAltaFactorNoResucitaSesion(t *testing.T) {
 			} else {
 				s.factorVerificar(w, peticionFactor(s, ruta, a))
 			}
-			if w.Code != http.StatusServiceUnavailable || cookieSesion(w) != nil || a.Token() != "anterior" || a.AAL != "aal1" {
+			if w.Code != http.StatusServiceUnavailable || cookieSesionActiva(w) != nil || a.Token() != tokenAnterior || a.AAL != "aal1" {
 				t.Fatalf("la sesión revocada pareció promovida: %d %+v %+v", w.Code, cookieSesion(w), a)
+			}
+			if _, err := s.st.Sesion(t.Context(), a.ID); !errors.Is(err, store.ErrNoExiste) {
+				t.Fatalf("la sesión eliminada reapareció: %v", err)
 			}
 			for _, c := range w.Result().Cookies() {
 				if c.Name == cookieFlash && c.Value != "" {
@@ -377,7 +426,9 @@ func TestCierreConcurrenteConPromocion(t *testing.T) {
 				if scope == "local" {
 					s.ses.Cerrar(context.Background(), w, &copia)
 				} else {
-					s.sesionesCerrar(w, peticionFactor(s, "/cuenta/sesiones/cerrar", &copia))
+					if err := s.ses.CerrarOtras(t.Context(), &copia); err != nil {
+						t.Error(err)
+					}
 				}
 				close(hecho)
 			}()
@@ -388,9 +439,17 @@ func TestCierreConcurrenteConPromocion(t *testing.T) {
 				t.Fatal("no se inició el cierre")
 			}
 			w := httptest.NewRecorder()
-			s.passkeyVerificar(w, peticionFactor(s, "/cuenta/passkey/verificar", a))
+			// Aísla el cierre por referencia estable de la limpieza adicional de
+			// todas las otras sesiones que hoy realiza el alta MFA HTTP.
+			err = s.ses.Promover(t.Context(), w, a, &gotrue.Session{
+				AccessToken: "verificado-aal2", RefreshToken: "refresh-verificado", ExpiresIn: 3600,
+				User: gotrue.User{ID: consentPersona},
+			})
 			close(continuar)
 			<-hecho
+			if err != nil {
+				t.Fatal(err)
+			}
 			nueva := cookieSesion(w)
 			if nueva == nil {
 				t.Fatal("no hubo promoción")

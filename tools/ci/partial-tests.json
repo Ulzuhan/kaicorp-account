@@ -785,56 +785,56 @@
       "package": "./internal/httpapi",
       "name": "TestAltaFactorRotaSesion",
       "file": "internal/httpapi/session_rotation_test.go",
-      "sha256": "79933cd7d600a354801daac8dd87095eb5141f790c742083b65bfee19b0468af",
+      "sha256": "82ce45822b1fded8115c4447fd18c636b29bf07e0481d7e15765e3225e0da2cc",
       "review_group": "synthetic-session-credential"
     },
     {
       "package": "./internal/httpapi",
       "name": "TestRefreshConservaSesion",
       "file": "internal/httpapi/session_rotation_test.go",
-      "sha256": "79933cd7d600a354801daac8dd87095eb5141f790c742083b65bfee19b0468af",
+      "sha256": "82ce45822b1fded8115c4447fd18c636b29bf07e0481d7e15765e3225e0da2cc",
       "review_group": "synthetic-session-credential"
     },
     {
       "package": "./internal/httpapi",
       "name": "TestRefreshAnteriorNoHeredaPromocion",
       "file": "internal/httpapi/session_rotation_test.go",
-      "sha256": "79933cd7d600a354801daac8dd87095eb5141f790c742083b65bfee19b0468af",
+      "sha256": "82ce45822b1fded8115c4447fd18c636b29bf07e0481d7e15765e3225e0da2cc",
       "review_group": "synthetic-session-credential"
     },
     {
       "package": "./internal/httpapi",
       "name": "TestPromocionesConcurrentes",
       "file": "internal/httpapi/session_rotation_test.go",
-      "sha256": "79933cd7d600a354801daac8dd87095eb5141f790c742083b65bfee19b0468af",
+      "sha256": "82ce45822b1fded8115c4447fd18c636b29bf07e0481d7e15765e3225e0da2cc",
       "review_group": "synthetic-session-credential"
     },
     {
       "package": "./internal/httpapi",
       "name": "TestPromocionRechazaCaducadaYColision",
       "file": "internal/httpapi/session_rotation_test.go",
-      "sha256": "79933cd7d600a354801daac8dd87095eb5141f790c742083b65bfee19b0468af",
+      "sha256": "82ce45822b1fded8115c4447fd18c636b29bf07e0481d7e15765e3225e0da2cc",
       "review_group": "synthetic-session-credential"
     },
     {
       "package": "./internal/httpapi",
       "name": "TestAltaFactorNoResucitaSesion",
       "file": "internal/httpapi/session_rotation_test.go",
-      "sha256": "79933cd7d600a354801daac8dd87095eb5141f790c742083b65bfee19b0468af",
+      "sha256": "82ce45822b1fded8115c4447fd18c636b29bf07e0481d7e15765e3225e0da2cc",
       "review_group": "synthetic-session-credential"
     },
     {
       "package": "./internal/httpapi",
       "name": "TestCierreConcurrenteConPromocion",
       "file": "internal/httpapi/session_rotation_test.go",
-      "sha256": "79933cd7d600a354801daac8dd87095eb5141f790c742083b65bfee19b0468af",
+      "sha256": "82ce45822b1fded8115c4447fd18c636b29bf07e0481d7e15765e3225e0da2cc",
       "review_group": "synthetic-session-credential"
     },
     {
       "package": "./internal/httpapi",
       "name": "TestRefreshRechazadoNoBorraCookiePromovida",
       "file": "internal/httpapi/session_rotation_test.go",
-      "sha256": "79933cd7d600a354801daac8dd87095eb5141f790c742083b65bfee19b0468af",
+      "sha256": "82ce45822b1fded8115c4447fd18c636b29bf07e0481d7e15765e3225e0da2cc",
       "review_group": "synthetic-session-credential"
     },
     {

@@ -993,7 +993,7 @@
     },
     {
       "file": "internal/httpapi/session_rotation_test.go",
-      "line": 98,
+      "line": 114,
       "name": "TestAltaFactorRotaSesion",
       "decision": "ALLOW",
       "group": "synthetic-session-credential",
@@ -1001,7 +1001,7 @@
     },
     {
       "file": "internal/httpapi/session_rotation_test.go",
-      "line": 166,
+      "line": 187,
       "name": "TestRefreshConservaSesion",
       "decision": "ALLOW",
       "group": "synthetic-session-credential",
@@ -1009,7 +1009,7 @@
     },
     {
       "file": "internal/httpapi/session_rotation_test.go",
-      "line": 184,
+      "line": 205,
       "name": "TestRefreshAnteriorNoHeredaPromocion",
       "decision": "ALLOW",
       "group": "synthetic-session-credential",
@@ -1017,7 +1017,7 @@
     },
     {
       "file": "internal/httpapi/session_rotation_test.go",
-      "line": 232,
+      "line": 253,
       "name": "TestPromocionesConcurrentes",
       "decision": "ALLOW",
       "group": "synthetic-session-credential",
@@ -1025,7 +1025,7 @@
     },
     {
       "file": "internal/httpapi/session_rotation_test.go",
-      "line": 278,
+      "line": 313,
       "name": "TestPromocionRechazaCaducadaYColision",
       "decision": "ALLOW",
       "group": "synthetic-session-credential",
@@ -1033,7 +1033,7 @@
     },
     {
       "file": "internal/httpapi/session_rotation_test.go",
-      "line": 306,
+      "line": 342,
       "name": "TestAltaFactorNoResucitaSesion",
       "decision": "ALLOW",
       "group": "synthetic-session-credential",
@@ -1041,7 +1041,7 @@
     },
     {
       "file": "internal/httpapi/session_rotation_test.go",
-      "line": 342,
+      "line": 391,
       "name": "TestCierreConcurrenteConPromocion",
       "decision": "ALLOW",
       "group": "synthetic-session-credential",
@@ -1049,7 +1049,7 @@
     },
     {
       "file": "internal/httpapi/session_rotation_test.go",
-      "line": 409,
+      "line": 468,
       "name": "TestRefreshRechazadoNoBorraCookiePromovida",
       "decision": "ALLOW",
       "group": "synthetic-session-credential",
