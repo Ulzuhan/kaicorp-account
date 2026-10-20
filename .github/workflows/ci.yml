@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   go:
-    name: Allowed tests with race detector (154 of 178; partial)
+    name: Allowed tests with race detector (161 of 178; partial)
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -48,19 +48,19 @@ jobs:
         run: |
           {
             echo '## PARTIAL validation — do not merge or deploy'
-            echo 'Only the 154 selected tests may run. 24 tests remain deferred.'
+            echo 'Only the 161 selected tests may run. 17 tests remain deferred.'
             echo 'The race detector applies only to this selection; the full suite is incomplete.'
             echo 'See docs/AUDIT-VALIDATION-STATUS.md and tools/ci/deferred-tests.tsv.'
           } >> "$GITHUB_STEP_SUMMARY"
 
   full-validation-pending:
-    name: BLOCKED — full validation pending (24 deferred)
+    name: BLOCKED — full validation pending (17 deferred)
     runs-on: ubuntu-latest
     permissions: {}
     steps:
       - name: Keep incomplete validation visible and blocking
         run: |
-          echo '::error::Full validation is incomplete: 24 tests are deferred. Keep this PR draft; do not merge or deploy.'
+          echo '::error::Full validation is incomplete: 17 tests are deferred. Keep this PR draft; do not merge or deploy.'
           echo '## BLOCKED: full validation is incomplete' >> "$GITHUB_STEP_SUMMARY"
           echo 'The partial checks do not certify the full suite or close the audit.' >> "$GITHUB_STEP_SUMMARY"
           exit 1

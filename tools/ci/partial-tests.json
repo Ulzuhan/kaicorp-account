@@ -1,8 +1,8 @@
 {
   "schema": 2,
   "status": "PARTIAL_DO_NOT_MERGE",
-  "selected_count": 154,
-  "deferred_count": 24,
+  "selected_count": 161,
+  "deferred_count": 17,
   "selected": [
     {
       "package": "./internal/config",
@@ -1081,6 +1081,55 @@
       "file": "internal/store/vincular_test.go",
       "sha256": "b883c9b89f9adab73c2ef7c88165e7d4b05490ee352859a2c1bc01287ef61915",
       "review_group": "synthetic-session-credential"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestConsentimientoDenegarSinMembresia",
+      "file": "internal/httpapi/consent_revocation_test.go",
+      "sha256": "2872b6bc1a389a991a99625fa53fee6784329692fe239f6854421fa6626feb59",
+      "review_group": "sequential-grant-regression"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestConsentimientoLegitimo",
+      "file": "internal/httpapi/consent_revocation_test.go",
+      "sha256": "2872b6bc1a389a991a99625fa53fee6784329692fe239f6854421fa6626feb59",
+      "review_group": "sequential-grant-regression"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestConsentimientoRevocarSinMembresia",
+      "file": "internal/httpapi/consent_revocation_test.go",
+      "sha256": "2872b6bc1a389a991a99625fa53fee6784329692fe239f6854421fa6626feb59",
+      "review_group": "sequential-grant-regression"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestConsentimientoRollbackYBorrado",
+      "file": "internal/httpapi/consent_revocation_test.go",
+      "sha256": "2872b6bc1a389a991a99625fa53fee6784329692fe239f6854421fa6626feb59",
+      "review_group": "sequential-grant-regression"
+    },
+    {
+      "package": "./internal/store",
+      "name": "TestVincularMismaIdentidadYRollback",
+      "file": "internal/store/vincular_test.go",
+      "sha256": "b883c9b89f9adab73c2ef7c88165e7d4b05490ee352859a2c1bc01287ef61915",
+      "review_group": "sequential-grant-regression"
+    },
+    {
+      "package": "./internal/store",
+      "name": "TestVincularReconciliaAutoridadEntrante",
+      "file": "internal/store/vincular_test.go",
+      "sha256": "b883c9b89f9adab73c2ef7c88165e7d4b05490ee352859a2c1bc01287ef61915",
+      "review_group": "sequential-grant-regression"
+    },
+    {
+      "package": "./internal/store",
+      "name": "TestVincularRetiraGrants",
+      "file": "internal/store/vincular_test.go",
+      "sha256": "b883c9b89f9adab73c2ef7c88165e7d4b05490ee352859a2c1bc01287ef61915",
+      "review_group": "sequential-grant-regression"
     }
   ],
   "deferred": [
@@ -1094,20 +1143,6 @@
     {
       "file": "internal/httpapi/consent_revocation_test.go",
       "name": "TestConsentimientoMigracionEsperaProveedor",
-      "group": "oauth-grant-revocation-overlap",
-      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations.",
-      "next_step": "Clarify the original platform decision and permitted scope with authoritative evidence before executing; user approval alone does not lift it."
-    },
-    {
-      "file": "internal/httpapi/consent_revocation_test.go",
-      "name": "TestConsentimientoRevocarSinMembresia",
-      "group": "oauth-grant-revocation-overlap",
-      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations.",
-      "next_step": "Clarify the original platform decision and permitted scope with authoritative evidence before executing; user approval alone does not lift it."
-    },
-    {
-      "file": "internal/httpapi/consent_revocation_test.go",
-      "name": "TestConsentimientoDenegarSinMembresia",
       "group": "oauth-grant-revocation-overlap",
       "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations.",
       "next_step": "Clarify the original platform decision and permitted scope with authoritative evidence before executing; user approval alone does not lift it."
@@ -1136,20 +1171,6 @@
     {
       "file": "internal/httpapi/consent_revocation_test.go",
       "name": "TestConsentimientoSnapshotAntiguo",
-      "group": "oauth-grant-revocation-overlap",
-      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations.",
-      "next_step": "Clarify the original platform decision and permitted scope with authoritative evidence before executing; user approval alone does not lift it."
-    },
-    {
-      "file": "internal/httpapi/consent_revocation_test.go",
-      "name": "TestConsentimientoRollbackYBorrado",
-      "group": "oauth-grant-revocation-overlap",
-      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations.",
-      "next_step": "Clarify the original platform decision and permitted scope with authoritative evidence before executing; user approval alone does not lift it."
-    },
-    {
-      "file": "internal/httpapi/consent_revocation_test.go",
-      "name": "TestConsentimientoLegitimo",
       "group": "oauth-grant-revocation-overlap",
       "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations.",
       "next_step": "Clarify the original platform decision and permitted scope with authoritative evidence before executing; user approval alone does not lift it."
@@ -1201,27 +1222,6 @@
       "name": "TestRevocarTodoNoOmiteConcesionAutomaticaEnVuelo",
       "group": "historical-membership-boundary",
       "reason": "Exercises automatic membership granting across revocation or a request loaded before revoke-all; same boundary as the stopped historical validation.",
-      "next_step": "Clarify the original platform decision and permitted scope with authoritative evidence before executing; user approval alone does not lift it."
-    },
-    {
-      "file": "internal/store/vincular_test.go",
-      "name": "TestVincularReconciliaAutoridadEntrante",
-      "group": "oauth-grant-revocation-overlap",
-      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations.",
-      "next_step": "Clarify the original platform decision and permitted scope with authoritative evidence before executing; user approval alone does not lift it."
-    },
-    {
-      "file": "internal/store/vincular_test.go",
-      "name": "TestVincularRetiraGrants",
-      "group": "oauth-grant-revocation-overlap",
-      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations.",
-      "next_step": "Clarify the original platform decision and permitted scope with authoritative evidence before executing; user approval alone does not lift it."
-    },
-    {
-      "file": "internal/store/vincular_test.go",
-      "name": "TestVincularMismaIdentidadYRollback",
-      "group": "oauth-grant-revocation-overlap",
-      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations.",
       "next_step": "Clarify the original platform decision and permitted scope with authoritative evidence before executing; user approval alone does not lift it."
     },
     {

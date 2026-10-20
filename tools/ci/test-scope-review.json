@@ -1,9 +1,9 @@
 {
   "reviewed_total": 178,
   "previously_allowed": 80,
-  "additional_separated": 74,
-  "selected": 154,
-  "deferred": 24,
+  "additional_separated": 81,
+  "selected": 161,
+  "deferred": 17,
   "historical_harness_included": false,
   "classification_is_not_a_platform_policy_override": true,
   "tests": [
@@ -251,17 +251,17 @@
       "file": "internal/httpapi/consent_revocation_test.go",
       "line": 79,
       "name": "TestConsentimientoRevocarSinMembresia",
-      "decision": "DEFER",
-      "group": "oauth-grant-revocation-overlap",
-      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations."
+      "decision": "ALLOW",
+      "group": "sequential-grant-regression",
+      "reason": "Sequential grant/consent and legitimate-behavior regression; no concurrent automatic membership request/revocation, stale snapshot or in-flight provider write. Selected source hash is checked."
     },
     {
       "file": "internal/httpapi/consent_revocation_test.go",
       "line": 100,
       "name": "TestConsentimientoDenegarSinMembresia",
-      "decision": "DEFER",
-      "group": "oauth-grant-revocation-overlap",
-      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations."
+      "decision": "ALLOW",
+      "group": "sequential-grant-regression",
+      "reason": "Sequential grant/consent and legitimate-behavior regression; no concurrent automatic membership request/revocation, stale snapshot or in-flight provider write. Selected source hash is checked."
     },
     {
       "file": "internal/httpapi/consent_revocation_test.go",
@@ -299,17 +299,17 @@
       "file": "internal/httpapi/consent_revocation_test.go",
       "line": 466,
       "name": "TestConsentimientoRollbackYBorrado",
-      "decision": "DEFER",
-      "group": "oauth-grant-revocation-overlap",
-      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations."
+      "decision": "ALLOW",
+      "group": "sequential-grant-regression",
+      "reason": "Sequential grant/consent and legitimate-behavior regression; no concurrent automatic membership request/revocation, stale snapshot or in-flight provider write. Selected source hash is checked."
     },
     {
       "file": "internal/httpapi/consent_revocation_test.go",
       "line": 498,
       "name": "TestConsentimientoLegitimo",
-      "decision": "DEFER",
-      "group": "oauth-grant-revocation-overlap",
-      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations."
+      "decision": "ALLOW",
+      "group": "sequential-grant-regression",
+      "reason": "Sequential grant/consent and legitimate-behavior regression; no concurrent automatic membership request/revocation, stale snapshot or in-flight provider write. Selected source hash is checked."
     },
     {
       "file": "internal/httpapi/consent_revocation_test.go",
@@ -1371,25 +1371,25 @@
       "file": "internal/store/vincular_test.go",
       "line": 143,
       "name": "TestVincularReconciliaAutoridadEntrante",
-      "decision": "DEFER",
-      "group": "oauth-grant-revocation-overlap",
-      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations."
+      "decision": "ALLOW",
+      "group": "sequential-grant-regression",
+      "reason": "Sequential grant/consent and legitimate-behavior regression; no concurrent automatic membership request/revocation, stale snapshot or in-flight provider write. Selected source hash is checked."
     },
     {
       "file": "internal/store/vincular_test.go",
       "line": 233,
       "name": "TestVincularRetiraGrants",
-      "decision": "DEFER",
-      "group": "oauth-grant-revocation-overlap",
-      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations."
+      "decision": "ALLOW",
+      "group": "sequential-grant-regression",
+      "reason": "Sequential grant/consent and legitimate-behavior regression; no concurrent automatic membership request/revocation, stale snapshot or in-flight provider write. Selected source hash is checked."
     },
     {
       "file": "internal/store/vincular_test.go",
       "line": 264,
       "name": "TestVincularMismaIdentidadYRollback",
-      "decision": "DEFER",
-      "group": "oauth-grant-revocation-overlap",
-      "reason": "Contains grant/consent invalidation, delayed writes, stale snapshots or provider authority around membership/client revocation. Even normal-named cases contain these operations."
+      "decision": "ALLOW",
+      "group": "sequential-grant-regression",
+      "reason": "Sequential grant/consent and legitimate-behavior regression; no concurrent automatic membership request/revocation, stale snapshot or in-flight provider write. Selected source hash is checked."
     },
     {
       "file": "internal/store/vincular_test.go",

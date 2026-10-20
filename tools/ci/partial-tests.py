@@ -19,7 +19,7 @@ def main():
     args = parser.parse_args()
     manifest = json.loads((ROOT / 'tools/ci/partial-tests.json').read_text())
     selected, deferred = manifest['selected'], manifest['deferred']
-    if len(selected) != 154 or len(deferred) != 24:
+    if len(selected) != 161 or len(deferred) != 17:
         raise ValueError('Selection changed: review the explicit validation scope first')
     inventory = set()
     for source in (ROOT / 'internal').rglob('*_test.go'):
@@ -30,7 +30,7 @@ def main():
                          re.findall(r'^func (Test\w+)\(t \*testing\.T\)', text, re.MULTILINE))
     allowed = {(x['file'], x['name']) for x in selected}
     excluded = {(x['file'], x['name']) for x in deferred}
-    if len(allowed) != 154 or len(excluded) != 24 or allowed & excluded or inventory != allowed | excluded:
+    if len(allowed) != 161 or len(excluded) != 17 or allowed & excluded or inventory != allowed | excluded:
         raise ValueError('Test inventory changed; no unreviewed test may be silently added or omitted')
     for item in selected:
         if hashlib.sha256((ROOT / item['file']).read_bytes()).hexdigest() != item['sha256']:
@@ -38,14 +38,14 @@ def main():
         if item['package'] != './' + str(Path(item['file']).parent):
             raise ValueError('Unexpected package mapping')
     names = {x['name'] for x in selected}
-    if len(names) != 154:
+    if len(names) != 161:
         raise ValueError('Test names must be unique for this reviewed selection')
     command = ['go', 'test', '-race', '-json', '-count=1', '-timeout=180s', '-p=1',
                '-run', '^(' + '|'.join(sorted(names)) + ')$',
                *sorted({x['package'] for x in selected})]
-    print('PARTIAL ONLY: 154 allowed tests with race detector; 24 deferred; no full-suite claim.', flush=True)
+    print('PARTIAL ONLY: 161 allowed tests with race detector; 17 deferred; no full-suite claim.', flush=True)
     if args.check_only:
-        print(json.dumps({'selected': 154, 'deferred': 24, 'command': command}))
+        print(json.dumps({'selected': 161, 'deferred': 17, 'command': command}))
         return 0
     env = {k: v for k, v in os.environ.items() if not k.startswith(('ACCOUNT_', 'GOTRUE_'))}
     # Sólo el servicio PostgreSQL efímero de este job; nunca una URL del usuario.
@@ -87,7 +87,7 @@ def main():
     if code or bad or seen != names or passed != names:
         print('Selected tests failed, skipped or did not execute exactly; full validation remains blocked.', file=sys.stderr)
         return 1
-    print('154 allowed tests passed with race detector. 24 deferred; NOT ready to merge or deploy.')
+    print('161 allowed tests passed with race detector. 17 deferred; NOT ready to merge or deploy.')
     return 0
 
 
