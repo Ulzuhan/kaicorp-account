@@ -7,8 +7,8 @@
  * mismo logo. Cuando cambie site.css, se vuelve a copiar esa mitad; la segunda
  * (formularios, tablas, avisos, el menú de cuenta) es sólo de aquí.
  *
- * Sin JavaScript: `script-src 'none'`. Sin estilos en línea: `style-src 'self'`,
- * así que todo lo que en la web va en `style=""` aquí es una clase.
+ * JavaScript mínimo y sólo propio: `script-src 'self'`. Sin estilos en línea:
+ * `style-src 'self'`, así que todo lo que en la web va en `style=""` aquí es una clase.
  * Las fuentes van dentro del binario (`font-src 'self'`); ver static/fonts/. */
 
 /* ══════════════════════════════════════════════════════════════════════

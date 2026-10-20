@@ -2,7 +2,8 @@
 # sin Node ni build de frontend. Es una decisión (docs/DISENO.md): una interfaz
 # de autenticación sin JavaScript es más pequeña y más fácil de auditar.
 
-FROM golang:1.27.1-alpine AS build
+FROM docker.io/library/golang@sha256:cd410a5c6686417875bc4815688e96ae9769f8562debc545d29fe58e73d174f0 AS build
+ENV GOTOOLCHAIN=local
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
@@ -13,10 +14,10 @@ COPY internal ./internal
 # otro directorio.
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/account ./cmd/account
 
-FROM alpine:3.24 AS runtime
+FROM docker.io/library/alpine@sha256:d56c381f961d307a21b3ca004cf1e3910f106644aefb1f43e654c8a56c4fd395 AS runtime
 ENV HOSTNAME=0.0.0.0 PORT=3467
 # Alpine con CA y shell: la shell la usa el `command` del compose para cargar el
-# fichero de entorno, y las CA hacen falta si GoTrue se alcanza por HTTPS.
+# fichero de entorno, y las CA validan el salto HTTPS obligatorio a GoTrue.
 # uid 10001, el de las imágenes de la casa.
 RUN apk -U upgrade --no-cache \
  && apk add --no-cache ca-certificates \

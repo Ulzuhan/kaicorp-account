@@ -1,4 +1,4 @@
-name: CI
+name: Full validation
 
 on:
   push:
@@ -10,16 +10,42 @@ permissions:
 
 jobs:
   go:
+    name: Full Go suite with race detector (178 tests)
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 127.0.0.1:5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      ACCOUNT_FULL_TEST_DATABASE_URL: postgres://postgres@127.0.0.1:5432/postgres?sslmode=disable
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '1.27.1'
+          go-version: '1.27.3'
           cache: false
       - run: test -z "$(gofmt -l cmd internal)"
       - run: go vet ./...
-      - run: go test -race ./...
+      # Cada fixture usa una base sintética del servicio efímero; -p 1 evita
+      # colisiones entre roles globales al ejecutar toda la suite.
+      - run: psql --version
+      - name: Run the full reviewed suite
+        run: python3 tools/ci/full-tests.py
       - run: CGO_ENABLED=0 go build -trimpath -o account ./cmd/account
+      - name: Summarize validation
+        run: |
+          {
+            echo '## Full Go validation'
+            echo 'All 178 reviewed tests ran with the race detector against disposable PostgreSQL fixtures.'
+            echo 'See docs/AUDIT-VALIDATION-STATUS.md for scope and remaining review steps.'
+          } >> "$GITHUB_STEP_SUMMARY"

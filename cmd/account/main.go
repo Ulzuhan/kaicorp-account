@@ -50,6 +50,26 @@ func main() {
 	if err != nil {
 		log.Fatalf("configuración:\n%v", err)
 	}
+	if len(os.Args) > 1 && os.Args[1] == "migrar" {
+		if cfg.MigrationDatabaseURL == "" {
+			log.Fatal("ACCOUNT_MIGRATION_DATABASE_URL: falta para `account migrar`")
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		migrator, err := store.Open(ctx, cfg.MigrationDatabaseURL)
+		cancel()
+		if err != nil {
+			log.Fatalf("base de migraciones: %v", err)
+		}
+		defer migrator.Close()
+		if err := migrator.Migrate(context.Background()); err != nil {
+			log.Fatalf("migraciones: %v", err)
+		}
+		log.Print("migraciones al día")
+		return
+	}
+	if cfg.MigrationDatabaseURL != "" {
+		log.Fatal("ACCOUNT_MIGRATION_DATABASE_URL sólo se admite con `account migrar`; retírala del entorno del servidor")
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	st, err := store.Open(ctx, cfg.DatabaseURL)
 	cancel()
@@ -58,22 +78,25 @@ func main() {
 	}
 	defer st.Close()
 
-	if err := st.Migrate(context.Background()); err != nil {
+	if err := st.CheckMigrations(context.Background()); err != nil {
 		log.Fatalf("migraciones: %v", err)
+	}
+	if err := st.ValidarGrupoAdministrador(context.Background(), cfg.AdminGroup); err != nil {
+		log.Fatalf("grupo administrador: %v", err)
 	}
 
 	gt := gotrue.New(cfg.GoTrueURL, cfg.AnonKey, cfg.ServiceKey)
+	ses, err := session.New(cfg.SessionKey, cfg.CookieSecure(), cfg.SessionTTL, cfg.RememberTTL, st, gt)
+	if err != nil {
+		log.Fatal(err)
+	}
 	if len(os.Args) > 1 {
-		if err := orden(context.Background(), cfg, st, gt, os.Args[1:]); err != nil {
+		if err := orden(context.Background(), cfg, st, gt, ses, os.Args[1:]); err != nil {
 			log.Fatal(err)
 		}
 		return
 	}
 
-	ses, err := session.New(cfg.SessionKey, cfg.CookieSecure(), cfg.SessionTTL, cfg.RememberTTL, st, gt)
-	if err != nil {
-		log.Fatal(err)
-	}
 	rem, err := correo.Nuevo(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.SMTPFrom)
 	if err != nil {
 		log.Fatalf("correo: %v", err)
@@ -138,7 +161,7 @@ func main() {
 
 // orden ejecuta una orden de la línea de órdenes. Todas hablan con la misma
 // base y el mismo GoTrue que el servidor, con la misma configuración.
-func orden(ctx context.Context, cfg *config.Config, st *store.Store, gt *gotrue.Client, args []string) error {
+func orden(ctx context.Context, cfg *config.Config, st *store.Store, gt *gotrue.Client, ses *session.Manager, args []string) error {
 	deVerdad := false
 	var resto []string
 	for _, a := range args {
@@ -152,10 +175,6 @@ func orden(ctx context.Context, cfg *config.Config, st *store.Store, gt *gotrue.
 	uso := func(s string) error { return fmt.Errorf("uso: account %s", s) }
 
 	switch args[0] {
-	case "migrar":
-		log.Print("migraciones al día")
-		return nil
-
 	case "admin":
 		if len(args) != 2 {
 			return uso("admin <correo>")
@@ -184,21 +203,35 @@ func orden(ctx context.Context, cfg *config.Config, st *store.Store, gt *gotrue.
 		if len(args) < 2 {
 			return uso("invitar <correo> [grupo…]")
 		}
+		if len(args[2:]) > 32 {
+			return errors.New("invitar admite como máximo 32 grupos")
+		}
+		vistos := make(map[string]bool, len(args[2:]))
+		grupos := make([]string, 0, len(args[2:]))
 		for _, g := range args[2:] {
+			if vistos[g] {
+				continue
+			}
+			vistos[g] = true
+			grupos = append(grupos, g)
 			if _, err := st.Grupo(ctx, g); err != nil {
 				return fmt.Errorf("no hay grupo %q", g)
 			}
 		}
-		u, err := gt.AdminInvite(ctx, args[1])
+		redirectTo, err := httpapi.RedireccionInvitacion(cfg.PublicURL, ses, args[1])
+		if err != nil {
+			return fmt.Errorf("preparar invitación: %w", err)
+		}
+		u, err := gt.AdminInvite(ctx, args[1], redirectTo)
 		if err != nil {
 			return fmt.Errorf("invitar: %w", err)
 		}
-		for _, g := range args[2:] {
+		for _, g := range grupos {
 			if err := st.Conceder(ctx, u.ID, g, "cli"); err != nil {
 				return err
 			}
 		}
-		fmt.Printf("%s invitada · id %s · grupos: %s\n", u.Email, u.ID, strings.Join(args[2:], ", "))
+		fmt.Printf("%s invitada · id %s · grupos: %s\n", u.Email, u.ID, strings.Join(grupos, ", "))
 		return nil
 
 	case "aprobar":
@@ -225,7 +258,7 @@ func orden(ctx context.Context, cfg *config.Config, st *store.Store, gt *gotrue.
 			}
 		}
 		fmt.Printf("%s puede usar %s\n", u.Email, g.Nombre)
-		if g.URL != "" {
+		if g.Tipo == store.TipoGrupoHerramienta && g.URL != "" {
 			if rem, err := correo.Nuevo(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.SMTPFrom); err == nil && rem != nil {
 				nombre := u.Nombre
 				if nombre == "" {
@@ -252,21 +285,12 @@ func orden(ctx context.Context, cfg *config.Config, st *store.Store, gt *gotrue.
 			// Todo: cada membresía con su grant, y además las sesiones del
 			// proveedor y las de esta app. Quitar el grupo cierra la puerta para
 			// la próxima vez; esto saca a quien ya está dentro.
-			ms, err := st.MembresiasDe(ctx, u.ID)
+			grupos, err := st.RevocarTodo(ctx, u.ID)
 			if err != nil {
 				return err
 			}
-			for _, m := range ms {
-				if err := revocarUna(ctx, st, u.ID, m.Grupo); err != nil {
-					return err
-				}
-				fmt.Printf("%s ya no puede usar %s\n", u.Email, m.Grupo)
-			}
-			if err := st.CerrarSesionesGoTrue(ctx, u.ID); err != nil {
-				return err
-			}
-			if err := st.BorrarSesionesDe(ctx, u.ID, ""); err != nil {
-				return err
+			for _, grupo := range grupos {
+				fmt.Printf("%s ya no puede usar %s\n", u.Email, grupo)
 			}
 			fmt.Printf("%s: sin membresías y sin sesiones\n", u.Email)
 			return nil
@@ -274,7 +298,11 @@ func orden(ctx context.Context, cfg *config.Config, st *store.Store, gt *gotrue.
 		if _, err := st.Grupo(ctx, args[2]); err != nil {
 			return fmt.Errorf("no hay grupo %q", args[2])
 		}
-		if err := revocarUna(ctx, st, u.ID, args[2]); err != nil {
+		if args[2] == cfg.AdminGroup {
+			if err := st.RevocarAdministracion(ctx, u.ID, cfg.AdminGroup); err != nil {
+				return err
+			}
+		} else if err := revocarUna(ctx, st, u.ID, args[2]); err != nil {
 			return err
 		}
 		fmt.Printf("%s ya no puede usar %s\n", u.Email, args[2])
@@ -295,15 +323,11 @@ func orden(ctx context.Context, cfg *config.Config, st *store.Store, gt *gotrue.
 			fmt.Printf("%s puede volver a entrar\n", u.Email)
 			return nil
 		}
-		// Bloqueada no puede entrar ni renovar tokens; las sesiones que ya
-		// tenía se cierran aquí, o seguiría dentro hasta que caducasen.
-		if err := gt.AdminBanUser(ctx, u.ID, "876000h"); err != nil {
-			return err
-		}
-		if err := st.CerrarSesionesGoTrue(ctx, u.ID); err != nil {
-			return err
-		}
-		if err := st.BorrarSesionesDe(ctx, u.ID, ""); err != nil {
+		// Bloqueada no puede entrar ni renovar tokens; sus sesiones cruzan la
+		// misma frontera durable que usa el panel aunque falle una limpieza.
+		errBloqueo := gt.AdminBanUser(ctx, u.ID, "876000h")
+		errSesiones := st.RevocarSesiones(ctx, u.ID)
+		if err := errors.Join(errBloqueo, errSesiones); err != nil {
 			return err
 		}
 		fmt.Printf("%s bloqueada y sin sesiones\n", u.Email)
@@ -357,13 +381,7 @@ func cuenta(ctx context.Context, st *store.Store, correo string) (*store.Usuario
 // revocarUna quita una membresía y, si el grupo abre un cliente, revoca el
 // grant: sin eso la herramienta seguiría renovando tokens hasta caducar.
 func revocarUna(ctx context.Context, st *store.Store, userID, grupo string) error {
-	if err := st.Revocar(ctx, userID, grupo); err != nil {
-		return err
-	}
-	if g, err := st.Grupo(ctx, grupo); err == nil && g.ClienteID != "" {
-		return st.RevocarGrants(ctx, userID, g.ClienteID)
-	}
-	return nil
+	return st.Revocar(ctx, userID, grupo)
 }
 
 // ver enseña una cuenta en columnas con tabulador y primera palabra fija.
@@ -399,7 +417,8 @@ func ver(ctx context.Context, st *store.Store, correo string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("sesiones-app\t%d\nsesiones-proveedor\t%d\ngrants-vivos\t%d\n", r.Sesiones, r.SesionesProveedor, r.Grants)
+	fmt.Printf("sesiones-app\t%d\nintentos-password\t%d\nsesiones-proveedor\t%d\ngrants-vivos\t%d\n",
+		r.Sesiones, r.IntentosPassword, r.SesionesProveedor, r.Grants)
 	return nil
 }
 
@@ -415,8 +434,8 @@ func borrar(ctx context.Context, st *store.Store, gt *gotrue.Client, correo stri
 	if err != nil {
 		return err
 	}
-	fmt.Printf("id\t%s\ncorreo\t%s\nmembresias\t%d\nsolicitudes\t%d\nsesiones-app\t%d\nsesiones-proveedor\t%d\ngrants-vivos\t%d\n",
-		u.ID, u.Email, r.Membresias, r.Solicitudes, r.Sesiones, r.SesionesProveedor, r.Grants)
+	fmt.Printf("id\t%s\ncorreo\t%s\nmembresias\t%d\nsolicitudes\t%d\nsesiones-app\t%d\nintentos-password\t%d\nsesiones-proveedor\t%d\ngrants-vivos\t%d\n",
+		u.ID, u.Email, r.Membresias, r.Solicitudes, r.Sesiones, r.IntentosPassword, r.SesionesProveedor, r.Grants)
 	if !deVerdad {
 		fmt.Println("en-seco\tnada borrado; añade --de-verdad")
 		return nil

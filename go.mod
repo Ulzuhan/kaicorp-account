@@ -1,8 +1,8 @@
 module github.com/Ulzuhan/kaicorp-account
 
-// 1.27.1, el mismo que DocDrop, SecretDrop, QR-Forge y LinkUp: no se estrena
-// un servicio en un compilador fuera de la ventana de soporte ordinaria.
-go 1.27.1
+// Go 1.27.3 incorpora el parche de crypto/x509 del 19-10-2026. El mínimo,
+// la imagen de compilación y CI se mantienen en la misma revisión corregida.
+go 1.27.3
 
 require github.com/jackc/pgx/v5 v5.11.0
 

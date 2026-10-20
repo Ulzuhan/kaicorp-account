@@ -23,7 +23,7 @@
       <div class="how three mt0">
       {{range .Herramientas}}
         <article class="tool{{if .Miembro}} is-live{{else if .Pendiente}} is-soon{{end}}">
-          {{if .Miembro}}<p class="k live">{{if .URL}}Access granted{{else}}Role{{end}}</p>
+          {{if .Miembro}}<p class="k live">{{if .EsRol}}Role{{else}}Access granted{{end}}</p>
           {{else if .Pendiente}}<p class="k soon">Waiting for approval</p>
           {{else if .Solicitable}}<p class="k off">Not yet</p>
           {{else}}<p class="k off">By invitation</p>{{end}}
@@ -31,8 +31,9 @@
           <p>{{.Descripcion}}</p>
           <div class="row">
             {{if .Miembro}}
-              {{if .URL}}<span class="host">{{.Host}}</span><a class="btn btn-primary btn-sm" href="{{.URL}}">Open <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></a>
-              {{else}}<span class="pill cyan">Role</span>{{if eq .Nombre "account-admin"}}<a class="btn btn-ghost btn-sm" href="/admin">Open</a>{{end}}{{end}}
+              {{if .EsRol}}<span class="pill cyan">Role</span>{{if eq .Nombre "account-admin"}}<a class="btn btn-ghost btn-sm" href="/admin">Open</a>{{end}}
+              {{else if .URL}}<span class="host">{{.Host}}</span><a class="btn btn-primary btn-sm" href="{{.URL}}">Open <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></a>
+              {{else}}<span class="pill off">Unavailable</span>{{end}}
             {{else if .Pendiente}}
               <span class="host">{{.Host}}</span><span class="pill soon">Pending</span>
             {{else if .Solicitable}}
@@ -94,7 +95,7 @@
         <article>
           <p class="k">Step one</p>
           <h3>Create your account</h3>
-          <p>Your name, your email and a password of twelve characters or more. A link confirms the address; nothing else is asked.</p>
+          <p>Start with your name and email. The link proves the address is yours; only then do you choose a password of twelve characters or more.</p>
         </article>
         <article>
           <p class="k">Step two</p>
