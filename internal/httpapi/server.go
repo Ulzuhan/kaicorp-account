@@ -31,6 +31,7 @@ import (
 type Server struct {
 	cfg       *config.Config
 	st        *store.Store
+	stSesion  almacenSesion // opcional para pruebas de /api/session sin Postgres
 	gt        *gotrue.Client
 	ses       *session.Manager
 	correo    *correo.Remitente // nil si no hay SMTP: se concede sin avisar
@@ -277,7 +278,11 @@ func (s *Server) esAdmin(ctx context.Context, a *session.Actual) bool {
 	if a == nil {
 		return false
 	}
-	ok, err := s.st.EsMiembro(ctx, a.UserID, s.cfg.AdminGroup)
+	st := s.almacenDeSesion()
+	if st == nil {
+		return false
+	}
+	ok, err := st.EsMiembro(ctx, a.UserID, s.cfg.AdminGroup)
 	return err == nil && ok
 }
 

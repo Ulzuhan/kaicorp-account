@@ -31,7 +31,7 @@
           <p>{{.Descripcion}}</p>
           <div class="row">
             {{if .Miembro}}
-              {{if .URL}}<span class="host">{{.Host}}</span><a class="btn btn-primary btn-sm" href="{{.URL}}">Open <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></a>
+              {{if .URL}}<span class="host">{{.Host}}</span><a class="btn btn-primary btn-sm" href="{{.SSOURL}}">Open <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></a>
               {{else}}<span class="pill cyan">Role</span>{{if eq .Nombre "account-admin"}}<a class="btn btn-ghost btn-sm" href="/admin">Open</a>{{end}}{{end}}
             {{else if .Pendiente}}
               <span class="host">{{.Host}}</span><span class="pill soon">Pending</span>
