@@ -247,18 +247,24 @@ a:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px soli
 }
 .nav .wrap { display: flex; align-items: center; gap: 1rem; height: 60px; }
 .brand { display: inline-flex; align-items: center; gap: .6rem; font-family: var(--display); font-weight: 700; letter-spacing: -.01em; white-space: nowrap; }
-.brand .mark { display: block; width: 26px; height: 26px; }
-.brand .mark img { display: block; width: 100%; height: 100%; object-fit: contain; }
-.nav nav { margin-left: auto; display: flex; align-items: center; gap: .35rem; font-size: .875rem; }
-.nav nav a { padding: .45rem .75rem; border-radius: 8px; color: var(--text-2); white-space: nowrap; transition: color .15s, background .15s; }
-.nav nav a:hover { color: var(--text); background: var(--hover-bg); }
+.brand .wordmark { display: block; width: clamp(7.25rem, 25vw, 8.75rem); height: auto; }
+.brand .wordmark--dark { display: none; }
+:root:has(> head > meta[name="color-scheme"][content="dark"]) .brand .wordmark--light { display: none; }
+:root:has(> head > meta[name="color-scheme"][content="dark"]) .brand .wordmark--dark { display: block; }
+@media (prefers-color-scheme: dark) {
+  :root:has(> head > meta[name="color-scheme"][content="light dark"]) .brand .wordmark--light { display: none; }
+  :root:has(> head > meta[name="color-scheme"][content="light dark"]) .brand .wordmark--dark { display: block; }
+}
+.nav nav:not([popover]) { margin-left: auto; display: flex; align-items: center; gap: .35rem; font-size: .875rem; }
+.nav nav:not([popover]) a { padding: .45rem .75rem; border-radius: 8px; color: var(--text-2); white-space: nowrap; transition: color .15s, background .15s; }
+.nav nav:not([popover]) a:hover { color: var(--text); background: var(--hover-bg); }
 .nav .cta {
   border: 1px solid var(--line-2); color: var(--text);
   background: var(--surface-soft);
 }
 .nav .cta:hover { border-color: var(--cyan); color: var(--cyan); }
-@media (max-width: 640px) { .nav nav a.hide-sm { display: none; } }
-@media (max-width: 420px) { .nav nav a.hide-xs { display: none; } }
+@media (max-width: 960px) { .nav nav:not([popover]) a.hide-sm { display: none; } }
+@media (max-width: 420px) { .nav nav:not([popover]) a.hide-xs { display: none; } }
 
 /* App Switcher + Theme Toggle */
 .kc-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
@@ -299,6 +305,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px soli
   .kc-switcher-panel[popover] { position: fixed; inset: auto; inset-block-start: 4.25rem; inset-inline-start: 1rem; margin: 0; }
 }
 @supports not selector(:popover-open) { .kc-switcher-panel[popover]:not(.\:popover-open) { display: none; } }
+@supports selector(:popover-open) { .kc-switcher-panel[popover]:not(:popover-open) { display: none; } }
 .kc-switcher-panel[popover]:is(:popover-open, .\:popover-open) { display: block; }
 @media (prefers-reduced-motion: no-preference) {
   .kc-switcher-panel[popover] {
@@ -489,9 +496,9 @@ footer a.link:hover { color: var(--cyan); }
 .nav .menu .me b { display: inline-block; margin-left: .35rem; color: var(--cyan); font-weight: 500; font-size: .62rem; letter-spacing: .12em; text-transform: uppercase; border: 1px solid currentColor; border-radius: 5px; padding: 0 .4em; }
 .nav .menu form { display: block; margin-top: .25rem; padding-top: .25rem; border-top: 1px solid var(--line); }
 .nav .menu button { color: var(--text-2); }
-.nav nav a.hide-md { display: inline-block; }
-@media (max-width: 900px) { .nav nav a.hide-md { display: none; } }
-@media (max-width: 640px) { .nav .who > summary span { max-width: 6.5rem; } .nav .wrap { gap: .75rem; } .nav nav { gap: .15rem; } .nav nav a { padding: .45rem .55rem; } }
+.nav nav:not([popover]) a.hide-md { display: inline-block; }
+@media (max-width: 900px) { .nav nav:not([popover]) a.hide-md { display: none; } }
+@media (max-width: 960px) { .nav .who > summary span { max-width: 6.5rem; } .nav .wrap { gap: .75rem; } .nav nav:not([popover]) { gap: .15rem; } .nav nav:not([popover]) a { padding: .45rem .55rem; } }
 
 .btn-sm { height: 38px; padding: 0 1rem; font-size: .875rem; border-radius: 9px; }
 .btn-block { width: 100%; }
@@ -659,3 +666,9 @@ select.input.sm { padding-right: 2.2rem; }
 .secret { margin-top: .8rem; padding: .6rem .8rem; border-radius: 9px; border: 1px dashed var(--line-2); font-family: var(--mono); font-size: .8rem; color: var(--text-2); word-break: break-all; }
 .mono { font-family: var(--mono); }
 .email-title { font-family: var(--mono); font-size: clamp(1.15rem, 3vw, 1.6rem); letter-spacing: 0; word-break: break-all; }
+
+@media (max-width: 420px) {
+  .nav .wrap { padding-inline: .75rem; gap: .5rem; }
+  .nav .brand .wordmark { width: clamp(5.75rem, 30vw, 7.25rem); }
+  .nav nav:not([popover]) a.cta { padding-inline: .3rem; }
+}
