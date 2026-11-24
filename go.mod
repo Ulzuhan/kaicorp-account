@@ -1,8 +1,8 @@
 module github.com/Ulzuhan/kaicorp-account
 
-// 1.27.1, el mismo que DocDrop, SecretDrop, QR-Forge y LinkUp: no se estrena
+// 1.27.4, el mismo que DocDrop, SecretDrop, QR-Forge y LinkUp: no se estrena
 // un servicio en un compilador fuera de la ventana de soporte ordinaria.
-go 1.27.1
+go 1.27.4
 
 require github.com/jackc/pgx/v5 v5.11.0
 
