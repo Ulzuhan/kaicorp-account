@@ -5,8 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{if .Title}}{{.Title}} · {{end}}Account · KaiCorp Labs</title>
   <meta name="description" content="One account for the KaiCorp Labs tools: sign in, ask for access, manage your security.">
-  <meta name="theme-color" content="#05070d">
-  <meta name="color-scheme" content="dark">
+  <meta name="color-scheme" content="light dark">
+  <script src="/static/js/theme.js?v={{.AssetVersion}}"></script>
+  <meta name="theme-color" content="#f6f8fb" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#05070d" media="(prefers-color-scheme: dark)">
   <meta name="robots" content="noindex">
   <link rel="icon" href="/static/kaicorp-mark.png" type="image/png">
   <link rel="preload" href="/static/fonts/spacegrotesk.woff2" as="font" type="font/woff2" crossorigin>
@@ -17,10 +19,29 @@
 <div class="bg"></div>
 <div class="grain"></div>
 
-{{/* La misma barra que kaicorplabs.com: marca, las mismas secciones, y a la
-     derecha la sesión, que es lo único que la web no puede pintar sola. */}}
+{{/* La misma barra que kaicorplabs.com: App Switcher, marca, las mismas secciones,
+     sesión y selector claro/oscuro. */}}
 <header class="nav">
   <div class="wrap">
+    <button type="button" class="kc-switcher-btn" popovertarget="kc-app-switcher" popovertargetaction="toggle" aria-controls="kc-app-switcher" aria-expanded="false" aria-label="KaiCorp Labs apps" title="KaiCorp Labs apps">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><rect x="4" y="4" width="4" height="4" rx="1"/><rect x="10" y="4" width="4" height="4" rx="1"/><rect x="16" y="4" width="4" height="4" rx="1"/><rect x="4" y="10" width="4" height="4" rx="1"/><rect x="10" y="10" width="4" height="4" rx="1"/><rect x="16" y="10" width="4" height="4" rx="1"/><rect x="4" y="16" width="4" height="4" rx="1"/><rect x="10" y="16" width="4" height="4" rx="1"/><rect x="16" y="16" width="4" height="4" rx="1"/></svg>
+    </button>
+    <nav id="kc-app-switcher" popover="auto" class="kc-switcher-panel" aria-label="KaiCorp Labs apps">
+      <p class="kc-switcher-title">KaiCorp Labs</p>
+      <ul class="kc-switcher-list">
+        <li><a href="https://tabup.kaicorplabs.com{{if .User}}/?sso=1{{end}}" class="kc-switcher-link"><span class="kc-switcher-meta"><span>TabUp</span><span class="kc-switcher-desc">Shared expenses</span></span></a></li>
+        <li><a href="https://qr.kaicorplabs.com{{if .User}}/?sso=1{{end}}" class="kc-switcher-link"><span class="kc-switcher-meta"><span>QR-Forge</span><span class="kc-switcher-desc">Dynamic QR codes</span></span></a></li>
+        <li><a href="https://docdrop.kaicorplabs.com{{if .User}}/?sso=1{{end}}" class="kc-switcher-link"><span class="kc-switcher-meta"><span>DocDrop</span><span class="kc-switcher-desc">Encrypted file drops</span></span></a></li>
+        <li><a href="https://secret.kaicorplabs.com{{if .User}}/?sso=1{{end}}" class="kc-switcher-link"><span class="kc-switcher-meta"><span>SecretDrop</span><span class="kc-switcher-desc">One-time secrets</span></span></a></li>
+        <li><a href="https://pixel.kaicorplabs.com{{if .User}}/?sso=1{{end}}" class="kc-switcher-link"><span class="kc-switcher-meta"><span>Pixelforge</span><span class="kc-switcher-desc">Image tools</span></span></a></li>
+        <li><a href="https://link.kaicorplabs.com{{if .User}}/?sso=1{{end}}" class="kc-switcher-link"><span class="kc-switcher-meta"><span>LinkUp</span><span class="kc-switcher-desc">Privacy short links</span></span></a></li>
+      </ul>
+      <hr class="kc-switcher-sep">
+      <div class="kc-switcher-foot">
+        <a href="/" aria-current="page" class="kc-switcher-link"><span>Your account</span><span class="kc-switcher-badge">Current</span></a>
+        <a href="https://kaicorplabs.com/" class="kc-switcher-link">kaicorplabs.com</a>
+      </div>
+    </nav>
     <a class="brand" href="https://kaicorplabs.com/"><span class="mark"><img src="/static/kaicorp-mark.png" alt=""></span> KaiCorp Labs</a>
     <nav>
       <a href="https://kaicorplabs.com/#services" class="hide-md">Services</a>
@@ -44,6 +65,10 @@
         <a href="/entrar" class="hide-xs">Sign in</a>
         <a href="/registro" class="cta">Create account</a>
       {{end}}
+      <button type="button" class="kc-theme-btn" id="theme-toggle">
+        <span class="kc-theme-to-light"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg><span class="kc-sr-only">Switch to light theme</span></span>
+        <span class="kc-theme-to-dark"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg><span class="kc-sr-only">Switch to dark theme</span></span>
+      </button>
     </nav>
   </div>
 </header>
