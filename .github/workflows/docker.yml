@@ -1,24 +1,12 @@
 name: Publish container image
 
-# Publishes to GitHub Container Registry. GHCR needs no extra secrets: the token
-# GitHub injects into the job is enough, provided packages: write is granted below.
+# Publishes a native multi-arch (linux/amd64 + linux/arm64) image to GitHub
+# Container Registry via per-arch native runners + manifest index merge (no QEMU).
 #
 # Which tags each event owns, and why they no longer overlap:
 #
 #   push to main   :main and :sha-<short>   — what is not released yet
 #   push tag v*    :<version>, :<major>.<minor>, :<major> and :latest   — a release
-#
-# A branch push and a tag push are two separate runs, so they are two independent
-# builds of the same source. While both of them minted :latest and :sha-<short>,
-# releasing (push main, push the tag seconds later) left :latest and :1.0.1 on
-# DIFFERENT digests of the same commit — there was no way to tell by digest that
-# latest was the release — and both runs raced to write :sha-<short>, where the
-# slower one won.
-#
-# Now the release build is the only one that mints :latest, and it is the same
-# build that mints the semver ladder, so they are the same digest by construction.
-# Pushing to main still publishes an image to try out; it just cannot claim to be
-# the release any more.
 on:
   push:
     branches: [main]
@@ -32,26 +20,28 @@ env:
 
 jobs:
   build:
+    name: Build & scan (${{ matrix.platform }})
     if: github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            platform: linux/amd64
+            slug: amd64
+          - runner: ubuntu-24.04-arm
+            platform: linux/arm64
+            slug: arm64
     permissions:
       contents: read
       packages: write
-      # Sin `id-token: write` no se puede firmar por OIDC contra Sigstore, y sin
-      # `attestations: write` no se puede guardar la attestation firmada. Los
-      # dos son el motivo de que hasta ahora no hubiera firma: no es que
-      # fallara, es que no se pedía el permiso.
-      id-token: write
-      attestations: write
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      # QEMU is what allows building the arm64 image on an amd64 runner, so the
-      # image also runs on a Raspberry Pi or an ARM server. Note: the arm64 build has
-      # not been run locally (that needs binfmt handlers registered on the host), so
-      # the first run of this workflow is what actually proves it.
-      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
@@ -59,6 +49,9 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: ref
+        run: echo "ref=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
 
       - id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
@@ -76,83 +69,117 @@ jobs:
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
-          # Publish the native amd64 target. Add native runners before supporting
-          # another architecture; do not silently switch to emulated builds.
-          platforms: linux/amd64
-          push: true
-          # Metadatos de procedencia y SBOM que genera BuildKit y sube al
-          # registro junto a la imagen.
-          #
-          # OJO CON LO QUE ESTO ES Y NO ES, porque aquí ponía que eran
-          # «verificables con gh attestation verify» y es falso: BuildKit los
-          # escribe como declaraciones in-toto EN CLARO, sin firma. Cubren la
-          # integridad —el digest del índice los encadena— pero no el origen:
-          # cualquiera con escritura en el paquete podría publicar una
-          # procedencia inventada. Lo que sí firma es el paso de attestation de
-          # más abajo, y eso es lo que verifica `gh attestation verify`.
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ steps.ref.outputs.ref }},push-by-digest=true,name-canonical=true,push=true
           provenance: mode=max
           sbom: true
-          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          # Layer cache in the registry, so later builds do not reinstall
-          # dependencies from scratch.
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          # Una release nunca reutiliza la capa de `apk upgrade` de ayer. El
-          # Dockerfile la ejecuta, pero si la caché devuelve la de un build
-          # viejo el upgrade no llega a correr y la imagen sale con los paquetes
-          # de aquel día — le pasó a PixelForge el 02-09 con libexpat1 y a TabUp
-          # el 14-09 con libpcre2, las dos veces detectado por el escaneo semanal
-          # y no por la puerta del release. Base Alpine. En main la caché sigue
-          # valiendo; en un tag se construye de cero, que es lo que se ancla.
+          cache-from: type=gha,scope=${{ matrix.slug }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.slug }}
           no-cache: ${{ startsWith(github.ref, 'refs/tags/') }}
 
-      # Un nombre de imagen tiene que ir en minúsculas y github.repository
-      # conserva la U del usuario; metadata-action ya lo normaliza para los
-      # tags, esto lo normaliza para el escáner.
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ steps.ref.outputs.ref }}@${{ steps.build.outputs.digest }}
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: 1
+        env:
+          TRIVY_TIMEOUT: 20m
+
+      - name: Export arch digest
+        run: |
+          mkdir -p "${{ runner.temp }}/digests"
+          printf '%s\n' "${{ steps.build.outputs.digest }}" > "${{ runner.temp }}/digests/${{ matrix.slug }}"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: digest-${{ matrix.slug }}
+          path: ${{ runner.temp }}/digests/${{ matrix.slug }}
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    name: Merge index & attest
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: digest-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/digests
+
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - id: ref
         run: echo "ref=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
 
-      # LA FIRMA. Lo de arriba son metadatos; esto es lo que dice QUIÉN los hizo.
-      #
-      # Firma con la identidad OIDC de esta ejecución contra Sigstore: no hay
-      # clave privada que guardar, rotar ni perder. La attestation queda en el
-      # almacén de GitHub y, con `push-to-registry`, también junto a la imagen
-      # en GHCR.
-      #
-      # GitHub sólo guarda attestations de repositorios públicos (o de
-      # organización): en uno privado de usuario el paso falla con «Feature not
-      # available». Mientras este repo sea privado, la imagen se publica sin
-      # firma; el día que se haga público, la firma entra sola.
+      - id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=ref,event=branch
+            type=sha,format=short,enable=${{ !startsWith(github.ref, 'refs/tags/v') }}
+
+      - id: merge
+        name: Create multi-arch manifest index
+        env:
+          REGISTRY: ${{ env.REGISTRY }}
+          IMAGE_REF: ${{ steps.ref.outputs.ref }}
+          TAGS: ${{ steps.meta.outputs.tags }}
+          DIGEST_DIR: ${{ runner.temp }}/digests
+        run: |
+          IMAGE="${REGISTRY}/${IMAGE_REF}"
+          AMD64_DIGEST=$(cat "${DIGEST_DIR}/amd64")
+          ARM64_DIGEST=$(cat "${DIGEST_DIR}/arm64")
+          TAG_ARGS=()
+          FIRST_TAG=""
+          while IFS= read -r tag; do
+            [ -n "$tag" ] || continue
+            TAG_ARGS+=(-t "$tag")
+            [ -n "$FIRST_TAG" ] || FIRST_TAG="$tag"
+          done <<< "$TAGS"
+          test -n "$FIRST_TAG"
+          docker buildx imagetools create "${TAG_ARGS[@]}" \
+            "${IMAGE}@${AMD64_DIGEST}" \
+            "${IMAGE}@${ARM64_DIGEST}"
+          INDEX_DIGEST=$(docker buildx imagetools inspect "$FIRST_TAG" --format '{{json .Manifest.Digest}}' | tr -d '"')
+          [[ "$INDEX_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          INSPECT=$(docker buildx imagetools inspect "${IMAGE}@${INDEX_DIGEST}")
+          echo "$INSPECT" | grep -q 'linux/amd64'
+          echo "$INSPECT" | grep -q 'linux/arm64'
+          echo "digest=${INDEX_DIGEST}" >> "$GITHUB_OUTPUT"
+
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         if: ${{ !github.event.repository.private }}
         with:
           subject-name: ${{ env.REGISTRY }}/${{ steps.ref.outputs.ref }}
-          subject-digest: ${{ steps.build.outputs.digest }}
+          subject-digest: ${{ steps.merge.outputs.digest }}
           push-to-registry: true
 
-      # Y la puerta: se verifica lo que se acaba de firmar, aquí mismo. Un
-      # release cuya firma no verifique se queda en rojo, y un rojo no se ancla
-      # en producción.
-      #
-      # Qué impone cada bandera, que no es lo mismo y conviene no confundirlo
-      # (comprobado en el código del CLI, pkg/cmd/attestation/verify/policy.go):
-      #
-      #   --repo            acota la búsqueda de attestations Y exige que la
-      #                     extensión SourceRepositoryURI del certificado sea
-      #                     este repositorio. Ya por sí solo descarta una
-      #                     attestation de otro sitio.
-      #   --signer-workflow ESTRECHA la identidad del firmante de «cualquier
-      #                     workflow de este repositorio» a ESTE fichero. Es lo
-      #                     que importa el día que haya más de un workflow con
-      #                     permiso de firmar.
-      #   --source-digest   exige que el commit del que se construyó sea éste.
-      #   --source-ref      exige que la referencia sea ésta: sin ella, una
-      #                     attestation legítima de otra rama o de otra etiqueta
-      #                     del mismo repositorio pasaría.
-      #
-      # Las dos últimas son las que atan el artefacto a lo que se cree estar
-      # publicando, y no sólo a quién lo publicó.
       - name: Verificar la firma de lo recién publicado
         if: ${{ !github.event.repository.private }}
         run: |
@@ -166,28 +193,20 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REGISTRY: ${{ env.REGISTRY }}
           IMAGEN: ${{ steps.ref.outputs.ref }}
-          DIGEST: ${{ steps.build.outputs.digest }}
-
-      # La puerta: la imagen recién publicada, escaneada capa a capa (SO base,
-      # npm y pip incluidos) contra las bases de CVEs, y el workflow en ROJO si
-      # hay altas o críticas CON arreglo disponible. Se escanea tras publicar y
-      # no antes a propósito: el exportador local no admite las attestations, y
-      # en este flujo nada se despliega sin mirar el workflow — un release en
-      # rojo no se ancla en producción. ignore-unfixed porque sin parche no hay
-      # acción posible, y un rojo permanente solo enseña a ignorar el color.
-      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          image-ref: ${{ env.REGISTRY }}/${{ steps.ref.outputs.ref }}@${{ steps.build.outputs.digest }}
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
-          exit-code: 1
-        env:
-          TRIVY_TIMEOUT: 20m
+          DIGEST: ${{ steps.merge.outputs.digest }}
 
   verify:
-    name: Container candidate (no publication)
+    name: Container candidate (${{ matrix.platform }})
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            platform: linux/amd64
+          - runner: ubuntu-24.04-arm
+            platform: linux/arm64
     permissions:
       contents: read
     steps:
@@ -203,7 +222,7 @@ jobs:
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
-          platforms: linux/amd64
+          platforms: ${{ matrix.platform }}
           push: false
           load: true
           tags: ${{ steps.meta.outputs.tags }}
