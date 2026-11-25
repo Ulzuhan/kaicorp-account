@@ -269,13 +269,33 @@ func baseConsentimientoConMigracion(t *testing.T, completa bool) (*store.Store, 
 			}
 		}
 	}
-	if _, err := db.Exec(ctx, `insert into account.grupos(nombre,titulo,tipo,cliente_id,solicitable) values
-		('herramienta','Tool','herramienta',$1,true),('rol','Role','rol',null,false);
- `, consentCliente); err != nil {
-		t.Fatal(err)
-	}
-	if err := st.Conceder(ctx, consentPersona, "herramienta", "test"); err != nil {
-		t.Fatal(err)
+	if completa {
+		if _, err := db.Exec(ctx, `insert into account.grupos(nombre,titulo,tipo,cliente_id,solicitable) values
+			('herramienta','Tool','herramienta',$1,true),('rol','Role','rol',null,false)`, consentCliente); err != nil {
+			t.Fatal(err)
+		}
+		if err := st.Conceder(ctx, consentPersona, "herramienta", "test"); err != nil {
+			t.Fatal(err)
+		}
+	} else {
+		// Antes de 0007 aún no existe tipo. Sembramos el estado histórico
+		// directamente, sin llamar al runtime que ya presupone el esquema final.
+		if _, err := db.Exec(ctx, `insert into account.grupos(nombre,titulo,cliente_id,solicitable) values
+			('herramienta','Tool',$1,true),('rol','Role',null,false)`, consentCliente); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := db.Exec(ctx, `insert into account.membresias(user_id,grupo,por) values($1,'herramienta','test')`, consentPersona); err != nil {
+			t.Fatal(err)
+		}
+		// Igual que en una actualización, el bootstrap se ejecuta contra las
+		// tablas ya existentes para preparar los permisos previos al cambio.
+		cmd := exec.CommandContext(ctx, "psql", "-X", "-q", "-d", psqlURL.String(),
+			"-v", "account_password=consent-test-only",
+			"-v", "account_migration_password=consent-migrate-test-only",
+			"-f", "../../db/bootstrap.sql")
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("bootstrap para instalación existente: %v: %s", err, out)
+		}
 	}
 	if _, err := db.Exec(ctx, `insert into auth.oauth_authorizations(authorization_id,client_id,user_id) values($1,$2,$3)`,
 		consentAutorizacion, consentCliente, consentPersona); err != nil {
