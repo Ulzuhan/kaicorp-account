@@ -14,7 +14,7 @@ COPY internal ./internal
 # otro directorio.
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/account ./cmd/account
 
-FROM docker.io/library/alpine@sha256:d56c381f961d307a21b3ca004cf1e3910f106644aefb1f43e654c8a56c4fd395 AS runtime
+FROM docker.io/library/alpine:3.24.2@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6 AS runtime
 ENV HOSTNAME=0.0.0.0 PORT=3467
 # Alpine con CA y shell: la shell la usa el `command` del compose para cargar el
 # fichero de entorno, y las CA validan el salto HTTPS obligatorio a GoTrue.
