@@ -19,7 +19,7 @@ def main():
     args = parser.parse_args()
     manifest = json.loads((ROOT / 'tools/ci/full-tests.json').read_text())
     selected, deferred = manifest['selected'], manifest['deferred']
-    if len(selected) != 178 or deferred or manifest['selected_count'] != 178 or manifest['deferred_count'] != 0:
+    if len(selected) != 181 or deferred or manifest['selected_count'] != 181 or manifest['deferred_count'] != 0:
         raise ValueError('Full-suite inventory changed: review the validation scope first')
     inventory = set()
     for source in ROOT.rglob('*_test.go'):
@@ -29,7 +29,7 @@ def main():
         inventory.update((str(source.relative_to(ROOT)), name) for name in
                          re.findall(r'^func (Test\w+)\(t \*testing\.T\)', text, re.MULTILINE))
     allowed = {(x['file'], x['name']) for x in selected}
-    if len(allowed) != 178 or inventory != allowed:
+    if len(allowed) != 181 or inventory != allowed:
         raise ValueError('Test inventory changed; no test may be silently added or omitted')
     for item in selected:
         if hashlib.sha256((ROOT / item['file']).read_bytes()).hexdigest() != item['sha256']:
@@ -37,13 +37,13 @@ def main():
         if item['package'] != './' + str(Path(item['file']).parent):
             raise ValueError('Unexpected package mapping')
     names = {x['name'] for x in selected}
-    if len(names) != 178:
+    if len(names) != 181:
         raise ValueError('Test names must be unique for this reviewed suite')
     command = ['go', 'test', '-race', '-json', '-count=1', '-timeout=180s', '-p=1',
                './...']
-    print('FULL SUITE: 178 reviewed tests with race detector and ephemeral PostgreSQL.', flush=True)
+    print('FULL SUITE: 181 reviewed tests with race detector and ephemeral PostgreSQL.', flush=True)
     if args.check_only:
-        print(json.dumps({'selected': 178, 'deferred': 0, 'command': command}))
+        print(json.dumps({'selected': 181, 'deferred': 0, 'command': command}))
         return 0
     env = {k: v for k, v in os.environ.items() if not k.startswith(('ACCOUNT_', 'GOTRUE_'))}
     # Sólo el servicio PostgreSQL efímero de este job; nunca una URL del usuario.
@@ -85,7 +85,7 @@ def main():
     if code or bad or seen != names or passed != names:
         print('The full suite failed, skipped tests or did not execute exactly.', file=sys.stderr)
         return 1
-    print('All 178 tests passed with race detector; zero deferred.')
+    print('All 181 tests passed with race detector; zero deferred.')
     return 0
 
 

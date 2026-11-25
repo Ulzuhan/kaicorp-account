@@ -32,7 +32,7 @@
           <div class="row">
             {{if .Miembro}}
               {{if .EsRol}}<span class="pill cyan">Role</span>{{if eq .Nombre "account-admin"}}<a class="btn btn-ghost btn-sm" href="/admin">Open</a>{{end}}
-              {{else if .URL}}<span class="host">{{.Host}}</span><a class="btn btn-primary btn-sm" href="{{.URL}}">Open <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></a>
+              {{else if .URL}}<span class="host">{{.Host}}</span><a class="btn btn-primary btn-sm" href="{{.SSOURL}}">Open <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></a>
               {{else}}<span class="pill off">Unavailable</span>{{end}}
             {{else if .Pendiente}}
               <span class="host">{{.Host}}</span><span class="pill soon">Pending</span>
@@ -71,7 +71,7 @@
 
       <aside class="hero-proof" aria-label="What your tools page looks like">
         <div class="proof-head">
-          <img src="/static/kaicorp-mark.png" alt="">
+          <img src="/static/kaicorp-mark.png?v={{.AssetVersion}}" alt="">
           <div><strong>Your tools</strong><span>What you see after signing in</span></div>
         </div>
         <div class="demo-row"><div><strong>SecretDrop</strong><span class="d">One-time secrets, encrypted in your browser.</span></div><span class="pill live">Access granted</span></div>

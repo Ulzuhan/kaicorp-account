@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "status": "FULL_SUITE_ENABLED",
-  "selected_count": 178,
+  "selected_count": 181,
   "deferred_count": 0,
   "selected": [
     {
@@ -750,56 +750,56 @@
       "package": "./internal/httpapi",
       "name": "TestCorreoValido",
       "file": "internal/httpapi/server_test.go",
-      "sha256": "d2cc2f2f41724976adb0e7132b0e3be176610bd6eba65f65cef4d66390014c8f",
+      "sha256": "b8874d8030b62c5a55e1a5d031e5404e4470964317888dac9da044e1f1f9a31d",
       "review_group": "previously-validated-unit"
     },
     {
       "package": "./internal/httpapi",
       "name": "TestLimitadorFrenaYRecarga",
       "file": "internal/httpapi/server_test.go",
-      "sha256": "d2cc2f2f41724976adb0e7132b0e3be176610bd6eba65f65cef4d66390014c8f",
+      "sha256": "b8874d8030b62c5a55e1a5d031e5404e4470964317888dac9da044e1f1f9a31d",
       "review_group": "previously-validated-unit"
     },
     {
       "package": "./internal/httpapi",
       "name": "TestNextSeguro",
       "file": "internal/httpapi/server_test.go",
-      "sha256": "d2cc2f2f41724976adb0e7132b0e3be176610bd6eba65f65cef4d66390014c8f",
+      "sha256": "b8874d8030b62c5a55e1a5d031e5404e4470964317888dac9da044e1f1f9a31d",
       "review_group": "previously-validated-unit"
     },
     {
       "package": "./internal/httpapi",
       "name": "TestPlantillasCompilan",
       "file": "internal/httpapi/server_test.go",
-      "sha256": "d2cc2f2f41724976adb0e7132b0e3be176610bd6eba65f65cef4d66390014c8f",
+      "sha256": "b8874d8030b62c5a55e1a5d031e5404e4470964317888dac9da044e1f1f9a31d",
       "review_group": "previously-validated-unit"
     },
     {
       "package": "./internal/httpapi",
       "name": "TestRegistroDePanicoUsaLaMismaRutaSegura",
       "file": "internal/httpapi/server_test.go",
-      "sha256": "d2cc2f2f41724976adb0e7132b0e3be176610bd6eba65f65cef4d66390014c8f",
+      "sha256": "b8874d8030b62c5a55e1a5d031e5404e4470964317888dac9da044e1f1f9a31d",
       "review_group": "previously-validated-unit"
     },
     {
       "package": "./internal/httpapi",
       "name": "TestRegistroHTTPCodificaYEntrecomillaLaRuta",
       "file": "internal/httpapi/server_test.go",
-      "sha256": "d2cc2f2f41724976adb0e7132b0e3be176610bd6eba65f65cef4d66390014c8f",
+      "sha256": "b8874d8030b62c5a55e1a5d031e5404e4470964317888dac9da044e1f1f9a31d",
       "review_group": "previously-validated-unit"
     },
     {
       "package": "./internal/httpapi",
       "name": "TestRutaLogHTTPCanonizaCodificacionesEquivalentes",
       "file": "internal/httpapi/server_test.go",
-      "sha256": "d2cc2f2f41724976adb0e7132b0e3be176610bd6eba65f65cef4d66390014c8f",
+      "sha256": "b8874d8030b62c5a55e1a5d031e5404e4470964317888dac9da044e1f1f9a31d",
       "review_group": "previously-validated-unit"
     },
     {
       "package": "./internal/httpapi",
       "name": "TestSalirGETNoRedirigeTrasNormalizarNext",
       "file": "internal/httpapi/server_test.go",
-      "sha256": "d2cc2f2f41724976adb0e7132b0e3be176610bd6eba65f65cef4d66390014c8f",
+      "sha256": "b8874d8030b62c5a55e1a5d031e5404e4470964317888dac9da044e1f1f9a31d",
       "review_group": "previously-validated-unit"
     },
     {
@@ -1249,6 +1249,27 @@
       "file": "internal/store/vincular_test.go",
       "sha256": "b883c9b89f9adab73c2ef7c88165e7d4b05490ee352859a2c1bc01287ef61915",
       "review_group": "formerly-deferred-oauth-grant-revocation-overlap"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestAPISesion",
+      "file": "internal/httpapi/server_test.go",
+      "sha256": "b8874d8030b62c5a55e1a5d031e5404e4470964317888dac9da044e1f1f9a31d",
+      "review_group": "upstream-main-integration-regression"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestGrupoSSOURL",
+      "file": "internal/httpapi/server_test.go",
+      "sha256": "b8874d8030b62c5a55e1a5d031e5404e4470964317888dac9da044e1f1f9a31d",
+      "review_group": "upstream-main-integration-regression"
+    },
+    {
+      "package": "./internal/httpapi",
+      "name": "TestHomeUsaSSOURL",
+      "file": "internal/httpapi/server_test.go",
+      "sha256": "b8874d8030b62c5a55e1a5d031e5404e4470964317888dac9da044e1f1f9a31d",
+      "review_group": "upstream-main-integration-regression"
     }
   ],
   "deferred": []

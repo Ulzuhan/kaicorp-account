@@ -106,6 +106,9 @@ do $$ begin
   if pg_catalog.to_regclass('account.intentos_password') is not null then
     grant select, insert, update, delete on account.intentos_password to account;
   end if;
+  if pg_catalog.to_regclass('account.autoridad_administrativa') is not null then
+    grant select, insert, update on account.autoridad_administrativa to account;
+  end if;
   if pg_catalog.to_regclass('account.clientes_anteriores') is not null then
     grant select, insert on account.clientes_anteriores to account;
     grant select on account.clientes_anteriores to account_hook;

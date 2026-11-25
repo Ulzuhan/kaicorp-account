@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   go:
-    name: Full Go suite with race detector (178 tests)
+    name: Full Go suite with race detector (181 tests)
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -30,9 +30,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
-          go-version: '1.27.3'
+          go-version: '1.27.4'
           cache: false
       - run: test -z "$(gofmt -l cmd internal)"
       - run: go vet ./...
@@ -46,6 +46,6 @@ jobs:
         run: |
           {
             echo '## Full Go validation'
-            echo 'All 178 reviewed tests ran with the race detector against disposable PostgreSQL fixtures.'
+            echo 'All 181 reviewed tests ran with the race detector against disposable PostgreSQL fixtures.'
             echo 'See docs/AUDIT-VALIDATION-STATUS.md for scope and remaining review steps.'
           } >> "$GITHUB_STEP_SUMMARY"

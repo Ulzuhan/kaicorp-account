@@ -2,7 +2,7 @@
 # sin Node ni build de frontend. Es una decisión (docs/DISENO.md): una interfaz
 # de autenticación sin JavaScript es más pequeña y más fácil de auditar.
 
-FROM docker.io/library/golang@sha256:cd410a5c6686417875bc4815688e96ae9769f8562debc545d29fe58e73d174f0 AS build
+FROM golang:1.27.4-alpine AS build
 ENV GOTOOLCHAIN=local
 WORKDIR /src
 COPY go.mod go.sum ./

@@ -230,6 +230,22 @@ func (g Grupo) Host() string {
 	return u.Host
 }
 
+// SSOURL construye la URL de entrada directa (?sso=1) para abrir una
+// herramienta ya concedida sin pasar por su landing anónima.
+func (g Grupo) SSOURL() string {
+	u, err := url.Parse(g.URL)
+	if err != nil || u.Host == "" {
+		return g.URL
+	}
+	if u.Path == "" {
+		u.Path = "/"
+	}
+	q := u.Query()
+	q.Set("sso", "1")
+	u.RawQuery = q.Encode()
+	return u.String()
+}
+
 const grupoCols = `nombre, titulo, descripcion, url, tipo, coalesce(cliente_id::text,''), solicitable, orden`
 
 func scanGrupo(row pgx.Row) (*Grupo, error) {

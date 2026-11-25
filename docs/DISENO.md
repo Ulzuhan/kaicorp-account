@@ -220,5 +220,5 @@
 | `/cuenta/*` | Nombre, contraseña, factores, herramientas autorizadas, sesiones |
 | `/admin/*` | Solicitudes, cuentas, membresías, clientes ↔ grupos, cerrar sesiones, bloquear |
 | `GET /plantillas/{nombre}` | Plantillas de correo para GoTrue |
-| `GET /api/session` | Proyección CORS mínima para la portada: estado, nombre visible o la etiqueta neutra `Account`, y administración; su DTO no admite correo, identificadores ni tokens |
+| `GET /api/session` | Proyección CORS mínima: estado, nombre visible o la etiqueta neutra `Account`, y administración; las herramientas autorizadas sólo reciben su propio estado de acceso y la portada del dominio de Account recibe listas de hosts. El DTO no admite correo, identificadores ni tokens |
 | `GET /api/health` | 200 si la base y GoTrue responden |
