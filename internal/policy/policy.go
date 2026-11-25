@@ -38,9 +38,9 @@ func (d Decision) String() string {
 // Solicitar decide qué pasa cuando una persona pide `grupo`.
 //   - solicitable: si el grupo admite peticiones.
 //   - membresias: los grupos que ya tiene.
-//   - herramientas: los grupos que son herramientas (solicitables), para saber
+//   - herramientas: los grupos cuyo tipo explícito es herramienta, para saber
 //     si la persona ya fue aprobada alguna vez. Un rol no cuenta como
-//     aprobación previa.
+//     aprobación previa aunque sus datos estuvieran corruptos.
 func Solicitar(grupo string, solicitable bool, membresias []string, herramientas map[string]bool) Decision {
 	if !solicitable {
 		return Rechazada

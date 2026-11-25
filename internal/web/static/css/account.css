@@ -1,5 +1,14 @@
 /* Account — la misma hoja que la web pública, más lo que la web no tiene.
- * Sin estilos en línea: `style-src 'self'`.
+ *
+ * La primera mitad es `landing/assets/site.css` del repo kaicorplabs-web,
+ * copiada tal cual (tokens, fondo, navegación, secciones, hero, botones,
+ * tarjetas, píldoras, pie, páginas interiores): account.kaicorplabs.com tiene
+ * que verse como una página más de kaicorplabs.com, no como una app con el
+ * mismo logo. Cuando cambie site.css, se vuelve a copiar esa mitad; la segunda
+ * (formularios, tablas, avisos, el menú de cuenta) es sólo de aquí.
+ *
+ * JavaScript mínimo y sólo propio: `script-src 'self'`. Sin estilos en línea:
+ * `style-src 'self'`, así que todo lo que en la web va en `style=""` aquí es una clase.
  * Las fuentes van dentro del binario (`font-src 'self'`); ver static/fonts/. */
 
 /* ══════════════════════════════════════════════════════════════════════

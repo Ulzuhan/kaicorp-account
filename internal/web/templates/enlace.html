@@ -1,0 +1,33 @@
+{{define "content"}}
+<section class="auth">
+  <div class="wrap">
+    <div class="card"><div class="body">
+      <p class="k">Email link</p>
+      <h1>{{if .Recuperacion}}Confirm password recovery.{{else if .CambioCorreo}}Confirm your new email.{{else}}Confirm this sign-in.{{end}}</h1>
+      <p class="sub">{{if .Recuperacion}}Type the address that received this recovery link.{{else}}Type the address that received this link.{{end}}</p>
+      {{if .User}}
+      <div class="notice" role="status"><div>This browser is currently signed in as <strong>{{.User.Email}}</strong>. Continuing with a link for another account will switch the browser to that account.</div></div>
+      {{else}}
+      <div class="notice" role="status"><div>Continuing will sign this browser in to the account named by the email link.</div></div>
+      {{end}}
+      <form method="post" action="/verificar" data-email-capability="token_hash">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <input type="hidden" name="type" value="{{.Tipo}}">
+        <input type="hidden" name="token_hash" value="">
+        <input type="hidden" name="next" value="{{.Next}}">
+        {{if .RecoveryIntent}}<input type="hidden" name="recovery_intent" value="{{.RecoveryIntent}}">{{end}}
+        {{if .SetupIntent}}<input type="hidden" name="setup_intent" value="{{.SetupIntent}}">{{end}}
+        {{if .InviteIntent}}<input type="hidden" name="invite_intent" value="{{.InviteIntent}}">{{end}}
+        <div class="notice err" data-email-capability-error hidden role="alert"><div>This link is incomplete or has expired. Ask for a new email.</div></div>
+        <div class="field">
+          <label for="email">Email address</label>
+          <input class="input" id="email" name="email" type="email" autocomplete="email" required autofocus>
+        </div>
+        <div class="form-actions"><button class="btn btn-primary btn-block" type="submit" data-email-capability-submit disabled>Confirm and continue →</button></div>
+      </form>
+      <noscript><div class="notice err" role="alert"><div>This confirmation requires JavaScript so the email capability stays out of request logs. Enable it or ask for a new email.</div></div></noscript>
+    </div></div>
+  </div>
+</section>
+<script src="/static/js/email-link.js?v={{.AssetVersion}}" defer></script>
+{{end}}

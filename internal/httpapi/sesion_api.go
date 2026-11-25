@@ -12,6 +12,28 @@ import (
 	"github.com/Ulzuhan/kaicorp-account/internal/store"
 )
 
+const etiquetaSesionSinNombre = "Account"
+
+// respuestaSesionAPI es deliberadamente incapaz de transportar correo, id o
+// tokens. Esta ruta cruza un origen y su contrato público omite identificadores y sólo proyecta
+// permisos del origen autorizado o los del propio portal.
+type respuestaSesionAPI struct {
+	SignedIn   bool      `json:"signed_in"`
+	Name       string    `json:"name,omitempty"`
+	Admin      *bool     `json:"admin,omitempty"`
+	ToolAccess string    `json:"tool_access,omitempty"`
+	AccountURL string    `json:"account_url,omitempty"`
+	Granted    *[]string `json:"granted,omitempty"`
+	Pending    *[]string `json:"pending,omitempty"`
+}
+
+func proyectarSesionAPI(nombre string, admin bool) respuestaSesionAPI {
+	if strings.TrimSpace(nombre) == "" {
+		nombre = etiquetaSesionSinNombre
+	}
+	return respuestaSesionAPI{SignedIn: true, Name: nombre, Admin: &admin}
+}
+
 type almacenSesion interface {
 	Grupos(ctx context.Context) ([]store.Grupo, error)
 	MembresiasDe(ctx context.Context, userID string) ([]store.Membresia, error)
@@ -52,27 +74,17 @@ func (s *Server) apiSesion(w http.ResponseWriter, r *http.Request) {
 	}
 	a := sesionDe(r)
 	if a == nil {
-		_ = json.NewEncoder(w).Encode(map[string]any{"signed_in": false})
+		_ = json.NewEncoder(w).Encode(respuestaSesionAPI{SignedIn: false})
 		return
 	}
-	nombre := a.Nombre
-	if nombre == "" {
-		nombre = a.Email
-	}
-	resp := map[string]any{
-		"signed_in": true,
-		"name":      nombre,
-		"admin":     s.esAdmin(r.Context(), a),
-	}
-	// Si la petición trae un Origin fuera de cfg.SessionOrigins no exponemos
-	// listas de permisos ni estado de acceso.
-	if origen == "" || origenAutorizado {
-		s.rellenarPermisosSesion(r.Context(), a.UserID, origen, resp)
+	resp := proyectarSesionAPI(a.Nombre, s.esAdmin(r.Context(), a))
+	if origenAutorizado {
+		s.rellenarPermisosSesion(r.Context(), a.UserID, origen, &resp)
 	}
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
-func (s *Server) rellenarPermisosSesion(ctx context.Context, userID, origen string, resp map[string]any) {
+func (s *Server) rellenarPermisosSesion(ctx context.Context, userID, origen string, resp *respuestaSesionAPI) {
 	st := s.almacenDeSesion()
 	if st == nil {
 		return
@@ -99,34 +111,43 @@ func (s *Server) rellenarPermisosSesion(ctx context.Context, userID, origen stri
 
 	if originHost := hostDeOrigin(origen); originHost != "" {
 		for _, g := range grupos {
-			if gHost := strings.ToLower(g.Host()); gHost != "" && gHost == originHost {
+			if gHost := strings.ToLower(g.Host()); g.Tipo == store.TipoGrupoHerramienta && gHost != "" && gHost == originHost {
 				var estado string
 				switch {
 				case policy.PuedeEntrar(g.Nombre, listaMembresias):
 					estado = "granted"
 				case pendienteMap[g.Nombre]:
 					estado = "pending"
-				case g.Solicitable:
+				case g.Solicitable && g.Nombre != s.cfg.AdminGroup:
 					estado = "requestable"
 				default:
 					estado = "invite_only"
 				}
-				resp["tool_access"] = estado
+				resp.ToolAccess = estado
 				if s.cfg.PublicURL != nil {
-					resp["account_url"] = strings.TrimRight(s.cfg.PublicURL.String(), "/") + "/"
+					resp.AccountURL = strings.TrimRight(s.cfg.PublicURL.String(), "/") + "/"
 				}
 				return
 			}
 		}
 	}
 
+	// Un origen permitido pero no asociado a una herramienta no es
+	// automáticamente el portal. Sólo el origen padre de Account lo es.
+	if s.cfg.PublicURL == nil {
+		return
+	}
+	_, padre, ok := strings.Cut(s.cfg.PublicURL.Hostname(), ".")
+	if !ok || !strings.Contains(padre, ".") || !strings.EqualFold(strings.TrimRight(origen, "/"), s.cfg.PublicURL.Scheme+"://"+padre) {
+		return
+	}
 	concedidas := make([]string, 0)
 	pendientes := make([]string, 0)
 	vistosConcedidas := map[string]bool{}
 	vistosPendientes := map[string]bool{}
 	for _, g := range grupos {
 		host := strings.ToLower(g.Host())
-		if host == "" {
+		if g.Tipo != store.TipoGrupoHerramienta || host == "" {
 			continue
 		}
 		if policy.PuedeEntrar(g.Nombre, listaMembresias) {
@@ -143,8 +164,8 @@ func (s *Server) rellenarPermisosSesion(ctx context.Context, userID, origen stri
 	}
 	sort.Strings(concedidas)
 	sort.Strings(pendientes)
-	resp["granted"] = concedidas
-	resp["pending"] = pendientes
+	resp.Granted = &concedidas
+	resp.Pending = &pendientes
 }
 
 func hostDeOrigin(origen string) string {

@@ -3,6 +3,7 @@
 # de autenticación sin JavaScript es más pequeña y más fácil de auditar.
 
 FROM golang:1.27.4-alpine AS build
+ENV GOTOOLCHAIN=local
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
@@ -13,10 +14,10 @@ COPY internal ./internal
 # otro directorio.
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/account ./cmd/account
 
-FROM alpine:3.24 AS runtime
+FROM docker.io/library/alpine:3.24.2@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6 AS runtime
 ENV HOSTNAME=0.0.0.0 PORT=3467
 # Alpine con CA y shell: la shell la usa el `command` del compose para cargar el
-# fichero de entorno, y las CA hacen falta si GoTrue se alcanza por HTTPS.
+# fichero de entorno, y las CA validan el salto HTTPS obligatorio a GoTrue.
 # uid 10001, el de las imágenes de la casa.
 RUN apk -U upgrade --no-cache \
  && apk add --no-cache ca-certificates \

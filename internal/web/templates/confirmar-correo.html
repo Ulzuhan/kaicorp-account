@@ -1,0 +1,19 @@
+{{define "content"}}
+<section class="auth">
+  <div class="wrap">
+    <div class="card"><div class="body">
+      <p class="k">Email change</p>
+      <h1>Confirm access to the proposed address.</h1>
+      <p class="sub">This first confirmation proves that you can read the proposed mailbox. After you continue, the identity service will send its final confirmation links to both the current and proposed addresses. The account does not change until both final links are opened.</p>
+      <form method="post" action="/cuenta/correo/confirmar" data-email-capability="token">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <input type="hidden" name="token" value="">
+        <div class="notice err" data-email-capability-error hidden role="alert"><div>This link is incomplete or has expired. Start the email change again.</div></div>
+        <div class="form-actions"><button class="btn btn-primary btn-block" type="submit" data-email-capability-submit disabled>Continue the email change →</button></div>
+      </form>
+      <noscript><div class="notice err" role="alert"><div>This confirmation requires JavaScript so the email capability stays out of request logs. Enable it or start the email change again.</div></div></noscript>
+    </div></div>
+  </div>
+</section>
+<script src="/static/js/email-link.js?v={{.AssetVersion}}" defer></script>
+{{end}}

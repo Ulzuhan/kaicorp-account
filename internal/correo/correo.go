@@ -1,8 +1,8 @@
 // Package correo envía los correos que son de la app de cuenta y no de GoTrue:
-// hoy, el aviso de que un acceso está concedido. GoTrue sólo manda los suyos
-// (confirmación, recuperación, invitación), así que esto habla SMTP por su
-// cuenta, con la misma cuenta de envío de la casa. Sin configuración no hay
-// remitente y quien llama lo sabe: el acceso se concede igual, sin aviso.
+// avisos de acceso y la prueba preliminar de un cambio de correo. GoTrue manda
+// después sus confirmaciones finales, así que esto habla SMTP por su cuenta,
+// con la misma cuenta de envío de la casa. Sin configuración no hay remitente
+// y quien llama lo sabe.
 package correo
 
 import (
@@ -29,6 +29,8 @@ type Remitente struct {
 	host, port, usuario, clave string
 	de                         *mail.Address
 	acceso                     *template.Template
+	cambioIniciado             *template.Template
+	cambioConfirmar            *template.Template
 }
 
 // Nuevo devuelve nil, nil si no hay host: la app funciona sin correo propio.
@@ -43,15 +45,27 @@ func Nuevo(host, port, usuario, clave, de string) (*Remitente, error) {
 	if err != nil {
 		return nil, fmt.Errorf("remitente %q: %w", de, err)
 	}
-	b, err := web.Plantilla("acceso.html")
+	compilar := func(nombre string) (*template.Template, error) {
+		b, err := web.Plantilla(nombre)
+		if err != nil {
+			return nil, err
+		}
+		return template.New(nombre).Parse(string(b))
+	}
+	acceso, err := compilar("acceso.html")
 	if err != nil {
 		return nil, err
 	}
-	t, err := template.New("acceso").Parse(string(b))
+	cambioIniciado, err := compilar("cambio-correo-iniciado.html")
 	if err != nil {
 		return nil, err
 	}
-	return &Remitente{host: host, port: port, usuario: usuario, clave: clave, de: addr, acceso: t}, nil
+	cambioConfirmar, err := compilar("cambio-correo-confirmar.html")
+	if err != nil {
+		return nil, err
+	}
+	return &Remitente{host: host, port: port, usuario: usuario, clave: clave, de: addr,
+		acceso: acceso, cambioIniciado: cambioIniciado, cambioConfirmar: cambioConfirmar}, nil
 }
 
 // Acceso es lo que el aviso necesita saber.
@@ -79,6 +93,41 @@ func (r *Remitente) EnviarAcceso(ctx context.Context, para string, a Acceso) err
 	asunto := fmt.Sprintf("Your access to %s is ready", a.Herramienta)
 	msg := r.mensaje(para, asunto, texto, html.String())
 	return r.enviar(ctx, para, msg)
+}
+
+// CambioCorreo mantiene separados los dos secretos del inicio: el buzón
+// actual sólo recibe el enlace de seguridad de la cuenta y el propuesto sólo
+// recibe la prueba opaca que permite continuar.
+type CambioCorreo struct {
+	Cuenta    string
+	Confirmar string
+}
+
+// EnviarCambioCorreo avisa siempre al buzón actual y manda al propuesto la
+// prueba preliminar. Intenta ambos envíos aunque el primero falle; quien llama
+// no debe convertir el resultado SMTP en una diferencia HTTP observable.
+func (r *Remitente) EnviarCambioCorreo(ctx context.Context, actual, propuesta string, c CambioCorreo) error {
+	if r == nil {
+		return ErrSinRemitente
+	}
+	if _, err := mail.ParseAddress(actual); err != nil {
+		return fmt.Errorf("destinatario actual: %w", err)
+	}
+	if _, err := mail.ParseAddress(propuesta); err != nil {
+		return fmt.Errorf("destinatario propuesto: %w", err)
+	}
+	var avisoHTML, pruebaHTML bytes.Buffer
+	if err := r.cambioIniciado.Execute(&avisoHTML, c); err != nil {
+		return err
+	}
+	if err := r.cambioConfirmar.Execute(&pruebaHTML, c); err != nil {
+		return err
+	}
+	avisoTexto := "A request to change the email address on your KaiCorp Labs account was started. A private preliminary confirmation was sent separately to the proposed mailbox. Nothing has changed yet. If this was not you, review your account security:\n" + c.Cuenta + "\n\nKaiCorp Labs"
+	pruebaTexto := "Someone asked to use this address for a KaiCorp Labs account. While signed in to the account that started the request, confirm access to this mailbox:\n" + c.Confirmar + "\n\nThis is a preliminary check. The identity service will send final confirmations to both mailboxes before anything changes. Ignore this message if you did not expect it.\n\nKaiCorp Labs"
+	errActual := r.enviar(ctx, actual, r.mensaje(actual, "Email change requested", avisoTexto, avisoHTML.String()))
+	errPropuesta := r.enviar(ctx, propuesta, r.mensaje(propuesta, "Confirm this address for an email change", pruebaTexto, pruebaHTML.String()))
+	return errors.Join(errActual, errPropuesta)
 }
 
 func (r *Remitente) mensaje(para, asunto, texto, html string) []byte {

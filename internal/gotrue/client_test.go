@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -69,6 +70,119 @@ func TestAdminUsaLaClaveDeServicioComoBearer(t *testing.T) {
 	}
 }
 
+func TestAdminUpdatePasswordUsaServicioYLigaUsuario(t *testing.T) {
+	var visto struct {
+		Password string `json:"password"`
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut || r.URL.EscapedPath() != "/admin/users/u%2F1" {
+			t.Fatalf("petición inesperada: %s %s", r.Method, r.URL.EscapedPath())
+		}
+		if r.Header.Get("Authorization") != "Bearer service-key" || r.Header.Get("apikey") != "service-key" {
+			t.Fatalf("cabeceras admin: %v", r.Header)
+		}
+		if err := json.NewDecoder(r.Body).Decode(&visto); err != nil {
+			t.Fatal(err)
+		}
+		_, _ = w.Write([]byte(`{"id":"u/1","email":"x@y"}`))
+	}))
+	t.Cleanup(srv.Close)
+	c := New(srv.URL, "anon-key", "service-key")
+	u, err := c.AdminUpdatePassword(context.Background(), "u/1", "Aa1!aleatoria")
+	if err != nil || u.ID != "u/1" || visto.Password != "Aa1!aleatoria" {
+		t.Fatalf("rotación admin: %v %+v %+v", err, u, visto)
+	}
+}
+
+func TestNoSigueRedireccionesConCredenciales(t *testing.T) {
+	for _, tc := range []struct {
+		nombre string
+		llamar func(*Client) error
+	}{
+		{
+			nombre: "contraseña",
+			llamar: func(c *Client) error {
+				_, err := c.Login(context.Background(), "victima@example.com", "contraseña-secreta")
+				return err
+			},
+		},
+		{
+			nombre: "clave de servicio",
+			llamar: func(c *Client) error {
+				_, err := c.AdminUpdatePassword(context.Background(), "u1", "contraseña-nueva")
+				return err
+			},
+		},
+	} {
+		t.Run(tc.nombre, func(t *testing.T) {
+			var alcanzoDestino atomic.Bool
+			destino := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+				alcanzoDestino.Store(true)
+			}))
+			t.Cleanup(destino.Close)
+
+			origen := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Location", destino.URL+"/captura")
+				w.WriteHeader(http.StatusTemporaryRedirect)
+			}))
+			t.Cleanup(origen.Close)
+
+			c := New(origen.URL, "anon-secreta", "service-secreta")
+			c.http.Transport = origen.Client().Transport
+			err := tc.llamar(c)
+			if err == nil || !strings.Contains(err.Error(), "redirección HTTP no permitida") {
+				t.Fatalf("la redirección tenía que fallar cerrada: %v", err)
+			}
+			if alcanzoDestino.Load() {
+				t.Fatal("el cliente reenvió credenciales al destino de la redirección")
+			}
+		})
+	}
+}
+
+func TestHTTPSValidaElCertificado(t *testing.T) {
+	var alcanzoHandler atomic.Bool
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		alcanzoHandler.Store(true)
+		_, _ = w.Write([]byte(`{"access_token":"no-debería-llegar"}`))
+	}))
+	t.Cleanup(srv.Close)
+
+	c := New(srv.URL, "anon", "")
+	_, err := c.Login(context.Background(), "victima@example.com", "contraseña-secreta")
+	if err == nil || !strings.Contains(err.Error(), "certificate") {
+		t.Fatalf("un certificado no confiable tenía que rechazarse: %v", err)
+	}
+	if alcanzoHandler.Load() {
+		t.Fatal("la petición llegó al handler pese al certificado no confiable")
+	}
+}
+
+func TestResendConservaLaRedireccionDeSetup(t *testing.T) {
+	var visto http.Request
+	c := falso(t, http.StatusOK, map[string]any{}, &visto)
+	redirect := "https://account.example/verificar?setup=sellado&next=%2F"
+	if err := c.Resend(context.Background(), "signup", "x@y", redirect); err != nil {
+		t.Fatal(err)
+	}
+	if visto.URL.Path != "/auth/v1/resend" || visto.URL.Query().Get("redirect_to") != redirect {
+		t.Fatalf("redirección perdida: %s", visto.URL)
+	}
+}
+
+func TestAdminInviteConservaLaRedireccionDeProposito(t *testing.T) {
+	var visto http.Request
+	c := falso(t, http.StatusOK, map[string]any{"id": "u1", "email": "x@y"}, &visto)
+	redirect := "https://account.example/verificar?invite=sellado"
+	u, err := c.AdminInvite(context.Background(), "x@y", redirect)
+	if err != nil || u.ID != "u1" {
+		t.Fatalf("invitar: %+v %v", u, err)
+	}
+	if visto.URL.Path != "/auth/v1/invite" || visto.URL.Query().Get("redirect_to") != redirect {
+		t.Fatalf("redirección perdida: %s", visto.URL)
+	}
+}
+
 func TestAutorizacionAutoAprobada(t *testing.T) {
 	var visto http.Request
 	c := falso(t, 200, map[string]any{"redirect_url": "https://app/cb?code=1"}, &visto)
@@ -89,6 +203,31 @@ func TestHasVerifiedFactor(t *testing.T) {
 	u.Factors = append(u.Factors, Factor{Status: "verified", FactorType: "totp"})
 	if !u.HasVerifiedFactor() {
 		t.Fatal("un factor verificado sí cuenta")
+	}
+}
+
+func TestUpdatePasswordLigaLaPrueba(t *testing.T) {
+	var visto struct {
+		Password        string `json:"password"`
+		CurrentPassword string `json:"current_password"`
+		Nonce           string `json:"nonce"`
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut || r.URL.Path != "/user" || r.Header.Get("Authorization") != "Bearer prueba-fresca" {
+			t.Fatalf("petición inesperada: %s %s %q", r.Method, r.URL.Path, r.Header.Get("Authorization"))
+		}
+		if err := json.NewDecoder(r.Body).Decode(&visto); err != nil {
+			t.Fatal(err)
+		}
+		_, _ = w.Write([]byte(`{"id":"u1"}`))
+	}))
+	t.Cleanup(srv.Close)
+	c := New(srv.URL, "anon", "")
+	if _, err := c.UpdatePassword(context.Background(), "prueba-fresca", "nueva-muy-larga", "anterior", "nonce-validado"); err != nil {
+		t.Fatal(err)
+	}
+	if visto.Password != "nueva-muy-larga" || visto.CurrentPassword != "anterior" || visto.Nonce != "nonce-validado" {
+		t.Fatalf("prueba incompleta: %+v", visto)
 	}
 }
 
