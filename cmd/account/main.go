@@ -5,6 +5,7 @@
 //	account            arranca el servidor (por defecto)
 //	account sonda      sonda de salud para el HEALTHCHECK de la imagen
 //	account migrar     aplica las migraciones y sale
+//	account huella-migraciones    imprime la huella del SQL embebido sin conectar a la base
 //	account admin <correo>                   da la membresía de administración
 //	account ver <correo>                     enseña la cuenta: estado, membresías, solicitudes, sesiones
 //	account invitar <correo> [grupo…]        invita (GoTrue manda el correo) y concede los grupos
@@ -45,6 +46,17 @@ func main() {
 	log.SetFlags(log.LstdFlags | log.LUTC)
 	if len(os.Args) > 1 && os.Args[1] == "sonda" {
 		os.Exit(sonda())
+	}
+	if len(os.Args) > 1 && os.Args[1] == "huella-migraciones" {
+		if len(os.Args) != 2 {
+			log.Fatal("uso: account huella-migraciones")
+		}
+		huella, err := store.HuellaMigraciones()
+		if err != nil {
+			log.Fatalf("huella de migraciones: %v", err)
+		}
+		fmt.Println(huella)
+		return
 	}
 	cfg, err := config.FromEnv()
 	if err != nil {
