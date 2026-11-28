@@ -11,6 +11,7 @@ package store
 
 import (
 	"context"
+	"crypto/sha256"
 	"embed"
 	"errors"
 	"fmt"
@@ -109,6 +110,25 @@ func nombresMigraciones() ([]string, error) {
 	}
 	sort.Strings(names)
 	return names, nil
+}
+
+// HuellaMigraciones identifica las rutas y bytes SQL que contiene el binario.
+// Su entrada es un manifiesto sha256sum ordenado por ruta relativa al paquete.
+func HuellaMigraciones() (string, error) {
+	names, err := nombresMigraciones()
+	if err != nil {
+		return "", err
+	}
+	hash := sha256.New()
+	for _, name := range names {
+		path := "migrations/" + name
+		sql, err := migraciones.ReadFile(path)
+		if err != nil {
+			return "", err
+		}
+		fmt.Fprintf(hash, "%x  %s\n", sha256.Sum256(sql), path)
+	}
+	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }
 
 // CheckMigrations sólo lee el registro de migraciones. El proceso de larga

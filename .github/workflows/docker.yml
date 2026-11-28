@@ -78,6 +78,11 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.slug }}
           no-cache: ${{ startsWith(github.ref, 'refs/tags/') }}
 
+      - name: Compare the embedded migration fingerprint with the reviewed source
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ steps.ref.outputs.ref }}@${{ steps.build.outputs.digest }}
+        run: bash tools/ci/check-migration-fingerprint.sh "$IMAGE"
+
       - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: ${{ env.REGISTRY }}/${{ steps.ref.outputs.ref }}@${{ steps.build.outputs.digest }}
@@ -146,28 +151,29 @@ jobs:
             type=sha,format=short,enable=${{ !startsWith(github.ref, 'refs/tags/v') }}
 
       - id: merge
-        name: Create multi-arch manifest index
+        name: Stage the multi-arch index under an attempt-specific tag
         env:
           REGISTRY: ${{ env.REGISTRY }}
           IMAGE_REF: ${{ steps.ref.outputs.ref }}
-          TAGS: ${{ steps.meta.outputs.tags }}
           DIGEST_DIR: ${{ runner.temp }}/digests
+          PRIVATE_REPOSITORY: ${{ github.event.repository.private }}
         run: |
           IMAGE="${REGISTRY}/${IMAGE_REF}"
           AMD64_DIGEST=$(cat "${DIGEST_DIR}/amd64")
           ARM64_DIGEST=$(cat "${DIGEST_DIR}/arm64")
-          TAG_ARGS=()
-          FIRST_TAG=""
-          while IFS= read -r tag; do
-            [ -n "$tag" ] || continue
-            TAG_ARGS+=(-t "$tag")
-            [ -n "$FIRST_TAG" ] || FIRST_TAG="$tag"
-          done <<< "$TAGS"
-          test -n "$FIRST_TAG"
-          docker buildx imagetools create "${TAG_ARGS[@]}" \
+          if [[ "$GITHUB_REF" == refs/tags/v* && "$PRIVATE_REPOSITORY" == true ]]; then
+            echo "A versioned release requires verified build provenance" >&2
+            exit 1
+          fi
+          if [[ "$GITHUB_REF" == refs/tags/v* && "$GITHUB_EVENT_NAME" != push ]]; then
+            echo "A versioned release requires a tag push" >&2
+            exit 1
+          fi
+          CANDIDATE="${IMAGE}:candidate-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          docker buildx imagetools create --tag "$CANDIDATE" \
             "${IMAGE}@${AMD64_DIGEST}" \
             "${IMAGE}@${ARM64_DIGEST}"
-          INDEX_DIGEST=$(docker buildx imagetools inspect "$FIRST_TAG" --format '{{json .Manifest.Digest}}' | tr -d '"')
+          INDEX_DIGEST=$(docker buildx imagetools inspect "$CANDIDATE" --format '{{.Manifest.Digest}}')
           [[ "$INDEX_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
           INSPECT=$(docker buildx imagetools inspect "${IMAGE}@${INDEX_DIGEST}")
           echo "$INSPECT" | grep -q 'linux/amd64'
@@ -181,20 +187,47 @@ jobs:
           subject-digest: ${{ steps.merge.outputs.digest }}
           push-to-registry: true
 
-      - name: Verificar la firma de lo recién publicado
+      - name: Verify provenance before publishing release tags
         if: ${{ !github.event.repository.private }}
         run: |
           gh attestation verify \
             "oci://${REGISTRY}/${IMAGEN}@${DIGEST}" \
             --repo "${GITHUB_REPOSITORY}" \
             --signer-workflow "${GITHUB_REPOSITORY}/.github/workflows/docker.yml" \
+            --signer-digest "${GITHUB_SHA}" \
             --source-digest "${GITHUB_SHA}" \
-            --source-ref "${GITHUB_REF}"
+            --source-ref "${GITHUB_REF}" \
+            --deny-self-hosted-runners
         env:
           GH_TOKEN: ${{ github.token }}
           REGISTRY: ${{ env.REGISTRY }}
           IMAGEN: ${{ steps.ref.outputs.ref }}
           DIGEST: ${{ steps.merge.outputs.digest }}
+
+      - name: Promote the verified index without rebuilding
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ steps.ref.outputs.ref }}
+          DIGEST: ${{ steps.merge.outputs.digest }}
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          tags=()
+          while IFS= read -r tag; do
+            if [[ -n "$tag" ]]; then
+              [[ "$tag" == "$IMAGE":* ]]
+              tags+=("$tag")
+            fi
+          done <<< "$TAGS"
+          test "${#tags[@]}" -gt 0
+          args=()
+          for tag in "${tags[@]}"; do
+            args+=(--tag "$tag")
+          done
+          docker buildx imagetools create "${args[@]}" "${IMAGE}@${DIGEST}"
+          for tag in "${tags[@]}"; do
+            actual=$(docker buildx imagetools inspect "$tag" --format '{{.Manifest.Digest}}')
+            test "$actual" = "$DIGEST"
+          done
 
   verify:
     name: Container candidate (${{ matrix.platform }})
@@ -231,6 +264,8 @@ jobs:
           no-cache: true
       - name: Runtime contract
         run: docker run --rm --entrypoint sh account-candidate:ci -ec 'test "$(id -u)" = 10001; test -x /usr/local/bin/account'
+      - name: Compare the embedded migration fingerprint with the reviewed source
+        run: bash tools/ci/check-migration-fingerprint.sh account-candidate:ci
       - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: account-candidate:ci
